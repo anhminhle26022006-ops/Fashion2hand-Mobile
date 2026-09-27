@@ -1,663 +1,549 @@
-# 🇻🇳 LocalTaste Mobile
+# Fashion2hand 👕♻️
 
-### 🌸 **ThreeBelles**
+**Fashion2hand** is a mobile application that connects people who want to **share, give away, and find second-hand clothing**. The application provides a community-oriented platform where users can create clothing posts, discover available items, save interesting posts, and request items from other users.
 
-#### *Three girls, one taste.*
-
-> **Discover the place. Meet the maker. Taste the story.**
-
-**LocalTaste Mobile** is the mobile application of the **LocalTaste ecosystem**, created to bring authentic Vietnamese local specialties closer to customers through a convenient and modern mobile shopping experience.
-
-The application connects customers with **local products, regional sellers, and the stories behind Vietnamese specialties** — allowing users to discover, explore, and shop anytime, anywhere.
-
-> 🍵 Discover local flavors.
-> 📍 Explore local origins.
-> 🧺 Support local sellers.
-> ❤️ Share the taste of Vietnam.
+The project is developed as a **Mobile Application Development course project**, focusing on Android development, Firebase services, responsive UI, and offline data support.
 
 ---
 
-# 🌾 About LocalTaste Mobile
+## 📱 Project Overview
 
-Vietnam is home to thousands of unique specialties, traditional products, and local brands.
+Many people have clothes that are still usable but no longer needed. At the same time, others may be looking for affordable or free second-hand clothing.
 
-However, many local products remain difficult to discover outside their regions.
+Fashion2hand aims to provide a simple mobile platform where users can:
 
-**LocalTaste Mobile** aims to make these products more accessible by bringing the LocalTaste marketplace directly to users' smartphones.
+* Share clothes they no longer need
+* Discover second-hand clothing from other users
+* Search and filter clothing posts
+* Save interesting items
+* Request items from their owners
+* Manage their own posts and profile
+* Report inappropriate posts
 
-Through the mobile application, customers can:
-
-* 🔎 Discover Vietnamese local specialties
-* 🛍️ Browse and purchase products
-* 📍 Explore products by region
-* 🏪 Discover local sellers
-* ⭐ Read and write product reviews
-* ❤️ Save favorite products
-* 🛒 Manage shopping carts
-* 📦 Place and track orders
-* 👤 Manage personal accounts
-
-The mobile application works as part of the larger **LocalTaste ecosystem**, working together with the web platform and shared backend services.
+The application focuses on **sharing and reuse rather than traditional online shopping**.
 
 ---
 
-# ✨ What Makes LocalTaste Mobile Different?
+## 🎯 Objectives
 
-### 🇻🇳 More Than Just a Shopping App
+* Build a mobile platform for sharing second-hand clothing.
+* Provide a simple and convenient mobile user experience.
+* Apply Firebase as the main backend service.
+* Support authentication with email/password and Google.
+* Store and manage clothing images using Firebase Storage.
+* Store application data using Cloud Firestore.
+* Support local/offline data using Room and SQLite.
+* Provide responsive layouts for portrait and landscape orientations.
+* Apply a structured and maintainable application architecture.
 
-LocalTaste Mobile is not designed simply as a mobile store.
+---
 
-It is a **mobile gateway to Vietnamese local products and their stories**.
+## ✨ Main Features
 
-Every product can tell customers:
+### 👤 User Authentication
+
+* Register and log in with email/password
+* Google Sign-In
+* Logout
+* User profile management
+
+### 🏠 Home & Clothing Feed
+
+* Browse available clothing posts
+* View clothing images and information
+* Display post status
+* View post details
+
+### 🔎 Search & Filter
+
+Users can discover clothing based on:
+
+* Clothing name
+* Category
+* Size
+* Condition
+* Location
+
+### 👕 Create Clothing Post
+
+Users can create a post containing:
+
+* Clothing images
+* Title
+* Description
+* Category
+* Size
+* Condition
+* Location
+
+Images are uploaded to **Firebase Storage**, while post information is stored in **Cloud Firestore**.
+
+### ❤️ Favorites
+
+Users can save clothing posts that they are interested in and access them later from their favorites.
+
+### 📩 Request an Item
+
+Users can send a request to receive an available clothing item from another user.
+
+### 👤 Profile
+
+Users can:
+
+* View their profile
+* View their own posts
+* Edit posts
+* Delete posts
+* Manage saved items
+
+### 🚨 Report
+
+Users can report inappropriate or problematic posts.
+
+### 🛡️ Simple Admin Functions
+
+Administrators can perform basic moderation tasks such as:
+
+* View reported posts
+* Hide inappropriate posts
+* Remove problematic posts
+* Manage reported content
+
+The admin functionality is designed for mobile usage and focuses on essential moderation operations.
+
+---
+
+## 🔥 Firebase Services
+
+Fashion2hand uses Firebase as the main backend platform.
+
+### Firebase Authentication
+
+Used for:
+
+* Email/password authentication
+* Google authentication
+* User session management
+
+### Cloud Firestore
+
+Used to store application data such as:
 
 ```text
-        📍 WHERE
-           │
-       Where is it from?
-           ↓
-        🏪 WHO
-           │
-       Who makes it?
-           ↓
-        📖 STORY
-           │
-       What makes it special?
-           ↓
-        ❤️ TASTE
-           │
-       Why should you try it?
+users
+posts
+favorites
+requests
+reports
 ```
 
-Instead of simply asking:
+### Firebase Storage
 
-> *"What should I buy?"*
+Used to store:
 
-LocalTaste Mobile encourages users to discover:
+* User profile images
+* Clothing images
 
-> **"Where does it come from, who makes it, and what makes it special?"**
-
----
-
-# 🚀 Key Features
-
-## 👤 Customer Experience
-
-### 🔐 Authentication
-
-* Register
-* Login / Logout
-* User profile
-* Update personal information
-* Password management
-
-### 🔎 Product Discovery
-
-* Browse product catalog
-* Search products
-* Filter by category
-* Filter by region
-* Filter by price
-* Sort by price / rating
-* View product details
-* Explore product origins
-* View seller information
-
-### 🛒 Shopping
-
-* Add products to cart
-* Update product quantity
-* Remove products from cart
-* Add products to wishlist
-* Checkout
-* Confirm orders
-
-### 📦 Order Management
-
-* View order history
-* View order details
-* Track order status
-* Monitor purchasing activity
-
-### ⭐ Reviews & Community
-
-* Rate products
-* Write product reviews
-* View customer reviews
-* Share shopping experiences
-
----
-
-# 🏪 Local Sellers
-
-LocalTaste Mobile is designed to support the future development of a **multi-vendor marketplace**.
-
-Local sellers can eventually manage their products and stores through the LocalTaste ecosystem.
-
-Potential seller functions include:
-
-* 🏪 Seller profile
-* ➕ Add products
-* ✏️ Update products
-* 🗑️ Remove products
-* 📦 Manage inventory
-* 🚚 Manage orders
-* ⭐ View customer reviews
-* 📊 Monitor sales performance
-
-This allows LocalTaste to grow from a simple shopping application into a complete marketplace connecting customers and local businesses.
-
----
-
-# 👑 Admin System
-
-The LocalTaste ecosystem includes an administration system for centralized platform management.
-
-Administrators can manage:
-
-### 📂 Platform Management
-
-* Users
-* Sellers
-* Categories
-* Products
-* Orders
-* Reviews
-
-### 📊 Platform Analytics
-
-* Total users
-* Total products
-* Total orders
-* Revenue
-* Best-selling products
-* Product categories
-
-The admin system can be implemented through the **LocalTaste Web platform**, while the mobile application focuses primarily on the customer shopping experience.
-
----
-
-# 🔄 Mobile & Backend Communication
-
-LocalTaste Mobile communicates with the backend through **web services / APIs**.
-
-The application sends requests to the backend and receives structured data for displaying and updating information.
+Example structure:
 
 ```text
-┌─────────────────────┐
-│    LocalTaste       │
-│    Mobile App       │
-└──────────┬──────────┘
-           │
-           │ HTTP Request
-           ↓
-┌─────────────────────┐
-│      Web API        │
-│   PHP / Backend     │
-└──────────┬──────────┘
-           │
-           ↓
-┌─────────────────────┐
-│      Database       │
-│       MySQL         │
-└──────────┬──────────┘
-           │
-           │ JSON Response
-           ↓
-┌─────────────────────┐
-│    Mobile App       │
-│    Update UI        │
-└─────────────────────┘
+Storage
+├── users/
+│   └── {userId}/
+│       └── avatar.jpg
+│
+└── posts/
+    └── {postId}/
+        ├── image_01.jpg
+        ├── image_02.jpg
+        └── image_03.jpg
 ```
 
-### 📡 API Use Cases
-
-The mobile application can communicate with the backend for:
-
-* 🔐 Authentication
-* 🔎 Product search
-* 🏷️ Product filtering
-* 📦 Product information
-* 🛒 Shopping cart
-* ❤️ Wishlist
-* ⭐ Reviews
-* 📋 Orders
-* 👤 User information
-
-Data exchanged between the mobile application and backend is structured using **JSON**.
-
 ---
 
-# 🏗️ Mobile Architecture
+## 📴 Offline Support
 
-The application is designed using a structured architecture to keep the code organized, maintainable, and scalable.
+Fashion2hand is designed to support local data access using:
+
+**Room → SQLite**
+
+The application can synchronize selected data from Firebase to local storage.
+
+Conceptually:
 
 ```text
-                  LOCAL TASTE MOBILE
-                          │
-                          ↓
-                ┌──────────────────┐
-                │   Presentation   │
-                │   Mobile UI      │
-                └────────┬─────────┘
-                         │
-                         ↓
-                ┌──────────────────┐
-                │     Business     │
-                │      Logic       │
-                └────────┬─────────┘
-                         │
-                         ↓
-                ┌──────────────────┐
-                │   API / Service  │
-                │     Layer        │
-                └────────┬─────────┘
-                         │
-                     HTTP / JSON
-                         │
-                         ↓
-                ┌──────────────────┐
-                │   LocalTaste     │
-                │     Backend      │
-                └────────┬─────────┘
-                         │
-                         ↓
-                ┌──────────────────┐
-                │      MySQL       │
-                │     Database     │
-                └──────────────────┘
+                Fashion2hand
+                      │
+                 Repository
+                  /       \
+                 /         \
+          Remote Data     Local Data
+              │              │
+          Firebase          Room
+              │              │
+        Firestore/Storage   SQLite
 ```
 
-The architecture separates the user interface, application logic, service communication, and backend data layer.
-
-This makes the application easier to maintain and allows new features to be added in the future.
+This allows previously loaded data to remain available when the device temporarily loses its Internet connection.
 
 ---
 
-# 🛠️ Technology Stack
+## 📐 Responsive UI
 
-## 📱 Mobile
+The application supports both:
 
-* Android
-* Kotlin
-* Android Studio
-* XML Layout
-* Android SDK
+* Portrait orientation
+* Landscape orientation
 
-## 🌐 Backend Communication
+Different layouts can be provided for different screen orientations to maintain usability.
 
-* RESTful API
-* HTTP
-* JSON
-* Web Services
-
-## 🗄️ Backend & Database
-
-* PHP
-* Object-Oriented Programming
-* MVC Architecture
-* MySQL
-
-## 🔧 Development Tools
-
-* Android Studio
-* Visual Studio Code
-* XAMPP
-* Git
-* GitHub
-
----
-
-# 📁 Project Structure
+Example:
 
 ```text
-LocalTaste-Mobile-ThreeBelles/
+res/
+├── layout/
+│   └── activity_post_detail.xml
+│
+└── layout-land/
+    └── activity_post_detail.xml
+```
+
+---
+
+## 🏗️ Application Architecture
+
+The project follows a layered architecture to keep UI, business logic, and data access separated.
+
+```text
+┌───────────────────────────────┐
+│              UI               │
+│ Activities / Fragments / XML  │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│          ViewModel            │
+│     UI State & Logic          │
+└───────────────┬───────────────┘
+                │
+                ▼
+┌───────────────────────────────┐
+│          Repository           │
+│   Data coordination layer     │
+└───────────────┬───────────────┘
+                │
+          ┌─────┴─────┐
+          ▼           ▼
+     Firebase       Room
+     / Remote       / Local
+```
+
+This structure helps improve:
+
+* Code organization
+* Maintainability
+* Separation of concerns
+* Reusability
+* Testability
+
+---
+
+## 🛠️ Technologies & Tools
+
+| Technology              | Purpose                                |
+| ----------------------- | -------------------------------------- |
+| Kotlin                  | Application development                |
+| Android Studio          | Development environment                |
+| XML                     | Android UI layouts                     |
+| Firebase Authentication | User authentication                    |
+| Cloud Firestore         | Cloud database                         |
+| Firebase Storage        | Image storage                          |
+| Google Sign-In          | Third-party authentication             |
+| Room                    | Local database layer                   |
+| SQLite                  | Local data storage                     |
+| Git                     | Version control                        |
+| GitHub                  | Source code management & collaboration |
+
+---
+
+## 📂 Project Structure
+
+A simplified project structure:
+
+```text
+Fashion2hand/
 │
 ├── app/
-│   │
 │   └── src/
 │       └── main/
-│           │
 │           ├── java/
-│           │   └── com/
-│           │       └── localtaste/
+│           │   └── com.example.fashion2hand/
+│           │       ├── data/
+│           │       ├── model/
+│           │       ├── repository/
+│           │       ├── ui/
+│           │       ├── viewmodel/
+│           │       └── utils/
 │           │
-│           ├── res/
-│           │   ├── drawable/
-│           │   ├── layout/
-│           │   ├── mipmap/
-│           │   ├── values/
-│           │   └── xml/
-│           │
-│           └── AndroidManifest.xml
+│           └── res/
+│               ├── drawable/
+│               ├── layout/
+│               ├── layout-land/
+│               ├── menu/
+│               └── values/
 │
-├── gradle/
-│
-├── build.gradle
-├── settings.gradle
-├── gradle.properties
-├── .gitignore
-└── README.md
+├── README.md
+└── ...
 ```
 
-> The project structure may evolve as new features and modules are introduced during development.
+The actual structure may evolve during development.
 
 ---
 
-# 🧩 Main Mobile Screens
-
-The application can be organized around the following main screens:
+## 🔄 Main User Flow
 
 ```text
-                    LocalTaste Mobile
-                           │
-        ┌──────────────────┼──────────────────┐
-        │                  │                  │
-        ↓                  ↓                  ↓
-      Home              Products           Profile
-        │                  │                  │
-        │          ┌───────┼───────┐          │
-        │          │       │       │          │
-        ↓          ↓       ↓       ↓          ↓
-    Featured     Search  Filter  Details    Account
-                         │       │
-                         ↓       ↓
-                      Category  Seller
-                                 │
-                                 ↓
-                               Reviews
-
-                           Shopping
-                              │
-                    ┌─────────┴─────────┐
-                    ↓                   ↓
-                  Cart                Order
-                                        │
-                                        ↓
-                                    Tracking
-```
-
-### Main Screens
-
-* 🏠 Home
-* 🔎 Search
-* 🏷️ Categories
-* 🛍️ Product List
-* 📦 Product Details
-* 🏪 Seller Information
-* ❤️ Wishlist
-* 🛒 Cart
-* 💳 Checkout
-* 📋 Orders
-* 🚚 Order Tracking
-* ⭐ Reviews
-* 👤 Profile
-* 🔐 Login / Register
-
----
-
-# 🗄️ Main Data Model
-
-The mobile application uses data provided by the LocalTaste backend.
-
-```text
-User
- │
- ├── Order
- │     └── OrderDetail
- │            └── Product
- │
- ├── Review
- │       └── Product
- │
- └── Wishlist
-         └── Product
-
-Seller
- │
- └── Product
+Login / Register
        │
-       └── Category
+       ▼
+     Home
+       │
+ ┌─────┼───────────┐
+ ▼     ▼           ▼
+Search Feed      Profile
+ │     │
+ │     ▼
+ │  Post Detail
+ │     │
+ │  ┌──┴───────┐
+ │  ▼          ▼
+ │Favorite   Request
+ │
+ ▼
+Create Post
+ │
+ ├── Upload Images
+ ├── Enter Information
+ └── Publish
 ```
-
-### Core Entities
-
-| Entity          | Purpose                                   |
-| --------------- | ----------------------------------------- |
-| **User**        | Customer account and personal information |
-| **Seller**      | Local business or product provider        |
-| **Product**     | Vietnamese local specialty                |
-| **Category**    | Product classification                    |
-| **Order**       | Customer purchase                         |
-| **OrderDetail** | Products contained in an order            |
-| **Review**      | Customer feedback and ratings             |
-| **Wishlist**    | Products saved by customers               |
 
 ---
 
-# 🔗 Web & Mobile Ecosystem
+## 👥 User Roles
 
-LocalTaste consists of two main applications:
+### User
 
-```text
-                         🇻🇳 LOCAL TASTE
-                                │
-                 ┌──────────────┴──────────────┐
-                 │                             │
-                WEB                          MOBILE
-                 │                             │
-      LocalTaste-Web-ThreeBelles     LocalTaste-Mobile-ThreeBelles
-                 │                             │
-                 └──────────────┬──────────────┘
-                                │
-                           REST API
-                                │
-                                ↓
-                           MySQL Database
-                                │
-                 ┌──────────────┴──────────────┐
-                 │                             │
-          Local Sellers                 Local Products
-```
+Regular users can:
 
-### 💻 Web Repository
+* Browse clothing posts
+* Search and filter
+* Create posts
+* Edit/delete their own posts
+* Save posts
+* Request available items
+* Report inappropriate content
+* Manage their profile
 
-**LocalTaste-Web-ThreeBelles**
+### Admin
 
-The web platform provides:
+Administrators can:
 
-* Customer shopping
-* Seller management
-* Admin dashboard
-* Product management
-* Order management
-* Platform administration
-
-### 📱 Mobile Repository
-
-**LocalTaste-Mobile-ThreeBelles**
-
-The mobile application focuses on:
-
-* Product discovery
-* Mobile shopping
-* Wishlist
-* Cart
-* Checkout
-* Orders
-* Reviews
-* Customer account management
-
-Both applications are designed to work with the same backend ecosystem.
+* Review reported posts
+* Hide or remove inappropriate content
+* Perform basic content moderation
 
 ---
 
-# 🔀 Git Workflow
+## 🌿 Git Workflow
 
-To maintain an organized development process, **ThreeBelles** uses GitHub with feature branches.
+The project uses Git and GitHub for source code management and team collaboration.
+
+Example branch structure:
 
 ```text
 main
- │
- └── develop
-       │
-       ├── feature/login
-       ├── feature/register
-       ├── feature/home
-       ├── feature/products
-       ├── feature/search
-       ├── feature/cart
-       ├── feature/wishlist
-       ├── feature/orders
-       └── feature/profile
+│
+└── develop
+    │
+    ├── feature/auth
+    ├── feature/home-feed
+    ├── feature/create-post
+    ├── feature/search
+    ├── feature/favorite
+    ├── feature/request
+    ├── feature/profile
+    ├── feature/admin
+    └── feature/offline
 ```
 
-Each feature is developed independently before being reviewed and merged into the development branch.
-
-This workflow helps the team:
-
-* Keep development organized
-* Work on features independently
-* Reduce merge conflicts
-* Track individual contributions
-* Maintain a clear project history
-
----
-
-# 🌟 Future Roadmap
-
-LocalTaste Mobile is designed to evolve together with the LocalTaste ecosystem.
-
-## Phase 1 — Mobile E-Commerce Foundation
-
-* [ ] User authentication
-* [ ] Product catalog
-* [ ] Product details
-* [ ] Search
-* [ ] Categories
-* [ ] Shopping cart
-* [ ] Wishlist
-* [ ] Orders
-* [ ] User profile
-
-## Phase 2 — Better Mobile Experience
-
-* [ ] Advanced product filtering
-* [ ] Product reviews
-* [ ] Seller profiles
-* [ ] Promotional campaigns
-* [ ] Discount vouchers
-* [ ] Flash sales
-* [ ] Push notifications
-
-## Phase 3 — Marketplace
-
-* [ ] Multi-vendor marketplace
-* [ ] Seller storefronts
-* [ ] Seller verification
-* [ ] Seller analytics
-* [ ] Seller order management
-
-## Phase 4 — Smart LocalTaste
-
-* [ ] Personalized recommendations
-* [ ] AI-powered product search
-* [ ] Smart product suggestions
-* [ ] Customer–seller chat
-* [ ] Real-time notifications
-* [ ] Personalized home page
-
-## Phase 5 — Real-World Integration
-
-* [ ] Online payment
-* [ ] Shipping service integration
-* [ ] Location & map services
-* [ ] Production deployment
-* [ ] External service integration
-* [ ] Cross-platform expansion
-
----
-
-# 🚀 Deployment
-
-The LocalTaste Mobile application is designed to communicate with a remotely deployed backend.
-
-### Deployment Architecture
+Development workflow:
 
 ```text
-          📱 Mobile Application
-                   │
-                   │ HTTPS
-                   ↓
-            🌐 Web Server
-                   │
-                   ↓
-              🔌 REST API
-                   │
-                   ↓
-              🗄️ MySQL
+Feature Branch
+      │
+      ▼
+   Commit
+      │
+      ▼
+ Pull Request
+      │
+      ▼
+   develop
+      │
+      ▼
+     main
 ```
 
-The backend can be deployed to a hosting environment, allowing the mobile application to access the same product, seller, customer, and order data used by the LocalTaste Web platform.
+GitHub branches and pull requests are used to track task assignments, contributions, and merge history.
 
 ---
 
-# 👩‍💻 Team — ThreeBelles
+## 📊 Project Scope
 
-### 🌸 **ThreeBelles**
+### Core Features
 
-#### *Three girls, one taste.*
+* [x] Firebase Authentication
+* [x] Google Sign-In
+* [x] Home Feed
+* [x] Clothing Post Detail
+* [x] Create Clothing Post
+* [x] Firebase Storage
+* [x] Cloud Firestore
+* [x] Search & Filter
+* [x] User Profile
+* [x] Edit/Delete Posts
+* [x] Favorite Posts
+* [x] Basic Report System
+* [x] Basic Admin Moderation
+* [x] Responsive Portrait/Landscape UI
 
-Three girls.
-Three perspectives.
-Three different ideas.
-**One shared vision.**
+### Additional Features
 
-We believe technology can do more than make shopping easier.
+* [ ] Room / SQLite offline synchronization
+* [ ] Item request management
+* [ ] Push notifications
+* [ ] Location-based features
 
-It can help people **discover local products, support local sellers, and connect with the stories and traditions behind Vietnamese specialties.**
-
-LocalTaste is our way of turning that idea into a digital experience across both **Web and Mobile**.
-
-> **Three minds. One vision. One LocalTaste. 🇻🇳**
-
----
-
-# 📚 Academic Project
-
-**Course:** Web Application Development
-**Project Type:** E-Commerce / Mobile Application
-**Topic:** Vietnamese Local Specialty Marketplace
-**Team:** ThreeBelles
-**Product:** LocalTaste Mobile
-
----
-
-# 💚 Our Vision
-
-> ## **Local products deserve a local story.**
-
-LocalTaste aims to make Vietnamese specialties:
-
-**Easier to discover.**
-**Easier to access.**
-**Easier to appreciate.**
-**Easier to share.**
-
-Through Web and Mobile, LocalTaste connects customers with the **products, people, places, and stories** behind Vietnamese local specialties.
-
-From a university project to a potential real-world marketplace, **LocalTaste** is our first step toward bringing the authentic taste of Vietnam closer to everyone.
+> Feature status should be updated according to the actual implementation progress of the project.
 
 ---
 
-# 🇻🇳 LocalTaste × ThreeBelles
+## 🚀 Getting Started
 
-> **Discover the place.**
-> **Meet the maker.**
-> **Taste the story.**
+### 1. Clone the repository
 
-### 🌸 **ThreeBelles**
+```bash
+git clone https://github.com/your-username/Fashion2hand.git
+```
 
-### *Three girls, one taste.*
+### 2. Open the project
 
-**LocalTaste Mobile — Bringing Vietnam's local taste closer to you. 🇻🇳**
+Open the project using **Android Studio**.
+
+### 3. Configure Firebase
+
+Create a Firebase project and enable the required services:
+
+* Firebase Authentication
+* Cloud Firestore
+* Firebase Storage
+* Google Sign-In
+
+Add the required Firebase configuration file:
+
+```text
+app/
+└── google-services.json
+```
+
+> Do not commit sensitive credentials or private configuration files to a public repository.
+
+### 4. Build and Run
+
+Sync the Gradle project and run the application on:
+
+* Android Emulator
+* Android physical device
+
+---
+
+## 🔐 Security Considerations
+
+The application uses Firebase Authentication to protect user accounts.
+
+Firestore and Storage security rules should restrict users from:
+
+* Modifying other users' posts
+* Deleting other users' content
+* Accessing unauthorized data
+
+Example access principle:
+
+```text
+User
+ ├── Read public posts
+ ├── Create own posts
+ ├── Update own posts
+ └── Delete own posts
+
+Admin
+ └── Moderate reported content
+```
+
+---
+
+## 📸 Screenshots
+
+Screenshots of the application will be added as the project progresses.
+
+Suggested screens:
+
+```text
+Login
+Home
+Search
+Post Detail
+Create Post
+Favorites
+Request
+Profile
+Admin
+Offline Mode
+```
+
+---
+
+## 🎓 Academic Project
+
+This project is developed for the **Mobile Application Development** course.
+
+The project focuses on applying:
+
+* Android development
+* Firebase services
+* Authentication
+* Cloud database
+* Cloud storage
+* Local database and offline support
+* Responsive mobile UI
+* Git/GitHub collaboration
+* Mobile application architecture
+
+---
+
+## 👩‍💻 Contributors
+
+| Member   | Responsibilities               | Completion |
+| -------- | ------------------------------ | ---------: |
+| Member 1 | Authentication & Profile       |          - |
+| Member 2 | Home Feed & Search             |          - |
+| Member 3 | Create Post & Firebase Storage |          - |
+| Member 4 | Favorites, Requests & Offline  |          - |
+
+> Update the member names, responsibilities, and completion percentages according to the actual team contribution.
+
+---
+
+## 📄 License
+
+This project is developed for educational purposes.
