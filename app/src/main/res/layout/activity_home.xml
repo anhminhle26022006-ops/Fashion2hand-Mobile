@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FFFFFF">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <EditText
+                android:id="@+id/edtSearch"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:hint="⌕  Tìm quần áo..."
+                android:textSize="12sp"
+                android:singleLine="true"
+                android:background="#F4F4F6"
+                android:paddingStart="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Danh mục"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="#173B32"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Xem tất cả"
+                    android:textSize="11sp"
+                    android:textColor="#17795B"/>
+            </LinearLayout>
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/btnAll"
+                        android:layout_width="52dp"
+                        android:layout_height="32dp"
+                        android:gravity="center"
+                        android:text="Tất cả"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:background="#277B5C"
+                        android:layout_marginEnd="7dp"/>
+
+                    <TextView
+                        android:id="@+id/btnAo"
+                        android:layout_width="45dp"
+                        android:layout_height="32dp"
+                        android:gravity="center"
+                        android:text="Áo"
+                        android:textSize="11sp"
+                        android:textColor="#42605A"
+                        android:background="#F7F7F7"
+                        android:layout_marginEnd="7dp"/>
+
+                    <TextView
+                        android:id="@+id/btnQuan"
+                        android:layout_width="55dp"
+                        android:layout_height="32dp"
+                        android:gravity="center"
+                        android:text="Quần"
+                        android:textSize="11sp"
+                        android:textColor="#42605A"
+                        android:background="#F7F7F7"
+                        android:layout_marginEnd="7dp"/>
+
+                    <TextView
+                        android:id="@+id/btnVay"
+                        android:layout_width="50dp"
+                        android:layout_height="32dp"
+                        android:gravity="center"
+                        android:text="Váy"
+                        android:textSize="11sp"
+                        android:textColor="#42605A"
+                        android:background="#F7F7F7"/>
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="13dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Mới đăng"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:textColor="#173B32"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="4 bài"
+                    android:textSize="10sp"
+                    android:textColor="#999999"/>
+            </LinearLayout>
+
+            <GridLayout
+                android:id="@+id/productGrid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:columnCount="2"
+                android:layout_marginTop="8dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="175dp"
+                    android:layout_columnWeight="1"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="105dp"
+                        android:background="#D7F2DC">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="👕"
+                            android:textSize="40sp"/>
+
+                        <TextView
+                            android:layout_width="25dp"
+                            android:layout_height="25dp"
+                            android:layout_gravity="top|end"
+                            android:gravity="center"
+                            android:text="♡"
+                            android:textSize="18sp"
+                            android:textColor="#AAB7B2"/>
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Áo thun basic"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:textColor="#273B38"
+                        android:padding="6dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Size M • Tốt"
+                        android:textSize="9sp"
+                        android:textColor="#8A9994"
+                        android:paddingStart="6dp"/>
+
+                    <TextView
+                        android:layout_width="55dp"
+                        android:layout_height="22dp"
+                        android:gravity="center"
+                        android:text="Miễn phí"
+                        android:textSize="9sp"
+                        android:textColor="#23825F"
+                        android:background="#DDF4E7"
+                        android:layout_margin="6dp"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="175dp"
+                    android:layout_columnWeight="1"
+                    android:layout_marginStart="4dp"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="105dp"
+                        android:background="#E0D5F5">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="👗"
+                            android:textSize="40sp"/>
+
+                        <TextView
+                            android:layout_width="25dp"
+                            android:layout_height="25dp"
+                            android:layout_gravity="top|end"
+                            android:gravity="center"
+                            android:text="♡"
+                            android:textSize="18sp"
+                            android:textColor="#AAB7B2"/>
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Váy hoa vintage"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:textColor="#273B38"
+                        android:padding="6dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Size S • Rất tốt"
+                        android:textSize="9sp"
+                        android:textColor="#8A9994"
+                        android:paddingStart="6dp"/>
+
+                    <TextView
+                        android:layout_width="55dp"
+                        android:layout_height="22dp"
+                        android:gravity="center"
+                        android:text="Miễn phí"
+                        android:textSize="9sp"
+                        android:textColor="#23825F"
+                        android:background="#DDF4E7"
+                        android:layout_margin="6dp"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="175dp"
+                    android:layout_columnWeight="1"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="4dp"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="105dp"
+                        android:background="#DCE9F7">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="👖"
+                            android:textSize="40sp"/>
+
+                        <TextView
+                            android:layout_width="25dp"
+                            android:layout_height="25dp"
+                            android:layout_gravity="top|end"
+                            android:gravity="center"
+                            android:text="♡"
+                            android:textSize="18sp"
+                            android:textColor="#AAB7B2"/>
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Quần jeans xanh"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:textColor="#273B38"
+                        android:padding="6dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Size L • Tốt"
+                        android:textSize="9sp"
+                        android:textColor="#8A9994"
+                        android:paddingStart="6dp"/>
+
+                    <TextView
+                        android:layout_width="55dp"
+                        android:layout_height="22dp"
+                        android:gravity="center"
+                        android:text="Miễn phí"
+                        android:textSize="9sp"
+                        android:textColor="#23825F"
+                        android:background="#DDF4E7"
+                        android:layout_margin="6dp"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="175dp"
+                    android:layout_columnWeight="1"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginStart="4dp"
+                    android:orientation="vertical">
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="105dp"
+                        android:background="#F5EAD7">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:text="🥼"
+                            android:textSize="40sp"/>
+
+                        <TextView
+                            android:layout_width="25dp"
+                            android:layout_height="25dp"
+                            android:layout_gravity="top|end"
+                            android:gravity="center"
+                            android:text="♡"
+                            android:textSize="18sp"
+                            android:textColor="#AAB7B2"/>
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Áo khoác denim"
+                        android:textStyle="bold"
+                        android:textSize="11sp"
+                        android:textColor="#273B38"
+                        android:padding="6dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Size M • Tốt"
+                        android:textSize="9sp"
+                        android:textColor="#8A9994"
+                        android:paddingStart="6dp"/>
+
+                    <TextView
+                        android:layout_width="55dp"
+                        android:layout_height="22dp"
+                        android:gravity="center"
+                        android:text="Miễn phí"
+                        android:textSize="9sp"
+                        android:textColor="#23825F"
+                        android:background="#DDF4E7"
+                        android:layout_margin="6dp"/>
+                </LinearLayout>
+            </GridLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="58dp"
+        android:orientation="horizontal"
+        android:background="#FFFFFF"
+        android:elevation="8dp">
+
+        <LinearLayout
+            android:id="@+id/navHome"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⌂"
+                android:textSize="20sp"
+                android:textColor="#277B5C"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Home"
+                android:textSize="8sp"
+                android:textColor="#277B5C"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navCreate"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+"
+                android:textSize="22sp"
+                android:textColor="#A0AAA7"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Create"
+                android:textSize="8sp"
+                android:textColor="#A0AAA7"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navRequest"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="♡"
+                android:textSize="20sp"
+                android:textColor="#A0AAA7"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Request"
+                android:textSize="8sp"
+                android:textColor="#A0AAA7"/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
