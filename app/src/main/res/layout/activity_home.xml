@@ -17,15 +17,44 @@
             android:orientation="vertical"
             android:padding="14dp">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="4dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Chào buổi sáng" android:textSize="12sp" android:textColor="#596B64"/>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Minh Anh 👋" android:textSize="22sp" android:textStyle="bold" android:textColor="#173B32"/>
+                </LinearLayout>
+                <TextView android:id="@+id/btnNotificationsHome" android:layout_width="48dp" android:layout_height="48dp" android:minWidth="48dp" android:minHeight="48dp" android:gravity="center" android:text="♧" android:textSize="22sp" android:textColor="#216B50" android:background="#EAF3ED" android:clickable="true" android:focusable="true"/>
+                <TextView android:id="@+id/btnCartHome" android:layout_width="48dp" android:layout_height="48dp" android:minWidth="48dp" android:minHeight="48dp" android:gravity="center" android:text="🛍" android:textSize="20sp" android:clickable="true" android:focusable="true"/>
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cho quần áo một vòng đời mới." android:textSize="13sp" android:textColor="#596B64" android:layout_marginBottom="12dp"/>
             <EditText
                 android:id="@+id/edtSearch"
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
+                android:layout_height="48dp"
+                android:minHeight="48dp"
                 android:hint="⌕  Tìm quần áo..."
                 android:textSize="12sp"
                 android:singleLine="true"
                 android:background="#F4F4F6"
                 android:paddingStart="12dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="4dp"
+                android:background="#E2F1E6">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="THỜI TRANG TUẦN HOÀN  ·  CỘNG ĐỒNG" android:textSize="9sp" android:textStyle="bold" android:textColor="#216B50"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Trao đồ cũ, mở ra những câu chuyện mới." android:textSize="20sp" android:textStyle="bold" android:textColor="#173B32" android:layout_marginTop="6dp"/>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tìm món đồ vừa túi tiền hoặc chia sẻ món đồ bạn không còn dùng." android:textSize="12sp" android:textColor="#42605A" android:layout_marginTop="6dp"/>
+                <Button android:id="@+id/btnExploreHero" android:layout_width="wrap_content" android:layout_height="48dp" android:minHeight="48dp" android:text="Khám phá ngay  →" android:textAllCaps="false" android:textColor="#FFFFFF" android:backgroundTint="#216B50" android:layout_marginTop="8dp"/>
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -70,7 +99,7 @@
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF"
-                        android:background="#277B5C"
+                        android:background="#216B50"
                         android:layout_marginEnd="7dp"/>
 
                     <TextView
@@ -127,7 +156,7 @@
                     android:layout_height="wrap_content"
                     android:text="4 bài"
                     android:textSize="10sp"
-                    android:textColor="#999999"/>
+                    android:textColor="#666666"/>
             </LinearLayout>
 
             <GridLayout
@@ -142,7 +171,8 @@
                     android:layout_height="175dp"
                     android:layout_columnWeight="1"
                     android:layout_marginEnd="4dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:id="@+id/productCard1">
 
                     <FrameLayout
                         android:layout_width="match_parent"
@@ -163,7 +193,7 @@
                             android:gravity="center"
                             android:text="♡"
                             android:textSize="18sp"
-                            android:textColor="#AAB7B2"/>
+                            android:textColor="#5F706A"/>
                     </FrameLayout>
 
                     <TextView
@@ -180,7 +210,7 @@
                         android:layout_height="wrap_content"
                         android:text="Size M • Tốt"
                         android:textSize="9sp"
-                        android:textColor="#8A9994"
+                        android:textColor="#5F706A"
                         android:paddingStart="6dp"/>
 
                     <TextView
@@ -189,7 +219,7 @@
                         android:gravity="center"
                         android:text="Miễn phí"
                         android:textSize="9sp"
-                        android:textColor="#23825F"
+                        android:textColor="#176B4C"
                         android:background="#DDF4E7"
                         android:layout_margin="6dp"/>
                 </LinearLayout>
@@ -199,7 +229,8 @@
                     android:layout_height="175dp"
                     android:layout_columnWeight="1"
                     android:layout_marginStart="4dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:id="@+id/productCard2">
 
                     <FrameLayout
                         android:layout_width="match_parent"
@@ -220,7 +251,7 @@
                             android:gravity="center"
                             android:text="♡"
                             android:textSize="18sp"
-                            android:textColor="#AAB7B2"/>
+                            android:textColor="#5F706A"/>
                     </FrameLayout>
 
                     <TextView
@@ -237,7 +268,7 @@
                         android:layout_height="wrap_content"
                         android:text="Size S • Rất tốt"
                         android:textSize="9sp"
-                        android:textColor="#8A9994"
+                        android:textColor="#5F706A"
                         android:paddingStart="6dp"/>
 
                     <TextView
@@ -246,7 +277,7 @@
                         android:gravity="center"
                         android:text="Miễn phí"
                         android:textSize="9sp"
-                        android:textColor="#23825F"
+                        android:textColor="#176B4C"
                         android:background="#DDF4E7"
                         android:layout_margin="6dp"/>
                 </LinearLayout>
@@ -257,7 +288,8 @@
                     android:layout_columnWeight="1"
                     android:layout_marginTop="8dp"
                     android:layout_marginEnd="4dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:id="@+id/productCard3">
 
                     <FrameLayout
                         android:layout_width="match_parent"
@@ -278,7 +310,7 @@
                             android:gravity="center"
                             android:text="♡"
                             android:textSize="18sp"
-                            android:textColor="#AAB7B2"/>
+                            android:textColor="#5F706A"/>
                     </FrameLayout>
 
                     <TextView
@@ -295,7 +327,7 @@
                         android:layout_height="wrap_content"
                         android:text="Size L • Tốt"
                         android:textSize="9sp"
-                        android:textColor="#8A9994"
+                        android:textColor="#5F706A"
                         android:paddingStart="6dp"/>
 
                     <TextView
@@ -304,7 +336,7 @@
                         android:gravity="center"
                         android:text="Miễn phí"
                         android:textSize="9sp"
-                        android:textColor="#23825F"
+                        android:textColor="#176B4C"
                         android:background="#DDF4E7"
                         android:layout_margin="6dp"/>
                 </LinearLayout>
@@ -315,7 +347,8 @@
                     android:layout_columnWeight="1"
                     android:layout_marginTop="8dp"
                     android:layout_marginStart="4dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:id="@+id/productCard4">
 
                     <FrameLayout
                         android:layout_width="match_parent"
@@ -336,7 +369,7 @@
                             android:gravity="center"
                             android:text="♡"
                             android:textSize="18sp"
-                            android:textColor="#AAB7B2"/>
+                            android:textColor="#5F706A"/>
                     </FrameLayout>
 
                     <TextView
@@ -353,7 +386,7 @@
                         android:layout_height="wrap_content"
                         android:text="Size M • Tốt"
                         android:textSize="9sp"
-                        android:textColor="#8A9994"
+                        android:textColor="#5F706A"
                         android:paddingStart="6dp"/>
 
                     <TextView
@@ -362,82 +395,18 @@
                         android:gravity="center"
                         android:text="Miễn phí"
                         android:textSize="9sp"
-                        android:textColor="#23825F"
+                        android:textColor="#176B4C"
                         android:background="#DDF4E7"
                         android:layout_margin="6dp"/>
                 </LinearLayout>
             </GridLayout>
         </LinearLayout>
     </ScrollView>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="58dp"
-        android:orientation="horizontal"
-        android:background="#FFFFFF"
-        android:elevation="8dp">
-
-        <LinearLayout
-            android:id="@+id/navHome"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⌂"
-                android:textSize="20sp"
-                android:textColor="#277B5C"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Home"
-                android:textSize="8sp"
-                android:textColor="#277B5C"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/navCreate"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="+"
-                android:textSize="22sp"
-                android:textColor="#A0AAA7"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Create"
-                android:textSize="8sp"
-                android:textColor="#A0AAA7"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/navRequest"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="♡"
-                android:textSize="20sp"
-                android:textColor="#A0AAA7"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Request"
-                android:textSize="8sp"
-                android:textColor="#A0AAA7"/>
-        </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:orientation="horizontal" android:background="#FFFFFF" android:elevation="8dp">
+        <LinearLayout android:id="@+id/navHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌂" android:textSize="21sp" android:textColor="#216B50"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Trang chủ" android:textSize="9sp" android:textColor="#216B50"/></LinearLayout>
+        <LinearLayout android:id="@+id/navExplore" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌕" android:textSize="21sp" android:textColor="#216B50"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Khám phá" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout>
+        <LinearLayout android:id="@+id/navCreate" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="＋" android:textSize="21sp" android:textColor="#216B50"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đăng bán" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout>
+        <LinearLayout android:id="@+id/navMessages" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✉" android:textSize="21sp" android:textColor="#216B50"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tin nhắn" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout>
+        <LinearLayout android:id="@+id/navProfile" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="☺" android:textSize="21sp" android:textColor="#216B50"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Cá nhân" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout>
     </LinearLayout>
 </LinearLayout>
