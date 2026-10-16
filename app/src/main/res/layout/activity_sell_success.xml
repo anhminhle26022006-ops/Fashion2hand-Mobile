@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center" android:padding="24dp" android:background="#F8F6F0">
+ <TextView android:layout_width="112dp" android:layout_height="112dp" android:background="#DDECE1" android:gravity="center" android:text="✓" android:textColor="#14513E" android:textSize="54sp"/>
+ <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="22dp" android:text="TIN ĐĂNG ĐÃ XUẤT BẢN" android:textColor="#E66F55" android:textSize="11sp" android:textStyle="bold"/>
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:gravity="center" android:text="Tin đăng của bạn đã hoạt động!" android:textColor="#173B32" android:textSize="24sp" android:textStyle="bold"/>
+ <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:gravity="center" android:text="Món đồ đã sẵn sàng tìm chủ mới trong cộng đồng Fashion2hand." android:textColor="#75857F" android:textSize="14sp"/>
+ <Button android:id="@+id/btnViewPublishedListing" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="28dp" android:backgroundTint="#14513E" android:text="Xem tin đăng" android:textAllCaps="false" android:textColor="#FFFFFF" android:textStyle="bold"/>
+ <Button android:id="@+id/btnManagePublishedListings" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="10dp" android:backgroundTint="#FFFFFF" android:text="Quản lý tin đăng" android:textAllCaps="false" android:textColor="#14513E"/>
+</LinearLayout>

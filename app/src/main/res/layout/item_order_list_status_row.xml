@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="8dp">
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E6E9E4" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="7dp">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:drawableStart="@drawable/ic_shield_check" android:drawablePadding="5dp" android:gravity="center_vertical" android:text="Thanh toán\nHOLDING" android:textColor="#587267" android:textSize="8sp" />
+        <View android:layout_width="1dp" android:layout_height="24dp" android:background="#E6E9E4" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="9dp" android:drawableStart="@drawable/ic_box" android:drawablePadding="5dp" android:gravity="center_vertical" android:text="Vận chuyển\nĐang vận chuyển" android:textColor="#587267" android:textSize="8sp" />
+    </LinearLayout>
+</LinearLayout>

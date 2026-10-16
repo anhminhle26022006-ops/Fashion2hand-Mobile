@@ -185,15 +185,20 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- RECYCLERVIEW CHAT -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rcvChatMessages"
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="8dp" />
+        android:fillViewport="true"
+        android:paddingHorizontal="16dp">
+        <LinearLayout
+            android:id="@+id/chatMessagesContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingVertical="12dp" />
+    </ScrollView>
 
     <!-- BOTTOM CHAT BAR -->
     <LinearLayout
