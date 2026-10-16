@@ -1,12 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/profileRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8FAF8">
-    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Fashion2hand" android:textSize="13sp" android:textStyle="bold" android:textColor="#277B5C" android:layout_marginBottom="10dp"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cá nhân" android:textSize="24sp" android:textStyle="bold" android:textColor="#173B32" android:layout_marginBottom="5dp"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Quản lý hồ sơ và hoạt động của bạn." android:textSize="13sp" android:textColor="#75857F" android:layout_marginBottom="18dp"/>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="MA" android:textSize="32sp" android:textColor="#277B5C" android:textStyle="bold" android:layout_marginBottom="8dp" android:gravity="center"/><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Minh Anh" android:textSize="20sp" android:textColor="#173B32" android:textStyle="bold" android:layout_marginBottom="8dp" android:gravity="center"/><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thành viên Fashion2hand" android:textSize="12sp" android:textColor="#75857F"  android:layout_marginBottom="8dp" android:gravity="center"/><Button android:id="@+id/btnEditProfile" android:layout_width="match_parent" android:layout_height="48dp" android:text="Chỉnh sửa hồ sơ" android:textAllCaps="false" android:textColor="#277B5C" android:backgroundTint="#E1F2E8" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnMyListings" android:layout_width="match_parent" android:layout_height="48dp" android:text="Tin đăng của tôi" android:textAllCaps="false" android:textColor="#243B35" android:backgroundTint="#FFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnMyOrders" android:layout_width="match_parent" android:layout_height="48dp" android:text="Đơn mua &amp; đơn bán" android:textAllCaps="false" android:textColor="#243B35" android:backgroundTint="#FFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnFavorites" android:layout_width="match_parent" android:layout_height="48dp" android:text="Sản phẩm yêu thích" android:textAllCaps="false" android:textColor="#243B35" android:backgroundTint="#FFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnNotifications" android:layout_width="match_parent" android:layout_height="48dp" android:text="Thông báo" android:textAllCaps="false" android:textColor="#243B35" android:backgroundTint="#FFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnSettings" android:layout_width="match_parent" android:layout_height="48dp" android:text="Cài đặt tài khoản" android:textAllCaps="false" android:textColor="#243B35" android:backgroundTint="#FFFFFF" android:layout_marginTop="6dp" android:layout_marginBottom="6dp"/><Button android:id="@+id/btnLogout" android:layout_width="match_parent" android:layout_height="48dp" android:text="Đăng xuất" android:textAllCaps="false" android:textColor="#B54747" android:backgroundTint="#FBE9E7" android:layout_marginTop="6dp"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/profileRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="118dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:background="#104536">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="♥  fashion2hand"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:gravity="center"
+                    android:text="♧"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:background="@drawable/bg_white_card_rounded"
+                    android:clickable="true"
+                    android:focusable="true" />
+                <TextView
+                    android:id="@+id/btnSettings"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="8dp"
+                    android:gravity="center"
+                    android:text="⚙"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:background="@drawable/bg_white_card_rounded"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="14dp"
+                android:layout_marginTop="-38dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:padding="15dp"
+                android:background="@drawable/bg_white_card_rounded">
+                <TextView
+                    android:layout_width="68dp"
+                    android:layout_height="68dp"
+                    android:gravity="center"
+                    android:text="👩🏻"
+                    android:textSize="38sp"
+                    android:background="@drawable/bg_green_light_card" />
+                <TextView
+                    android:id="@+id/txtProfileName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:gravity="center"
+                    android:text="Nguyễn Minh Anh"
+                    android:textColor="#173B32"
+                    android:textSize="18sp" />
+                <TextView
+                    android:id="@+id/txtProfileLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="center"
+                    android:text="✓  Hồ sơ đã xác minh · Quận 3"
+                    android:textColor="#75857F"
+                    android:textSize="10sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:gravity="center"
+                    android:text="★  4.9  (28 đánh giá)"
+                    android:textColor="#A97619"
+                    android:textSize="10sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="24\nTin đăng" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <View android:layout_width="1dp" android:layout_height="38dp" android:background="#E2E8E3" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="18\nHoàn thành" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <View android:layout_width="1dp" android:layout_height="38dp" android:background="#E2E8E3" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="4.8\nĐánh giá" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                </LinearLayout>
+                <Button
+                    android:id="@+id/btnEditProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="42dp"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="#FFFFFF"
+                    android:text="Chỉnh sửa hồ sơ"
+                    android:textAllCaps="false"
+                    android:textColor="#104536"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="62dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="14dp"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="12dp"
+                android:background="@drawable/bg_green_light_card">
+                <TextView android:layout_width="34dp" android:layout_height="34dp" android:gravity="center" android:text="⛨" android:textColor="#104536" android:textSize="18sp" android:background="#FFFFFF" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="9dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thành viên đáng tin cậy" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Số điện thoại và email đã xác minh" android:textColor="#75857F" android:textSize="9sp" />
+                </LinearLayout>
+                <TextView android:id="@+id/btnOpenVerification" android:layout_width="34dp" android:layout_height="42dp" android:gravity="center" android:text="›" android:textColor="#75857F" android:textSize="22sp" android:clickable="true" android:focusable="true" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_marginEnd="14dp"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:paddingHorizontal="12dp"
+                android:background="@drawable/bg_white_card_rounded">
+                <Button android:id="@+id/btnMyListings" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⬡   Tin đăng của tôi                         ›\n      12 đang hoạt động" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnMyOrders" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⛨   Trung tâm giao dịch                    ›\n      Yêu cầu, mua bán và trao tặng" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnMyCart" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="▣   Đơn hàng của tôi                          ›\n      2 đang giao" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnMyHistory" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⛨   Lịch sử giao dịch                         ›\n      An toàn, minh bạch" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnFavorites" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="♡   Sản phẩm yêu thích                    ›\n      Các món đồ bạn đã lưu" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnAddresses" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⌂   Địa chỉ nhận hàng                       ›\n      Quản lý địa chỉ giao nhận" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnSettingsMenu" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⚙   Cài đặt tài khoản                         ›\n      Thông tin cá nhân và bảo mật" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
+                <Button android:id="@+id/btnSupport" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="☆   Trợ giúp và hỗ trợ                       ›\n      Câu hỏi thường gặp và liên hệ" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <Button android:id="@+id/btnOpenPaymentInfo" android:layout_width="match_parent" android:layout_height="44dp" android:backgroundTint="#EDF4EF" android:text="Thông tin nhận tiền" android:textAllCaps="false" android:textColor="#104536" android:textSize="10sp" />
+                <Button android:id="@+id/btnLogout" android:layout_width="match_parent" android:layout_height="44dp" android:backgroundTint="#FBE9E7" android:text="Đăng xuất" android:textAllCaps="false" android:textColor="#B54747" android:textSize="10sp" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:orientation="horizontal" android:background="#FFFFFF" android:elevation="8dp"><LinearLayout android:id="@+id/navHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌂" android:textSize="21sp" android:textColor="#277B5C"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Trang chủ" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout><LinearLayout android:id="@+id/navExplore" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌕" android:textSize="21sp" android:textColor="#277B5C"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Khám phá" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout><LinearLayout android:id="@+id/navCreate" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="＋" android:textSize="21sp" android:textColor="#277B5C"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đăng bán" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout><LinearLayout android:id="@+id/navMessages" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✉" android:textSize="21sp" android:textColor="#277B5C"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tin nhắn" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout><LinearLayout android:id="@+id/navProfile" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="☺" android:textSize="21sp" android:textColor="#277B5C"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Cá nhân" android:textSize="9sp" android:textColor="#42605A"/></LinearLayout></LinearLayout>
+    <include layout="@layout/bottom_navigation" />
 </LinearLayout>

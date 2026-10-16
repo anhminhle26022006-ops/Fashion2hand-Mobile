@@ -169,12 +169,38 @@
         android:background="#E5E0D8" />
 
     <!-- RecyclerView chứa danh sách tin nhắn -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rcvMessages"
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingTop="4dp" />
+        android:clipToPadding="false">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp">
+            <LinearLayout android:id="@+id/conversation1" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:padding="14dp" android:background="@drawable/bg_white_card_rounded" android:layout_marginTop="10dp" android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="👩🏻" android:textSize="26sp" android:background="@drawable/bg_green_circle_soft" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Lan Chi" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Bạn còn giữ chiếc áo khoác không?" android:textColor="#75857F" android:textSize="13sp" android:layout_marginTop="4dp" />
+                </LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="10:42" android:textColor="#75857F" android:textSize="11sp" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/conversation2" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:padding="14dp" android:background="@drawable/bg_white_card_rounded" android:layout_marginTop="10dp" android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="👨🏻" android:textSize="26sp" android:background="@drawable/bg_green_circle_soft" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Minh Tuấn" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mình sẽ gửi thêm ảnh sản phẩm nhé." android:textColor="#75857F" android:textSize="13sp" android:layout_marginTop="4dp" />
+                </LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hôm qua" android:textColor="#75857F" android:textSize="11sp" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/conversation3" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:padding="14dp" android:background="@drawable/bg_white_card_rounded" android:layout_marginTop="10dp" android:clickable="true" android:focusable="true">
+                <TextView android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="👩🏻‍🦱" android:textSize="26sp" android:background="@drawable/bg_green_circle_soft" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thảo Vy" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cảm ơn bạn nhiều!" android:textColor="#75857F" android:textSize="13sp" android:layout_marginTop="4dp" />
+                </LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="T2" android:textColor="#75857F" android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 
 </LinearLayout>

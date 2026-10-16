@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
+        <TextView android:id="@+id/btnHistoryBack" android:layout_width="44dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="32sp" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Lịch sử giao dịch" android:textColor="#173B32" android:textSize="19sp" android:textStyle="bold" />
+        <TextView android:layout_width="44dp" android:layout_height="48dp" />
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="10dp" android:text="THÁNG 10, 2026" android:textColor="#75857F" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp" android:layout_marginBottom="10dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="16/10/2026  ·  F2H-240816" android:textColor="#75857F" android:textSize="12sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Vintage Denim Jacket" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="−145.000đ  ·  Đang giao" android:textColor="#D35400" android:textSize="13sp" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp" android:layout_marginBottom="10dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="12/10/2026  ·  F2H-240712" android:textColor="#75857F" android:textSize="12sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Áo thun basic" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Miễn phí  ·  Đã hoàn tất" android:textColor="#23795C" android:textSize="13sp" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:paddingBottom="10dp" android:text="THÁNG 9, 2026" android:textColor="#75857F" android:textSize="12sp" android:textStyle="bold" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="28/09/2026  ·  F2H-240509" android:textColor="#75857F" android:textSize="12sp" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Váy hoa vintage" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Miễn phí  ·  Đã hoàn tất" android:textColor="#23795C" android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
