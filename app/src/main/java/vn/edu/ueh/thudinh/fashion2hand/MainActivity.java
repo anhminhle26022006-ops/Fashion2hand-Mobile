@@ -113,9 +113,8 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             });
         }
-        bindClick(R.id.btnExploreHero, () -> showScreen(R.layout.activity_explore));
+        bindClick(R.id.btnSeeAllHome, () -> showScreen(R.layout.activity_explore));
         bindClick(R.id.btnNotificationsHome, () -> Toast.makeText(this, "Bạn chưa có thông báo mới.", Toast.LENGTH_SHORT).show());
-        bindClick(R.id.btnCartHome, () -> showScreen(R.layout.activity_request));
         bindClick(R.id.btnAll, () -> openExploreWithCategory("Tất cả"));
         bindClick(R.id.btnAo, () -> openExploreWithCategory("Áo"));
         bindClick(R.id.btnQuan, () -> openExploreWithCategory("Quần"));
@@ -141,13 +140,18 @@ public class MainActivity extends AppCompatActivity {
                 @Override public void afterTextChanged(Editable s) { }
             });
         }
-        bindClick(R.id.filterAll, () -> applyExploreFilter("Tất cả"));
-        bindClick(R.id.filterAo, () -> applyExploreFilter("Áo"));
-        bindClick(R.id.filterQuan, () -> applyExploreFilter("Quần"));
-        bindClick(R.id.filterVay, () -> applyExploreFilter("Váy"));
+        bindClick(R.id.btnOpenFilterSheet, this::showExploreFilterSheet);
         GridLayout grid = findViewById(R.id.exploreProductGrid);
         if (grid != null && grid.getChildCount() == 0) addSampleProducts(grid);
         applyExploreFilter(selectedCategory);
+    }
+
+    private void showExploreFilterSheet() {
+        String[] categories = {"Tất cả", "Áo", "Quần", "Váy"};
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Lọc theo danh mục")
+                .setItems(categories, (dialog, which) -> applyExploreFilter(categories[which]))
+                .show();
     }
 
     private void addSampleProducts(GridLayout grid) {
@@ -226,11 +230,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindRequest() {
         bindClick(R.id.btnRequestAccept, () -> Toast.makeText(this, "Đây là giao diện demo; chưa gửi yêu cầu thật.", Toast.LENGTH_LONG).show());
-        bindClick(R.id.btnRequestHistory, () -> Toast.makeText(this, "Lịch sử hiện đang dùng dữ liệu mẫu.", Toast.LENGTH_SHORT).show());
     }
 
     private void bindMessages() {
-        EditText search = findViewById(R.id.edtMessageSearch);
+        EditText search = findViewById(R.id.edtSearchMessage);
         if (search != null) search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
