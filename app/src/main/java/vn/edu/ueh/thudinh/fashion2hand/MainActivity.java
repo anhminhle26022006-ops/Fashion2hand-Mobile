@@ -17,6 +17,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import android.content.Intent;
+import vn.edu.ueh.thudinh.fashion2hand.admin.AdminLoginActivity;
+import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
 
 /** Main entry point for the Fashion2hand frontend prototype. Uses local sample data only. */
 public class MainActivity extends AppCompatActivity {
@@ -79,9 +82,18 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // Phân quyền: tài khoản ADMIN được chuyển sang khu vực quản trị
+            if (AdminRepository.getInstance().isAdminEmail(emailValue)) {
+                startActivity(new Intent(this, AdminLoginActivity.class));
+                return;
+            }
+
             Toast.makeText(this, "Đăng nhập demo thành công.", Toast.LENGTH_SHORT).show();
             showScreen(R.layout.activity_home);
         });
+
+        bindClick(R.id.btnOpenAdminLogin, () ->
+                startActivity(new Intent(this, AdminLoginActivity.class)));
 
         bindClick(R.id.btnOpenRegister, () ->
                 Toast.makeText(this, "Màn hình đăng ký sẽ được triển khai sau.", Toast.LENGTH_SHORT).show());
