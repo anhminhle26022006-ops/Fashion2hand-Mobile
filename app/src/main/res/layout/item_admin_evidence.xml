@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ô ảnh bằng chứng giả lập (chưa tải ảnh thật) -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="88dp"
+    android:background="@drawable/bg_admin_evidence"
+    android:drawableTop="@drawable/ic_admin_image"
+    android:drawablePadding="6dp"
+    android:drawableTint="@color/f2h_text_muted"
+    android:gravity="center"
+    android:padding="8dp"
+    android:textColor="@color/f2h_text_muted"
+    android:textSize="11sp" />

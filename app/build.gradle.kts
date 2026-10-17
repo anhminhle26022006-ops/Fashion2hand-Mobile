@@ -38,6 +38,10 @@ dependencies {
     implementation(libs.material)
     testImplementation(libs.junit)
     implementation("de.hdodenhof:circleimageview:3.1.0")
+    // Khu vực Admin: RecyclerView, Fragment, ViewModel
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
+    implementation("androidx.fragment:fragment:1.8.5")
+    implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
 }
