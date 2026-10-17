@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Màn hình dọc -->
+    <integer name="admin_grid_span">1</integer>
+    <integer name="admin_stat_columns">2</integer>
+    <integer name="admin_summary_columns">2</integer>
+</resources>

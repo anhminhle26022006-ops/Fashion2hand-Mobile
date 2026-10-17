@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chính Admin (ngang): thanh điều hướng dọc bên trái -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f2h_bg"
+    android:orientation="horizontal">
+
+    <com.google.android.material.navigationrail.NavigationRailView
+        android:id="@+id/adminNav"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@color/f2h_surface"
+        app:itemActiveIndicatorStyle="@null"
+        app:itemIconTint="@color/admin_nav_item"
+        app:itemTextColor="@color/admin_nav_item"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/menu_admin_nav"
+        app:menuGravity="center" />
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:background="@color/f2h_border" />
+
+    <FrameLayout
+        android:id="@+id/adminFragmentContainer"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1" />
+</LinearLayout>

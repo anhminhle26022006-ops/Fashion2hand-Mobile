@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phần thân dùng chung cho mọi màn danh sách Admin (tab và màn con) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/txtAdminListNotice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_admin_notice"
+        android:lineSpacingExtra="2dp"
+        android:padding="12dp"
+        android:textSize="13sp"
+        android:visibility="gone" />
+
+    <GridLayout
+        android:id="@+id/gridAdminSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="8dp"
+        android:columnCount="@integer/admin_summary_columns"
+        android:visibility="gone">
+
+        <TextView android:id="@+id/txtAdminSummary1" style="@style/AdminSummary" />
+        <TextView android:id="@+id/txtAdminSummary2" style="@style/AdminSummary" />
+        <TextView android:id="@+id/txtAdminSummary3" style="@style/AdminSummary" />
+        <TextView android:id="@+id/txtAdminSummary4" style="@style/AdminSummary" />
+    </GridLayout>
+
+    <EditText
+        android:id="@+id/edtAdminSearch"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:background="@drawable/bg_admin_search"
+        android:drawableStart="@drawable/ic_admin_search"
+        android:drawablePadding="10dp"
+        android:drawableTint="@color/f2h_text_muted"
+        android:imeOptions="actionSearch"
+        android:inputType="text"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:singleLine="true"
+        android:textColor="@color/f2h_text"
+        android:textColorHint="@color/f2h_text_muted"
+        android:textSize="14sp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipGroupAdminFilters"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            app:chipSpacingHorizontal="8dp"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true" />
+    </HorizontalScrollView>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingStart="14dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="24dp" />
+
+        <include
+            android:id="@+id/layoutAdminState"
+            layout="@layout/view_admin_state"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+</LinearLayout>
