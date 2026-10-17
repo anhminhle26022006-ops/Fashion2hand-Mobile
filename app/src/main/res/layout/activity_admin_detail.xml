@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chi tiết dùng chung: người dùng, bài đăng, đơn hàng, báo cáo, khiếu nại, xác minh -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f2h_bg"
+    android:orientation="vertical">
+
+    <include layout="@layout/view_admin_backbar" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="24dp">
+
+            <LinearLayout
+                android:id="@+id/cardDetailHero"
+                style="@style/AdminCard"
+                android:gravity="center_horizontal"
+                android:padding="18dp"
+                android:showDividers="none">
+
+                <TextView
+                    android:id="@+id/txtDetailLeading"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:background="@drawable/bg_admin_round"
+                    android:gravity="center"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtDetailTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:textColor="@color/f2h_text"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtDetailSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="center"
+                    android:textColor="@color/f2h_text_muted"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/layoutDetailChips"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:orientation="horizontal" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtDetailNotice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_admin_notice"
+                android:lineSpacingExtra="2dp"
+                android:padding="12dp"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtDetailInfoTitle"
+                style="@style/AdminSectionTitle"
+                android:text="Thông tin" />
+
+            <LinearLayout
+                android:id="@+id/layoutDetailInfo"
+                style="@style/AdminCard" />
+
+            <TextView
+                android:id="@+id/txtDetailTimelineTitle"
+                style="@style/AdminSectionTitle"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layoutDetailTimeline"
+                style="@style/AdminCard"
+                android:padding="16dp"
+                android:showDividers="none"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtDetailEvidenceTitle"
+                style="@style/AdminSectionTitle"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/layoutDetailEvidence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/txtDetailDecisionTitle"
+                style="@style/AdminSectionTitle"
+                android:text="Quyết định xử lý"
+                android:visibility="gone" />
+
+            <RadioGroup
+                android:id="@+id/radioDetailDecision"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <RadioButton
+                    android:id="@+id/radioDecisionRefund"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_admin_card"
+                    android:buttonTint="@color/f2h_primary_light"
+                    android:padding="12dp"
+                    android:text="Hoàn tiền cho người mua\nGiao dịch chuyển sang Đã hoàn tiền (Refunded)"
+                    android:textColor="@color/f2h_text"
+                    android:textSize="14sp" />
+
+                <RadioButton
+                    android:id="@+id/radioDecisionRelease"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_admin_card"
+                    android:buttonTint="@color/f2h_primary_light"
+                    android:padding="12dp"
+                    android:text="Giải ngân cho người bán\nGiao dịch chuyển sang Đã giải ngân (Released)"
+                    android:textColor="@color/f2h_text"
+                    android:textSize="14sp" />
+            </RadioGroup>
+        </LinearLayout>
+    </ScrollView>
+
+    <View
+        android:id="@+id/viewDetailActionDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/f2h_border" />
+
+    <LinearLayout
+        android:id="@+id/layoutDetailActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/f2h_bg"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/btnDetailSecondary"
+            style="@style/AdminButton" />
+
+        <TextView
+            android:id="@+id/btnDetailPrimary"
+            style="@style/AdminButton"
+            android:layout_marginStart="10dp" />
+    </LinearLayout>
+</LinearLayout>
