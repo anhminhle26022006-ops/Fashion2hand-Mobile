@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    function validPost(data) {
+      return data.keys().hasAll(['ownerId','title','description','type','price','condition','status','createdAt','updatedAt'])
+        && data.ownerId is string
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 160
+        && data.description is string
+        && ((data.type == 'FREE' && data.price == 0) || (data.type == 'SALE' && data.price > 0))
+        && data.condition in ['NEW','LIKE_NEW','GOOD','FAIR'];
+    }
+
+    match /users/{uid} {
+      allow read: if owns(uid);
+      allow create: if owns(uid) && request.resource.data.uid == uid
+        && request.resource.data.role == 'USER';
+      allow update: if owns(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role;
+      allow delete: if false;
+      match /addresses/{addressId} {
+        allow read, create, update, delete: if owns(uid);
+      }
+      match /notifications/{notificationId} {
+        allow read, update: if owns(uid);
+        allow create, delete: if false;
+      }
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /posts/{postId} {
+      allow read: if resource.data.status == 'ACTIVE'
+        || (signedIn() && resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid
+        && validPost(request.resource.data)
+        && request.resource.data.status in ['DRAFT','PENDING_REVIEW'];
+      allow update: if signedIn() && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.status == resource.data.status
+        && validPost(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid
+        && resource.data.status in ['DRAFT','REJECTED'];
+      match /images/{imageId} {
+        allow read: if get(/databases/$(database)/documents/posts/$(postId)).data.status == 'ACTIVE'
+          || (signedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.ownerId == request.auth.uid);
+        allow write: if signedIn()
+          && get(/databases/$(database)/documents/posts/$(postId)).data.ownerId == request.auth.uid;
+      }
+    }
+
+    match /users/{uid}/favorites/{postId} {
+      allow read, create, delete: if owns(uid);
+      allow update: if false;
+    }
+    match /users/{uid}/cartItems/{postId} {
+      allow read, create, update, delete: if owns(uid);
+    }
+    match /freeRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.requesterId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'PENDING';
+      allow update, delete: if false;
+    }
+    match /orders/{orderId} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId == request.auth.uid);
+        allow write: if false;
+      }
+      match /statusEvents/{eventId} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+    match /payments/{id} { allow read, write: if false; }
+    match /refunds/{id} { allow read, write: if false; }
+    match /payouts/{id} { allow read, write: if false; }
+    match /shipments/{id} { allow read: if signedIn(); allow write: if false; }
+    match /chats/{chatId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
+      allow write: if false;
+      match /messages/{messageId} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+        allow create: if signedIn() && request.resource.data.senderId == request.auth.uid
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+        allow update, delete: if false;
+      }
+    }
+    match /reviews/{id} { allow read: if true; allow write: if false; }
+    match /reports/{id} { allow create: if signedIn() && request.resource.data.reporterId == request.auth.uid; allow read, update, delete: if false; }
+    match /disputes/{id} { allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid); allow write: if false; }
+    match /verificationRequests/{id} { allow create: if signedIn() && request.resource.data.userId == request.auth.uid; allow read, update, delete: if false; }
+    match /shippingTariffs/{id} { allow read: if true; allow write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
