@@ -1,34 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
-        <TextView android:id="@+id/btnListingsBack" android:layout_width="44dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="32sp" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Tin đăng của tôi" android:textColor="#173B32" android:textSize="19sp" android:textStyle="bold" />
-        <TextView android:id="@+id/btnCreateListing" android:layout_width="44dp" android:layout_height="48dp" android:gravity="center" android:text="＋" android:textColor="#23795C" android:textSize="24sp" />
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đang hiển thị  2" android:textColor="#23795C" android:textSize="14sp" android:textStyle="bold" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="26dp" android:text="Đã ẩn  1" android:textColor="#75857F" android:textSize="14sp" />
-    </LinearLayout>
-    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_white_card_rounded" android:padding="12dp" android:layout_marginBottom="10dp">
-                <TextView android:layout_width="64dp" android:layout_height="70dp" android:gravity="center" android:background="#E4F0E8" android:text="🧥" android:textSize="34sp" />
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Áo khoác denim" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="120.000đ  ·  24 lượt xem" android:textColor="#75857F" android:textSize="12sp" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Đang hiển thị" android:textColor="#23795C" android:textSize="12sp" />
-                </LinearLayout>
-                <TextView android:id="@+id/btnEditListing1" android:layout_width="42dp" android:layout_height="48dp" android:gravity="center" android:text="✎" android:textColor="#23795C" android:textSize="20sp" />
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_white_card_rounded" android:padding="12dp">
-                <TextView android:layout_width="64dp" android:layout_height="70dp" android:gravity="center" android:background="#E4F0E8" android:text="👕" android:textSize="34sp" />
-                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="12dp">
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Áo thun basic" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Miễn phí  ·  18 lượt xem" android:textColor="#75857F" android:textSize="12sp" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Đang hiển thị" android:textColor="#23795C" android:textSize="12sp" />
-                </LinearLayout>
-                <TextView android:id="@+id/btnEditListing2" android:layout_width="42dp" android:layout_height="48dp" android:gravity="center" android:text="✎" android:textColor="#23795C" android:textSize="20sp" />
-            </LinearLayout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
+        <TextView android:id="@+id/btnListingsBack" android:layout_width="40dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TỦ ĐỒ CỦA BẠN" android:textColor="#E66F55" android:textSize="8sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Tin đăng của tôi" android:textColor="#173B32" android:textSize="19sp" />
         </LinearLayout>
+        <TextView android:id="@+id/btnCreateListing" android:layout_width="40dp" android:layout_height="40dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="＋" android:textColor="#173B32" android:textSize="24sp" />
+    </LinearLayout>
+
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="48dp" android:scrollbars="none">
+        <RadioGroup android:id="@+id/listingFilters" android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="12dp">
+            <RadioButton android:id="@+id/filterListingAll" android:layout_width="wrap_content" android:layout_height="30dp" android:button="@null" android:checked="true" android:background="@drawable/bg_listing_filter" android:gravity="center" android:minWidth="52dp" android:paddingHorizontal="11dp" android:text="Tất cả" android:textColor="@color/listing_filter_text" android:textSize="9sp" />
+            <RadioButton android:id="@+id/filterListingSelling" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:button="@null" android:background="@drawable/bg_listing_filter" android:gravity="center" android:paddingHorizontal="11dp" android:text="Đang bán" android:textColor="@color/listing_filter_text" android:textSize="9sp" />
+            <RadioButton android:id="@+id/filterListingPending" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:button="@null" android:background="@drawable/bg_listing_filter" android:gravity="center" android:paddingHorizontal="11dp" android:text="Đã đặt" android:textColor="@color/listing_filter_text" android:textSize="9sp" />
+            <RadioButton android:id="@+id/filterListingSold" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:button="@null" android:background="@drawable/bg_listing_filter" android:gravity="center" android:paddingHorizontal="11dp" android:text="Đã bán" android:textColor="@color/listing_filter_text" android:textSize="9sp" />
+            <RadioButton android:id="@+id/filterListingGift" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:button="@null" android:background="@drawable/bg_listing_filter" android:gravity="center" android:paddingHorizontal="11dp" android:text="Đã tặng" android:textColor="@color/listing_filter_text" android:textSize="9sp" />
+        </RadioGroup>
+    </HorizontalScrollView>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:id="@+id/myListingsContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingTop="5dp" android:paddingBottom="12dp" />
     </ScrollView>
+
+    <include layout="@layout/bottom_navigation" />
 </LinearLayout>

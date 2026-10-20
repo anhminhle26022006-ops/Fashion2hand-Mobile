@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:background="#FFFFFF">
+        <TextView
+            android:id="@+id/btnAddressFormBack"
+            android:layout_width="40dp"
+            android:layout_height="42dp"
+            android:gravity="center"
+            android:text="‹"
+            android:textColor="#173B32"
+            android:textSize="30sp"
+            android:clickable="true"
+            android:focusable="true" />
+        <TextView
+            android:id="@+id/txtAddressFormTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Thêm địa chỉ mới"
+            android:textColor="#173B32"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+        <View android:layout_width="40dp" android:layout_height="1dp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Thông tin người nhận"
+                android:textColor="#173B32"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="Họ và tên người nhận" android:textColor="#52645A" android:textSize="10sp" android:textStyle="bold" />
+            <EditText android:id="@+id/edtAddressRecipient" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="5dp" android:background="@drawable/bg_white_card_rounded" android:hint="Nhập họ tên" android:inputType="textPersonName|textCapWords" android:paddingHorizontal="12dp" android:textColor="#173B32" android:textSize="11sp" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Số điện thoại" android:textColor="#52645A" android:textSize="10sp" android:textStyle="bold" />
+            <EditText android:id="@+id/edtAddressPhone" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="5dp" android:background="@drawable/bg_white_card_rounded" android:hint="Ví dụ: 0901 234 567" android:inputType="phone" android:paddingHorizontal="12dp" android:textColor="#173B32" android:textSize="11sp" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="Địa chỉ nhận hàng" android:textColor="#173B32" android:textSize="13sp" android:textStyle="bold" />
+            <EditText android:id="@+id/edtAddressProvince" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="12dp" android:background="@drawable/bg_white_card_rounded" android:hint="Tỉnh / thành phố" android:inputType="textCapWords" android:paddingHorizontal="12dp" android:textColor="#173B32" android:textSize="11sp" />
+            <EditText android:id="@+id/edtAddressDistrict" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="8dp" android:background="@drawable/bg_white_card_rounded" android:hint="Quận / huyện" android:inputType="textCapWords" android:paddingHorizontal="12dp" android:textColor="#173B32" android:textSize="11sp" />
+            <EditText android:id="@+id/edtAddressWard" android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="8dp" android:background="@drawable/bg_white_card_rounded" android:hint="Phường / xã" android:inputType="textCapWords" android:paddingHorizontal="12dp" android:textColor="#173B32" android:textSize="11sp" />
+            <EditText android:id="@+id/edtAddressStreet" android:layout_width="match_parent" android:layout_height="76dp" android:layout_marginTop="8dp" android:background="@drawable/bg_white_card_rounded" android:gravity="top|start" android:hint="Số nhà, tên đường, tòa nhà..." android:inputType="textPostalAddress|textMultiLine" android:padding="12dp" android:textColor="#173B32" android:textSize="11sp" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="Loại địa chỉ" android:textColor="#173B32" android:textSize="12sp" android:textStyle="bold" />
+            <RadioGroup android:id="@+id/rgAddressType" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:orientation="horizontal">
+                <RadioButton android:id="@+id/radioAddressHome" android:layout_width="wrap_content" android:layout_height="42dp" android:buttonTint="#104536" android:checked="true" android:text="Nhà riêng" android:textColor="#52645A" android:textSize="10sp" />
+                <RadioButton android:id="@+id/radioAddressWork" android:layout_width="wrap_content" android:layout_height="42dp" android:layout_marginStart="16dp" android:buttonTint="#104536" android:text="Văn phòng" android:textColor="#52645A" android:textSize="10sp" />
+            </RadioGroup>
+            <CheckBox android:id="@+id/checkAddressDefault" android:layout_width="match_parent" android:layout_height="wrap_content" android:buttonTint="#104536" android:text="Đặt làm địa chỉ nhận hàng mặc định" android:textColor="#52645A" android:textSize="10sp" />
+
+            <Button android:id="@+id/btnSaveAddress" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="14dp" android:backgroundTint="#104536" android:text="Lưu địa chỉ" android:textAllCaps="false" android:textColor="#FFFFFF" android:textStyle="bold" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -131,6 +131,7 @@
                         android:textColor="#273E29" />
 
                     <TextView
+                        android:id="@+id/txtFreeRequestProductName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Áo sơ mi linen trắng"
