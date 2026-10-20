@@ -13,14 +13,14 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 | `posts/{postId}/images/{imageId}` | Đường dẫn Firebase Storage, thứ tự ảnh, thời gian tạo. File ảnh lưu ở Storage, không lưu trực tiếp trong document. |
 | `users/{uid}/favorites/{postId}` | ID bài đăng và thời điểm yêu thích. Dùng post ID làm document ID để tránh yêu thích trùng. |
 | `users/{uid}/cartItems/{postId}` | ID bài đăng, snapshot người bán, thời gian thêm. Giỏ có thể chứa nhiều người bán; checkout chia thành một đơn cho mỗi người bán. |
-| `freeRequests/{requestId}` | ID bài đăng/chủ/người yêu cầu, lời nhắn, trạng thái PENDING/ACCEPTED/REJECTED/CANCELLED, phản hồi, order ID nếu được nhận, timestamp. Chủ bài nhận đúng một yêu cầu bằng transaction. |
-| `orders/{orderId}` | ID người mua/người bán, SALE/FREE, tiền hàng/phí ship/tổng tiền VND, trạng thái đơn/thanh toán/vận chuyển, snapshot báo giá và biểu phí vận chuyển, snapshot địa chỉ giao/nhận, hạn giữ hàng và hạn phản hồi, các mốc thời gian. Mỗi đơn chỉ có một người bán. |
+| `freeRequests/{requestId}` | ID bài đăng/chủ/người yêu cầu, lời nhắn, địa chỉ nhận tùy chọn, trạng thái PENDING/ACCEPTED/REJECTED/CANCELLED/UNAVAILABLE, order ID nếu được nhận, timestamp. Chủ bài chỉ nhận một yêu cầu bằng transaction; yêu cầu còn lại được đánh dấu UNAVAILABLE. |
+| `orders/{orderId}` | ID người mua/người bán, `orderType` PAID/FREE, tiền hàng/phí ship/tổng tiền VND, trạng thái đơn/thanh toán/vận chuyển, snapshot sản phẩm và địa chỉ nhận tùy chọn, hạn giữ hàng và hạn phản hồi, các mốc thời gian. Mỗi đơn chỉ có một người bán. |
 | `orders/{orderId}/items/{itemId}` | ID bài đăng và snapshot tiêu đề/ảnh/tình trạng/giá; hàng secondhand có số lượng 1. |
 | `orders/{orderId}/statusEvents/{eventId}` | Trạng thái trước/sau, ID/loại người thực hiện, lý do, thời gian. Server ghi lịch sử, không sửa/xóa sự kiện cũ. |
-| `payments/{paymentId}` | Đơn, người trả, VNPAY_SANDBOX, số tiền, trạng thái, mã giao dịch phía cổng, idempotency key, timestamp. Chỉ server được ghi. |
-| `moneyTransactions/{id}` | Đơn/thanh toán, PAYMENT_RECEIVED/REFUND/SELLER_PAYOUT, số tiền, chế độ SIMULATED, idempotency key và lịch sử. |
+| `payments/{paymentId}` | Đơn, người trả, SIMULATED (chờ cấu hình cổng thật), số tiền, trạng thái, mã tham chiếu mô phỏng/nhà cung cấp, timestamp. Chỉ server được ghi. |
+| `moneyTransactions/{id}` | Đơn/thanh toán, PAYMENT_RECEIVED/REFUND/SELLER_PAYOUT, số tiền, trạng thái và chế độ SIMULATED; không di chuyển tiền thật. |
 | `refunds/{id}` và `payouts/{id}` | Đơn, thanh toán/người bán, số tiền hoàn toàn phần, lý do/trạng thái, chế độ SIMULATED và thời điểm hoàn tất. Không lưu thông tin tài khoản ngân hàng thật. |
-| `shipments/{shipmentId}` | Đơn, MOCK_CARRIER, mã vận đơn, trạng thái, phí ship, dự kiến giao và timestamp. |
+| `shipments/{shipmentId}` | Đơn, MOCK_CARRIER, mã vận đơn, trạng thái, phí ship mô phỏng và timestamp. |
 | `shipments/{id}/trackingEvents/{eventId}` | Trạng thái, mô tả, địa điểm, nguồn MOCK và thời điểm sự kiện. |
 | `chats/{chatId}` | Danh sách ID thành viên, ID bài đăng và order tùy chọn, tin nhắn gần nhất, thời gian cập nhật. |
 | `chats/{chatId}/messages/{messageId}` | ID người gửi, loại TEXT/IMAGE, nội dung hoặc đường dẫn Storage, thời điểm gửi/đọc. |
@@ -36,7 +36,7 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 
 - Giữ bài đăng chưa thanh toán 15 phút. Sau khi thanh toán thành công, người bán có 48 giờ phản hồi; hết hạn thì hủy đơn, mở lại bài đăng và ghi nhận hoàn tiền mô phỏng.
 - Người mua chỉ được hủy trước khi người bán chuyển đơn sang `PREPARING`.
-- Phí vận chuyển mô phỏng: `max(15.000 VND, quãng đường thẳng km × 3.000 VND)`, tính từ tọa độ địa chỉ đã lưu và lưu snapshot giá/phiên bản vào đơn. Người nhận trả phí ship với món FREE.
+- Phí vận chuyển hiện mô phỏng bằng `shippingTariffs/active.minimumFeeVnd` (mặc định 15.000 VND); chưa tính quãng đường hay gọi hãng vận chuyển. Người nhận trả phí ship với món FREE.
 - Sau khi giao thành công, người mua có 3 ngày mở khiếu nại. Admin chọn hoàn toàn phần hoặc giải ngân mô phỏng; phiên bản này không hoàn một phần và không chuyển tiền thật.
 - Lưu lịch sử trạng thái, thông báo, giỏ hàng và nhiều địa chỉ. Chat gắn với bài đăng, có thể gắn thêm đơn hàng.
-- Firestore không tự bảo đảm unique hay ràng buộc nhiều document. Dùng document ID xác định và transaction/server code để bảo đảm một đánh giá mỗi đơn, một địa chỉ mặc định, và chỉ một người nhận món FREE.
+- Firestore không tự bảo đảm unique hay ràng buộc nhiều document. Dùng document ID xác định và transaction/server code để bảo đảm một đánh giá mỗi đơn, một địa chỉ mặc định, và chỉ một người nhận món FREE. Luồng thành viên 2 được xử lý qua Cloud Functions; client chỉ đọc dữ liệu liên quan đến chính họ.
