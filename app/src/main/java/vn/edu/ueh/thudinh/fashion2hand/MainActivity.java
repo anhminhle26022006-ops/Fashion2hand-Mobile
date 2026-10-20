@@ -43,6 +43,9 @@ import vn.edu.ueh.thudinh.fashion2hand.repository.AuthRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.MemberTwoRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.MemberOneRepository;
+
+// --- Bổ sung các import Firebase còn thiếu ---
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -50,7 +53,9 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.functions.HttpsCallableResult;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -125,7 +130,12 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Kết nối ứng dụng Android với bộ giả lập (Emulator) chạy trên máy tính
+        FirebaseFirestore.getInstance().useEmulator("10.0.2.2", 8080);
+        FirebaseAuth.getInstance().useEmulator("10.0.2.2", 9099);
+        FirebaseStorage.getInstance().useEmulator("10.0.2.2", 9199);
         super.onCreate(savedInstanceState);
+
         galleryPicker = registerForActivityResult(new ActivityResultContracts.GetMultipleContents(), uris -> {
             if (uris != null && !uris.isEmpty()) {
                 int remaining = 8 - selectedListingPhotos.size();
@@ -178,6 +188,18 @@ public class MainActivity extends AppCompatActivity {
                 showScreen(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
             }
         }, 1200);
+
+        // Đăng ký bộ xử lý nút Back theo chuẩn AndroidX mới
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (currentScreen == R.layout.activity_home || currentScreen == R.layout.activity_login) {
+                    finish();
+                } else {
+                    showScreen(R.layout.activity_home);
+                }
+            }
+        });
     }
 
     private void showScreen(int layoutId) {
@@ -263,7 +285,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applySystemBarInsets() {
-        android.view.ViewGroup root = findViewById(android.R.id.content);
+        ViewGroup root = findViewById(android.R.id.content);
         if (root == null || root.getChildCount() == 0) return;
         View content = root.getChildAt(0);
         int initialLeft = content.getPaddingLeft();
@@ -300,7 +322,6 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            // Phân quyền: tài khoản ADMIN được chuyển sang khu vực quản trị
             if (AdminRepository.getInstance().isAdminEmail(emailValue)) {
                 startActivity(new Intent(this, AdminLoginActivity.class));
                 return;
@@ -312,15 +333,9 @@ public class MainActivity extends AppCompatActivity {
         });
 
         bindClick(R.id.btnOpenRegister, () -> showScreen(R.layout.activity_register));
-
         bindClick(R.id.btnOpenAdminLogin, () -> startActivity(new Intent(this, AdminLoginActivity.class)));
-
-        bindClick(R.id.btnGoogleLogin, () -> {
-            startGoogleSignIn();
-        });
-
-        bindClick(R.id.btnForgotPassword, () ->
-                showScreen(R.layout.activity_forgot_password));
+        bindClick(R.id.btnGoogleLogin, this::startGoogleSignIn);
+        bindClick(R.id.btnForgotPassword, () -> showScreen(R.layout.activity_forgot_password));
     }
 
     private void startGoogleSignIn() {
@@ -430,17 +445,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindOtpVerification() {
         TextView title = findViewById(R.id.txtOtpTitle);
-        TextView description = findViewById(R.id.txtOtpDescription);
+        TextView descView = findViewById(R.id.txtOtpDescription);
         TextView target = findViewById(R.id.txtOtpTarget);
         if ("email_change".equals(otpFlow)) {
             title.setText("Xác nhận email mới");
-            description.setText("Nhập mã xác thực được gửi đến email mới:");
+            descView.setText("Nhập mã xác thực được gửi đến email mới:");
         } else if ("phone_verify".equals(otpFlow) || "phone_change".equals(otpFlow)) {
             title.setText("Xác minh số điện thoại");
-            description.setText("Nhập mã OTP được gửi đến số điện thoại:");
+            descView.setText("Nhập mã OTP được gửi đến số điện thoại:");
         } else {
             title.setText("Nhập mã xác thực");
-            description.setText("Nhập mã xác thực được gửi đến email:");
+            descView.setText("Nhập mã xác thực được gửi đến email:");
         }
         target.setText(otpTarget);
         bindClick(R.id.btnOtpBack, () -> {
@@ -549,12 +564,6 @@ public class MainActivity extends AppCompatActivity {
         listenForActivePosts();
     }
 
-    private void updateHomeFavoriteHeart(TextView heart, boolean saved) {
-        if (heart == null) return;
-        heart.setText(saved ? "♥" : "♡");
-        heart.setTextColor(saved ? 0xFFF0785D : 0xFF274238);
-    }
-
     private void openExploreWithCategory(String category) {
         selectedCategory = category;
         showScreen(R.layout.activity_explore);
@@ -616,12 +625,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addEmptyProductsMessage(GridLayout grid, String message) {
-        TextView empty = new TextView(this);
-        empty.setText(message); empty.setTextColor(0xFF75857F); empty.setTextSize(12); empty.setGravity(17);
-        empty.setPadding(dp(20), dp(28), dp(20), dp(28));
+        TextView emptyView = new TextView(this);
+        emptyView.setText(message); emptyView.setTextColor(0xFF75857F); emptyView.setTextSize(12); emptyView.setGravity(17);
+        emptyView.setPadding(dp(20), dp(28), dp(20), dp(28));
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
         params.width = -1; params.columnSpec = GridLayout.spec(0, 2);
-        grid.addView(empty, params);
+        grid.addView(emptyView, params);
     }
 
     private View createProductCard(DocumentSnapshot post, boolean explore) {
@@ -695,7 +704,7 @@ public class MainActivity extends AppCompatActivity {
         Object url = ((List<?>) raw).get(index);
         if (!(url instanceof String) || ((String) url).isEmpty()) return;
         target.setVisibility(View.INVISIBLE); fallback.setVisibility(View.VISIBLE);
-        com.google.firebase.storage.FirebaseStorage.getInstance().getReferenceFromUrl((String) url)
+        FirebaseStorage.getInstance().getReferenceFromUrl((String) url)
                 .getBytes(10 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
@@ -749,76 +758,6 @@ public class MainActivity extends AppCompatActivity {
         }
         TextView empty = findViewById(R.id.txtFavoritesEmpty);
         if (empty != null) empty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
-        if (count >= 0) return;
-        String[][] products = {
-                {"👕", "Áo thun basic", "0 đ", "Tốt · M · Quận 3", "FREE · 0đ", "#E4F0E8", "available", "home_favorite_1"},
-                {"👗", "Váy hoa vintage", "0 đ", "Tốt · S · Thủ Đức", "FREE · 0đ", "#EEE9F7", "available", "home_favorite_2"},
-                {"👖", "Quần jeans xanh", "0 đ", "Tốt · L · Bình Thạnh", "FREE · 0đ", "#E7EEF8", "unavailable", "home_favorite_3"},
-                {"🥼", "Áo khoác denim", "120.000 đ", "Tốt · M · Quận 1", "FOR SALE", "#F4EBDD", "available", "home_favorite_4"}
-        };
-        android.content.SharedPreferences favorites = getSharedPreferences("favorite_products", MODE_PRIVATE);
-        int favoriteCount = 0;
-        for (String[] product : products) {
-            if (!favorites.getBoolean(product[7], false)) continue;
-            if (filterId == R.id.filterFavoritesAvailable && !"available".equals(product[6])) continue;
-            if (filterId == R.id.filterFavoritesUnavailable && !"unavailable".equals(product[6])) continue;
-            favoriteCount++;
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(0, 0, 0, dp(8));
-            card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            card.setClipToOutline(true);
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = 0;
-            params.height = GridLayout.LayoutParams.WRAP_CONTENT;
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            params.setMargins(0, 0, dp(8), dp(14));
-            card.setLayoutParams(params);
-
-            FrameLayout photo = new FrameLayout(this);
-            photo.setBackgroundColor(android.graphics.Color.parseColor(product[5]));
-            TextView emoji = new TextView(this);
-            emoji.setText(product[0]); emoji.setTextSize(48); emoji.setGravity(17);
-            photo.addView(emoji, new FrameLayout.LayoutParams(-1, dp(150)));
-            if ("unavailable".equals(product[6])) {
-                View dim = new View(this);
-                dim.setBackgroundColor(0x55333333);
-                photo.addView(dim, new FrameLayout.LayoutParams(-1, dp(150)));
-            }
-            TextView badge = new TextView(this);
-            badge.setText("unavailable".equals(product[6]) ? "ĐÃ BÁN" : product[4]);
-            badge.setTextSize(8); badge.setTextColor(0xFFFFFFFF); badge.setTypeface(null, android.graphics.Typeface.BOLD);
-            badge.setPadding(dp(7), dp(4), dp(7), dp(4)); badge.setBackgroundResource(R.drawable.bg_button_primary);
-            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM | android.view.Gravity.START);
-            badgeParams.setMargins(dp(7), 0, 0, dp(7)); photo.addView(badge, badgeParams);
-            TextView heart = new TextView(this);
-            heart.setText("♥"); heart.setTextSize(17); heart.setTextColor(0xFFF0785D); heart.setGravity(17); heart.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            FrameLayout.LayoutParams heartParams = new FrameLayout.LayoutParams(dp(32), dp(32), android.view.Gravity.TOP | android.view.Gravity.END);
-            heartParams.setMargins(0, dp(7), dp(7), 0); photo.addView(heart, heartParams);
-            heart.setOnClickListener(v -> {
-                favorites.edit().putBoolean(product[7], false).apply();
-                renderFavoriteProducts(filterId);
-                Toast.makeText(this, "Đã xóa khỏi sản phẩm đã lưu.", Toast.LENGTH_SHORT).show();
-            });
-            card.addView(photo);
-            TextView name = new TextView(this);
-            name.setText(product[1]); name.setTextSize(11); name.setMaxLines(2); name.setTextColor(0xFF173B32); name.setTypeface(null, android.graphics.Typeface.BOLD); name.setPadding(dp(8), dp(8), dp(8), dp(2)); card.addView(name);
-            TextView price = new TextView(this);
-            price.setText(product[2]); price.setTextSize(10); price.setTextColor(0xFFE66F55); price.setPadding(dp(8), dp(2), dp(8), dp(2)); card.addView(price);
-            TextView meta = new TextView(this);
-            meta.setText(product[3]); meta.setTextSize(9); meta.setTextColor(0xFF75857F); meta.setPadding(dp(8), dp(2), dp(8), 0); card.addView(meta);
-            card.setOnClickListener(v -> openProduct(product[1], product[0], product[2]));
-            grid.addView(card);
-        }
-        if (favoriteCount == 0) {
-            TextView empty = new TextView(this);
-            empty.setText("Chưa có sản phẩm đã lưu. Chạm vào ♡ trên món đồ bạn thích.");
-            empty.setTextColor(0xFF75857F); empty.setTextSize(12); empty.setGravity(android.view.Gravity.CENTER);
-            empty.setPadding(dp(24), dp(36), dp(24), dp(36));
-            GridLayout.LayoutParams emptyParams = new GridLayout.LayoutParams();
-            emptyParams.width = -1; emptyParams.columnSpec = GridLayout.spec(0, 2); empty.setLayoutParams(emptyParams);
-            grid.addView(empty);
-        }
     }
 
     private void bindMyListings() {
@@ -911,8 +850,9 @@ public class MainActivity extends AppCompatActivity {
                 R.id.filterOrdersPrepare, R.id.filterOrdersShipping, R.id.filterOrdersDone};
         String[] statuses = {"all", "unpaid", "confirm", "prepare", "shipping", "done"};
         for (int i = 0; i < statusIds.length; i++) {
-            final String status = statuses[i];
-            bindClick(statusIds[i], () -> setOrderStatusFilter(status));
+            final String status = statuses[i]; // Khai báo final rõ ràng
+            final int statusId = statusIds[i];
+            bindClick(statusId, () -> setOrderStatusFilter(status));
         }
         EditText search = findViewById(R.id.edtOrderSearch);
         if (search != null) search.addTextChangedListener(new TextWatcher() {
@@ -1010,29 +950,6 @@ public class MainActivity extends AppCompatActivity {
             case "CANCELLED": return "Đã hủy";
             default: return status;
         }
-    }
-
-    private void addSupplementalOrderCard(String orderId, String status, String product, String statusLabel) {
-        LinearLayout container = findViewById(R.id.orderListContainer);
-        TextView empty = findViewById(R.id.txtOrdersEmpty);
-        if (container == null || empty == null) return;
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(12), dp(10), dp(12), dp(10));
-        card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-        params.bottomMargin = dp(10);
-        card.setLayoutParams(params);
-        card.setTag("buyer|" + status + "|" + orderId.toLowerCase(java.util.Locale.ROOT) + " " + product.toLowerCase(java.util.Locale.ROOT));
-        TextView title = new TextView(this);
-        title.setText("#" + orderId + "  ·  " + statusLabel);
-        title.setTextColor(0xFF173B32); title.setTextSize(11); title.setTypeface(null, android.graphics.Typeface.BOLD);
-        TextView detail = new TextView(this);
-        detail.setText(product + "  ·  Đơn mua / nhận"); detail.setTextColor(0xFF75857F); detail.setTextSize(10);
-        detail.setPadding(0, dp(5), 0, 0);
-        card.addView(title); card.addView(detail);
-        card.setOnClickListener(v -> showScreen(R.layout.activity_order_detail));
-        container.addView(card, container.indexOfChild(empty));
     }
 
     private void setOrderRoleFilter(String role) {
@@ -1345,7 +1262,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadAvatarIntoTextView(String url, TextView target) {
         if (url == null || url.isEmpty() || target == null) return;
-        com.google.firebase.storage.FirebaseStorage.getInstance().getReferenceFromUrl(url)
+        FirebaseStorage.getInstance().getReferenceFromUrl(url)
                 .getBytes(5 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
@@ -1576,24 +1493,24 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindCancelOrder() {
         RadioGroup reasons = findViewById(R.id.rgCancelReason);
-        EditText description = findViewById(R.id.edtCancelDescription);
+        EditText descInput = findViewById(R.id.edtCancelDescription);
         Button submit = findViewById(R.id.btnSubmitCancel);
         Runnable updateSubmitState = () -> {
-            boolean ready = reasons.getCheckedRadioButtonId() != -1 && !description.getText().toString().trim().isEmpty();
+            boolean ready = reasons.getCheckedRadioButtonId() != -1 && !descInput.getText().toString().trim().isEmpty();
             submit.setEnabled(ready);
             submit.setAlpha(ready ? 1f : 0.55f);
             submit.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ready ? 0xFF104536 : 0xFFE4E8E5));
             submit.setTextColor(ready ? 0xFFFFFFFF : 0xFF75857F);
         };
         reasons.setOnCheckedChangeListener((group, checkedId) -> updateSubmitState.run());
-        description.addTextChangedListener(new TextWatcher() {
+        descInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { updateSubmitState.run(); }
             @Override public void afterTextChanged(Editable s) { }
         });
         bindClick(R.id.btnCloseCancel, () -> showScreen(R.layout.activity_order_detail));
         bindClick(R.id.btnSubmitCancel, () -> {
-            if (reasons.getCheckedRadioButtonId() == -1 || description.getText().toString().trim().isEmpty()) return;
+            if (reasons.getCheckedRadioButtonId() == -1 || descInput.getText().toString().trim().isEmpty()) return;
             if (currentOrderId.isEmpty() || !requireSignedIn()) return;
             memberTwoRepository.cancelOrder(currentOrderId).addOnSuccessListener(result -> {
                 Toast.makeText(this, "Đã hủy đơn.", Toast.LENGTH_SHORT).show();
@@ -1825,8 +1742,9 @@ public class MainActivity extends AppCompatActivity {
                 R.id.filterNotifRequests, R.id.filterNotifPayments};
         String[] filters = {"all", "orders", "messages", "requests", "payments"};
         for (int i = 0; i < filterIds.length; i++) {
-            final String filter = filters[i];
-            bindClick(filterIds[i], () -> {
+            final String filter = filters[i]; // Khai báo final
+            final int filterId = filterIds[i];
+            bindClick(filterId, () -> {
                 notificationFilter = filter;
                 applyNotificationFilter(filterIds, filters);
             });
@@ -1835,7 +1753,7 @@ public class MainActivity extends AppCompatActivity {
                 R.id.notifRowPayment, R.id.notifRowRequestDone, R.id.notifRowDispute};
         int[] unreadIds = {R.id.notifUnread1, R.id.notifUnread2, R.id.notifUnread3};
         for (int i = 0; i < rowIds.length; i++) {
-            final int rowId = rowIds[i];
+            final int rowId = rowIds[i]; // Khai báo final
             final int unreadId = i < unreadIds.length ? unreadIds[i] : View.NO_ID;
             View row = findViewById(rowId);
             boolean read = getSharedPreferences("notifications_demo", MODE_PRIVATE).getBoolean("read_" + rowId, false);
@@ -1845,11 +1763,13 @@ public class MainActivity extends AppCompatActivity {
                 getSharedPreferences("notifications_demo", MODE_PRIVATE).edit().putBoolean("read_" + rowId, true).apply();
                 if (unreadId != View.NO_ID) findViewById(unreadId).setVisibility(View.GONE);
                 row.setBackgroundColor(0xFFFFFFFF);
-                if (rowId == R.id.notifRowFreeRequest || rowId == R.id.notifRowRequestDone) showScreen(R.layout.activity_transactions);
+                if (rowId == R.id.notifRowFreeRequest || rowId == R.id.notifRowRequestDone)
+                    showScreen(R.layout.activity_transactions);
                 else if (rowId == R.id.notifRowMessage) {
                     chatReturnScreen = R.layout.activity_messages;
                     showScreen(R.layout.activity_messages);
-                } else if (rowId == R.id.notifRowPayment) showScreen(R.layout.activity_payment_info);
+                } else if (rowId == R.id.notifRowPayment)
+                    showScreen(R.layout.activity_payment_info);
                 else showScreen(R.layout.activity_order_detail);
             });
         }
@@ -1913,144 +1833,12 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void renderMyListings(int filterId) {
-        LinearLayout container = findViewById(R.id.myListingsContainer);
-        if (container == null) return;
-        container.removeAllViews();
-        String[][] listings = {
-                {"👚", "Áo sơ mi linen trắng", "FREE · 0đ", "3 yêu cầu", "Đang hoạt động", "selling", "gift"},
-                {"🧥", "Vintage Denim Jacket", "120.000 đ", "86 lượt xem · 12 lượt thích", "Đã đặt trước", "pending", "sale"},
-                {"👖", "Quần jeans ống rộng", "85.000 đ", "124 lượt xem · 18 lượt thích", "Đã bán", "sold", "sale"},
-                {"👗", "Váy hoa mùa hè", "FREE · 0đ", "16 lượt xem", "Đã tặng", "gifted", "gift"}
-        };
-        for (String[] listing : listings) {
-            boolean matches = filterId == R.id.filterListingAll
-                    || filterId == R.id.filterListingSelling && "selling".equals(listing[5])
-                    || filterId == R.id.filterListingPending && "pending".equals(listing[5])
-                    || filterId == R.id.filterListingSold && "sold".equals(listing[5])
-                    || filterId == R.id.filterListingGift && "gifted".equals(listing[5]);
-            if (!matches) continue;
-
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            card.setPadding(dp(9), dp(9), dp(9), dp(5));
-            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
-            cardParams.bottomMargin = dp(9);
-            card.setLayoutParams(cardParams);
-
-            LinearLayout detailsRow = new LinearLayout(this);
-            detailsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            detailsRow.setOrientation(LinearLayout.HORIZONTAL);
-            FrameLayout photo = new FrameLayout(this); photo.setBackgroundColor(0xFFE8E6E0);
-            TextView photoFallback = new TextView(this); photoFallback.setText(listing[0]); photoFallback.setTextSize(32); photoFallback.setGravity(17);
-            photo.addView(photoFallback, new FrameLayout.LayoutParams(-1, -1));
-            ImageView photoImage = new ImageView(this); photoImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            photo.addView(photoImage, new FrameLayout.LayoutParams(-1, -1));
-            loadPostPhoto(post.getData(), 0, photoImage, photoFallback);
-            detailsRow.addView(photo, new LinearLayout.LayoutParams(dp(66), dp(78)));
-            LinearLayout info = new LinearLayout(this);
-            info.setOrientation(LinearLayout.VERTICAL);
-            info.setPadding(dp(9), 0, 0, 0);
-            detailsRow.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-            TextView priceTag = new TextView(this);
-            priceTag.setText(listing[2]); priceTag.setTextSize(8); priceTag.setTextColor("gift".equals(listing[6]) ? 0xFF23795C : 0xFFE66F55);
-            priceTag.setTypeface(null, android.graphics.Typeface.BOLD); priceTag.setPadding(dp(6), dp(4), dp(6), dp(4)); priceTag.setBackgroundResource("gift".equals(listing[6]) ? R.drawable.bg_green_light_card : R.drawable.bg_badge_red); info.addView(priceTag);
-            TextView title = new TextView(this);
-            title.setText(listing[1]); title.setTextSize(10); title.setTextColor(0xFF173B32); title.setTypeface(null, android.graphics.Typeface.BOLD); title.setMaxLines(1); title.setPadding(0, dp(4), 0, 0); info.addView(title);
-            TextView stats = new TextView(this);
-            stats.setText(listing[3]); stats.setTextSize(8); stats.setTextColor(0xFF75857F); stats.setPadding(0, dp(3), 0, 0); info.addView(stats);
-            TextView status = new TextView(this);
-            status.setText(listing[4]); status.setTextSize(8); status.setTextColor("sold".equals(listing[5]) ? 0xFFE66F55 : 0xFF23795C); status.setPadding(0, dp(6), 0, 0); info.addView(status);
-            card.addView(detailsRow);
-            View divider = new View(this); divider.setBackgroundColor(0xFFE9EDE9);
-            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, dp(1)); dividerParams.topMargin = dp(7); card.addView(divider, dividerParams);
-            LinearLayout actions = new LinearLayout(this);
-            actions.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            String[] labels = {"Chỉnh sửa", "Xem", "selling".equals(listing[5]) ? "Yêu cầu" : "Ẩn tin", "Xóa"};
-            for (int i = 0; i < labels.length; i++) {
-                final int action = i;
-                TextView button = new TextView(this);
-                button.setText(labels[i]); button.setTextSize(8); button.setGravity(17);
-                button.setTextColor(i == 3 ? 0xFFE66F55 : 0xFF14513E); button.setPadding(dp(2), dp(8), dp(2), dp(5));
-                actions.addView(button, new LinearLayout.LayoutParams(0, -2, 1f));
-                button.setOnClickListener(v -> {
-                    if (action == 1) openProduct(listing[1], listing[0], listing[2]);
-                    else if (action == 3) { container.removeView(card); Toast.makeText(this, "Đã xóa tin đăng.", Toast.LENGTH_SHORT).show(); }
-                    else if (action == 2 && "selling".equals(listing[5])) showScreen(R.layout.activity_transactions);
-                    else if (action == 2) { card.setVisibility(View.GONE); Toast.makeText(this, "Đã ẩn tin đăng.", Toast.LENGTH_SHORT).show(); }
-                    else {
-                        editingListing = true;
-                        currentProductName = listing[1];
-                        showScreen(R.layout.activity_sell_details);
-                    }
-                });
-            }
-            card.addView(actions);
-            container.addView(card);
-        }
-    }
-
     private void showExploreFilterSheet() {
         String[] categories = {"Tất cả", "Áo", "Quần", "Váy", "Nữ", "Nam", "Trẻ em", "Giày", "Túi"};
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Lọc theo danh mục")
                 .setItems(categories, (dialog, which) -> applyExploreFilter(categories[which]))
                 .show();
-    }
-
-    private void addSampleProducts(GridLayout grid) {
-        String[][] products = {
-                {"🧥", "Áo khoác denim vintage", "Như mới · M", "120.000 đ", "FOR SALE", "#D9D6CC", "Nam"},
-                {"👚", "Áo sơ mi linen trắng", "Tốt · S", "0 đ", "FREE · 0đ", "#E9E4DA", "Nữ"},
-                {"👖", "Quần jeans ống rộng", "Rất tốt · L", "85.000 đ", "FOR SALE", "#DFE5E5", "Nam"},
-                {"👟", "Sneaker cổ thấp", "Tốt · Size 38", "150.000 đ", "FOR SALE", "#E8DDD9", "Giày"},
-                {"👜", "Túi đeo vai vintage", "Như mới", "0 đ", "FREE · 0đ", "#E8E0D4", "Túi"},
-                {"👗", "Váy hoa mùa hè", "Tốt · M", "95.000 đ", "FOR SALE", "#E8DFE3", "Nữ"},
-                {"🧥", "Áo khoác trẻ em", "Tốt · Size 120", "45.000 đ", "FOR SALE", "#E6EBDD", "Trẻ em"}
-        };
-        for (String[] product : products) {
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(0, 0, 0, dp(8));
-            card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            card.setClipToOutline(true);
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = 0;
-            params.height = GridLayout.LayoutParams.WRAP_CONTENT;
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            params.setMargins(0, 0, dp(8), dp(12));
-            card.setLayoutParams(params);
-            FrameLayout photo = new FrameLayout(this);
-            photo.setBackgroundColor(android.graphics.Color.parseColor(product[5]));
-            TextView emoji = new TextView(this);
-            emoji.setText(product[0]); emoji.setTextSize(48); emoji.setGravity(17);
-            photo.addView(emoji, new FrameLayout.LayoutParams(-1, dp(142)));
-            TextView badge = new TextView(this);
-            badge.setText(product[4]); badge.setTextSize(8); badge.setTextColor(0xFFFFFFFF);
-            badge.setTypeface(null, android.graphics.Typeface.BOLD);
-            badge.setPadding(dp(7), dp(4), dp(7), dp(4));
-            badge.setBackgroundResource(R.drawable.bg_button_primary);
-            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM | android.view.Gravity.START);
-            badgeParams.setMargins(dp(7), 0, 0, dp(7));
-            photo.addView(badge, badgeParams);
-            TextView favorite = new TextView(this);
-            favorite.setText("♡"); favorite.setTextSize(20); favorite.setTextColor(0xFF274238); favorite.setGravity(17);
-            favorite.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            FrameLayout.LayoutParams favoriteParams = new FrameLayout.LayoutParams(dp(32), dp(32), android.view.Gravity.TOP | android.view.Gravity.END);
-            favoriteParams.setMargins(0, dp(7), dp(7), 0);
-            photo.addView(favorite, favoriteParams);
-            favorite.setOnClickListener(v -> favorite.setText("♥".contentEquals(favorite.getText()) ? "♡" : "♥"));
-            card.addView(photo);
-            TextView name = new TextView(this); name.setText(product[1]); name.setTextSize(11); name.setMaxLines(2); name.setTextColor(0xFF173B32); name.setPadding(dp(8), dp(8), dp(8), dp(3));
-            card.addView(name);
-            TextView price = new TextView(this); price.setText(product[3]); price.setTextSize(10); price.setTextColor(0xFFE66F55); price.setPadding(dp(8), dp(2), dp(8), dp(3)); card.addView(price);
-            TextView meta = new TextView(this); meta.setText(product[2]); meta.setTextSize(9); meta.setTextColor(0xFF75857F); meta.setPadding(dp(8), 0, dp(8), 0); card.addView(meta);
-            card.setTag(product[1]);
-            card.setContentDescription(product[6]);
-            card.setOnClickListener(v -> openProduct(product[1], product[0], product[3]));
-            grid.addView(card);
-        }
     }
 
     private void applyExploreFilter(String category) {
@@ -2098,7 +1886,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showPhotoSourcePicker() {
-        new android.app.AlertDialog.Builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Thêm ảnh sản phẩm")
                 .setItems(new String[]{"Chụp ảnh bằng camera", "Chọn từ thư viện"}, (dialog, which) -> {
                     if (which == 0) cameraPicker.launch(null);
@@ -2132,9 +1920,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindSellDetails() {
         EditText productName = findViewById(R.id.edtProductName);
-        EditText description = findViewById(R.id.edtProductDescription);
+        EditText productDesc = findViewById(R.id.edtProductDescription);
         if (productName != null && (editingListing || listingDraft.containsKey("title"))) productName.setText(String.valueOf(listingDraft.getOrDefault("title", currentProductName)));
-        if (description != null && listingDraft.containsKey("description")) description.setText(String.valueOf(listingDraft.get("description")));
+        if (productDesc != null && listingDraft.containsKey("description")) productDesc.setText(String.valueOf(listingDraft.get("description")));
         setSpinnerOptions(R.id.spinnerCategory, new String[]{"Áo khoác", "Áo thun", "Áo sơ mi", "Quần", "Váy", "Đầm", "Giày dép", "Túi xách", "Phụ kiện"});
         setSpinnerOptions(R.id.spinnerSize, new String[]{"XS", "S", "M", "L", "XL", "XXL", "Free size"});
         setSpinnerOptions(R.id.spinnerCondition, new String[]{"Mới có tag", "Như mới", "Tốt", "Đã qua sử dụng"});
@@ -2155,10 +1943,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean captureSellDetails() {
-        EditText name = findViewById(R.id.edtProductName); EditText description = findViewById(R.id.edtProductDescription);
+        EditText name = findViewById(R.id.edtProductName); EditText productDesc = findViewById(R.id.edtProductDescription);
         if (name == null || name.getText().toString().trim().isEmpty()) { if (name != null) name.setError("Vui lòng nhập tên sản phẩm"); return false; }
         listingDraft.put("title", name.getText().toString().trim()); currentProductName = name.getText().toString().trim();
-        listingDraft.put("description", description == null ? "" : description.getText().toString().trim());
+        listingDraft.put("description", productDesc == null ? "" : productDesc.getText().toString().trim());
         putSpinnerDraft("spinnerCategory", "category"); putSpinnerDraft("spinnerSize", "size");
         String condition = spinnerText(R.id.spinnerCondition, "Tốt");
         listingDraft.put("conditionLabel", condition); listingDraft.put("condition", toConditionCode(condition));
@@ -2301,24 +2089,72 @@ public class MainActivity extends AppCompatActivity {
             for (DocumentSnapshot chat : activeChats) {
                 List<String> participants = (List<String>) chat.get("participantIds");
                 if (participants == null) continue;
-                String peerId = "";
-                for (String participant : participants) if (!participant.equals(currentUid())) peerId = participant;
-                if (peerId.isEmpty()) continue;
+
+                String peerIdTemp = "";
+                for (String participant : participants) {
+                    if (!participant.equals(currentUid())) {
+                        peerIdTemp = participant;
+                    }
+                }
+                if (peerIdTemp.isEmpty()) continue;
+
+                // Khai báo các biến final / effectively final để dùng an toàn trong lambda
+                final String chatId = chat.getId();
+                final String peerId = peerIdTemp;
+
                 String previewText = textValue(chat.getData(), "lastMessage", "Bắt đầu cuộc trò chuyện");
                 String searchTag = (peerId + " " + previewText).toLowerCase(java.util.Locale.ROOT);
-                LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-                row.setPadding(dp(14), dp(14), dp(14), dp(14)); row.setBackgroundResource(R.drawable.bg_white_card_rounded);
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(10); row.setLayoutParams(params);
+
+                LinearLayout row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(14), dp(14), dp(14), dp(14));
+                row.setBackgroundResource(R.drawable.bg_white_card_rounded);
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+                params.topMargin = dp(10);
+                row.setLayoutParams(params);
                 row.setTag("firebase_chat|" + searchTag);
-                TextView avatar = new TextView(this); avatar.setText("●"); avatar.setTextSize(24); avatar.setGravity(17); avatar.setBackgroundResource(R.drawable.bg_green_circle_soft);
+
+                TextView avatar = new TextView(this);
+                avatar.setText("●");
+                avatar.setTextSize(24);
+                avatar.setGravity(17);
+                avatar.setBackgroundResource(R.drawable.bg_green_circle_soft);
                 row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
-                LinearLayout info = new LinearLayout(this); info.setOrientation(LinearLayout.VERTICAL); info.setPadding(dp(12), 0, 0, 0);
-                TextView name = new TextView(this); name.setText("Thành viên"); name.setTextColor(0xFF173B32); name.setTextSize(14); name.setTypeface(null, android.graphics.Typeface.BOLD);
-                TextView preview = new TextView(this); preview.setText(previewText); preview.setTextColor(0xFF75857F); preview.setTextSize(12); preview.setMaxLines(1);
-                info.addView(name); info.addView(preview); row.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-                row.setOnClickListener(v -> { currentChatId = chat.getId(); currentPeerId = peerId; chatReturnScreen = R.layout.activity_messages; showScreen(R.layout.activity_chat); });
+
+                LinearLayout info = new LinearLayout(this);
+                info.setOrientation(LinearLayout.VERTICAL);
+                info.setPadding(dp(12), 0, 0, 0);
+
+                TextView name = new TextView(this);
+                name.setText("Thành viên");
+                name.setTextColor(0xFF173B32);
+                name.setTextSize(14);
+                name.setTypeface(null, android.graphics.Typeface.BOLD);
+
+                TextView preview = new TextView(this);
+                preview.setText(previewText);
+                preview.setTextColor(0xFF75857F);
+                preview.setTextSize(12);
+                preview.setMaxLines(1);
+
+                info.addView(name);
+                info.addView(preview);
+                row.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
+
+                // Sử dụng chatId và peerId đã khai báo final ở trên
+                row.setOnClickListener(v -> {
+                    currentChatId = chatId;
+                    currentPeerId = peerId;
+                    chatReturnScreen = R.layout.activity_messages;
+                    showScreen(R.layout.activity_chat);
+                });
+
                 list.addView(row);
-                FirebaseFirestore.getInstance().collection("users").document(peerId).get().addOnSuccessListener(user -> name.setText(textValue(user.getData(), "name", "Thành viên")));
+
+                FirebaseFirestore.getInstance().collection("users").document(peerId).get()
+                        .addOnSuccessListener(user -> name.setText(textValue(user.getData(), "name", "Thành viên")));
             }
             applyMessageFilters();
         }));
@@ -2474,7 +2310,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void showIdentityPicker(String slot) {
         identityPhotoSlot = slot;
-        new android.app.AlertDialog.Builder(this)
+        new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Thêm ảnh xác minh")
                 .setItems(new String[]{"Chụp ảnh bằng camera", "Chọn từ thư viện"}, (dialog, which) -> {
                     if (which == 0) identityCameraPicker.launch(null);
@@ -2614,21 +2450,17 @@ public class MainActivity extends AppCompatActivity {
         if (productEmoji != null) productEmoji.setText(currentProductEmoji);
         if (productPrice != null && !currentProductPrice.isEmpty()) productPrice.setText(currentProductIsFree ? "FREE" : currentProductPrice);
         TextView category = findViewById(R.id.txtProductCategory);
-        if (category != null) category.setText(productCategoryFor(currentProductName));
         TextView size = findViewById(R.id.txtProductSize);
-        if (size != null) size.setText(currentProductName.toLowerCase().contains("linen") ? "S" : "M");
         TextView location = findViewById(R.id.txtProductLocation);
-        if (location != null) location.setText(currentProductName.toLowerCase().contains("linen") ? "Thủ Đức" : "Quận 3");
         TextView seller = findViewById(R.id.txtProductSeller);
-        if (seller != null) seller.setText(currentProductIsFree ? "Người tặng" : "Người bán");
         TextView condition = findViewById(R.id.txtProductCondition);
         if (condition != null) condition.setText(textValue(currentProductData, "condition", "Tốt"));
         if (category != null) category.setText(textValue(currentProductData, "categoryName",
                 textValue(currentProductData, "category", productCategoryFor(currentProductName))));
         if (size != null) size.setText(textValue(currentProductData, "size", "Chưa cung cấp"));
         if (location != null) location.setText(textValue(currentProductData, "location", "Chưa cung cấp"));
-        TextView description = findViewById(R.id.txtProductDescription);
-        if (description != null && currentProductData.containsKey("description")) description.setText(String.valueOf(currentProductData.get("description")));
+        TextView descView = findViewById(R.id.txtProductDescription);
+        if (descView != null && currentProductData.containsKey("description")) descView.setText(String.valueOf(currentProductData.get("description")));
         if (seller != null && !currentSellerId.isEmpty()) {
             FirebaseFirestore.getInstance().collection("users").document(currentSellerId).get()
                     .addOnSuccessListener(user -> {
@@ -2647,9 +2479,7 @@ public class MainActivity extends AppCompatActivity {
                     }).addOnFailureListener(this::showFirebaseError);
         });
         bindClick(R.id.btnProductShare, () -> Toast.makeText(this, "Đã sao chép liên kết sản phẩm.", Toast.LENGTH_SHORT).show());
-        bindClick(R.id.btnProductChat, () -> {
-            startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_product_detail);
-        });
+        bindClick(R.id.btnProductChat, () -> startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_product_detail));
         bindClick(R.id.btnAddToCart, () -> {
             if (currentPostId.isEmpty() || !requireSignedIn()) return;
             memberTwoRepository.addCartItem(currentUid(), currentPostId, cartDataForCurrentProduct())
@@ -2667,11 +2497,11 @@ public class MainActivity extends AppCompatActivity {
         });
         bindClick(R.id.btnViewSellerProfile, () -> Toast.makeText(this, "Hồ sơ người đăng.", Toast.LENGTH_SHORT).show());
         bindClick(R.id.btnProductReadMore, () -> {
-            TextView description = findViewById(R.id.txtProductDescription);
+            TextView descText = findViewById(R.id.txtProductDescription);
             TextView toggle = findViewById(R.id.btnProductReadMore);
-            if (description != null && toggle != null) {
-                boolean expanded = description.getMaxLines() <= 4;
-                description.setMaxLines(expanded ? Integer.MAX_VALUE : 4);
+            if (descText != null && toggle != null) {
+                boolean expanded = descText.getMaxLines() <= 4;
+                descText.setMaxLines(expanded ? Integer.MAX_VALUE : 4);
                 toggle.setText(expanded ? "Thu gọn" : "Xem thêm");
             }
         });
@@ -2726,13 +2556,4 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
-
-    @Override
-    public void onBackPressed() {
-        if (currentScreen == R.layout.activity_home || currentScreen == R.layout.activity_login) {
-            super.onBackPressed();
-        } else {
-            showScreen(R.layout.activity_home);
-        }
-    }
 }
