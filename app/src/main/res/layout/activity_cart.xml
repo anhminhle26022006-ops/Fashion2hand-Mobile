@@ -385,6 +385,7 @@
                     android:textColor="#666666"
                     android:textSize="13sp" />
                 <TextView
+                    android:id="@+id/txtCartSelectedCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="2 sản phẩm"
@@ -406,6 +407,7 @@
                     android:textColor="#666666"
                     android:textSize="13sp" />
                 <TextView
+                    android:id="@+id/txtCartSubtotal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="205.000 đ"
@@ -457,6 +459,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:id="@+id/txtCartTotal"
                     android:text="230.000 đ"
                     android:textColor="#E67E22"
                     android:textSize="18sp"
