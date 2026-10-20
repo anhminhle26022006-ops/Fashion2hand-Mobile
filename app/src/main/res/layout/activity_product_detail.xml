@@ -16,7 +16,7 @@
                     <TextView android:id="@+id/btnProductShare" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginEnd="7dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="↗" android:textColor="#173B32" android:textSize="19sp" />
                     <TextView android:id="@+id/btnProductLike" android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="♡" android:textColor="#E97859" android:textSize="22sp" />
                 </LinearLayout>
-                <TextView android:layout_width="40dp" android:layout_height="24dp" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="8dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="1 / 4" android:textColor="#FFFFFF" android:textSize="8sp" />
+                <TextView android:id="@+id/txtProductPhotoIndex" android:layout_width="40dp" android:layout_height="24dp" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="8dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="1 / 1" android:textColor="#FFFFFF" android:textSize="8sp" />
             </FrameLayout>
 
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="-14dp" android:background="@drawable/bg_white_card_rounded" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingTop="16dp" android:paddingBottom="14dp">

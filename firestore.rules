@@ -3,6 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    function involvedInPostOrder(data) {
+      return signedIn() && data.reservedForOrderId is string
+        && exists(/databases/$(database)/documents/orders/$(data.reservedForOrderId))
+        && (get(/databases/$(database)/documents/orders/$(data.reservedForOrderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(data.reservedForOrderId)).data.sellerId == request.auth.uid);
+    }
     function validPost(data) {
       return data.keys().hasAll(['ownerId','title','description','type','price','condition','status','createdAt','updatedAt'])
         && data.ownerId is string
@@ -15,16 +21,23 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if owns(uid);
       allow create: if owns(uid) && request.resource.data.uid == uid
-        && request.resource.data.role == 'USER';
+        && request.resource.data.role == 'USER'
+        && request.resource.data.accountStatus == 'ACTIVE'
+        && request.resource.data.keys().hasOnly(['uid','name','email','role','accountStatus','createdAt','updatedAt']);
       allow update: if owns(uid)
         && request.resource.data.uid == resource.data.uid
-        && request.resource.data.role == resource.data.role;
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['name','gender','birthDate','region','address','bio','photoUrl','updatedAt']);
       allow delete: if false;
       match /addresses/{addressId} {
         allow read, create, update, delete: if owns(uid);
       }
       match /notifications/{notificationId} {
-        allow read, update: if owns(uid);
+        allow read: if owns(uid);
+        allow update: if owns(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+          && request.resource.data.read == true;
         allow create, delete: if false;
       }
     }
@@ -35,16 +48,19 @@ service cloud.firestore {
     }
     match /posts/{postId} {
       allow read: if resource.data.status == 'ACTIVE'
-        || (signedIn() && resource.data.ownerId == request.auth.uid);
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || involvedInPostOrder(resource.data);
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid
         && validPost(request.resource.data)
-        && request.resource.data.status in ['DRAFT','PENDING_REVIEW'];
+        && request.resource.data.status in ['DRAFT','PENDING_REVIEW','ACTIVE'];
       allow update: if signedIn() && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.status == resource.data.status
+        && (request.resource.data.status == resource.data.status
+          || (resource.data.status in ['DRAFT','PENDING_REVIEW'] && request.resource.data.status == 'ACTIVE')
+          || (resource.data.status == 'ACTIVE' && request.resource.data.status == 'HIDDEN')
+          || (resource.data.status == 'HIDDEN' && request.resource.data.status == 'ACTIVE'))
         && validPost(request.resource.data);
-      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid
-        && resource.data.status in ['DRAFT','REJECTED'];
+      allow delete: if false;
       match /images/{imageId} {
         allow read: if get(/databases/$(database)/documents/posts/$(postId)).data.status == 'ACTIVE'
           || (signedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.ownerId == request.auth.uid);
@@ -54,7 +70,12 @@ service cloud.firestore {
     }
 
     match /users/{uid}/favorites/{postId} {
-      allow read, create, delete: if owns(uid);
+      allow read, delete: if owns(uid);
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly(['postId','createdAt'])
+        && request.resource.data.postId == postId
+        && exists(/databases/$(database)/documents/posts/$(postId))
+        && get(/databases/$(database)/documents/posts/$(postId)).data.status == 'ACTIVE';
       allow update: if false;
     }
     match /users/{uid}/cartItems/{postId} {
@@ -62,9 +83,9 @@ service cloud.firestore {
     }
     match /freeRequests/{requestId} {
       allow read: if signedIn() && (resource.data.requesterId == request.auth.uid || resource.data.ownerId == request.auth.uid);
-      allow create: if signedIn() && request.resource.data.requesterId == request.auth.uid
-        && request.resource.data.status == 'PENDING';
-      allow update, delete: if false;
+      // Creation and decisions are made by trusted callable functions so that
+      // accepting a request and reserving a unique FREE post stay atomic.
+      allow create, update, delete: if false;
     }
     match /orders/{orderId} {
       allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
@@ -80,18 +101,33 @@ service cloud.firestore {
         allow write: if false;
       }
     }
-    match /payments/{id} { allow read, write: if false; }
-    match /refunds/{id} { allow read, write: if false; }
+    match /payments/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /moneyTransactions/{id} {
+      allow read: if signedIn() && resource.data.orderId is string
+        && (get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /refunds/{id} {
+      allow read: if signedIn() && resource.data.orderId is string
+        && (get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
     match /payouts/{id} { allow read, write: if false; }
-    match /shipments/{id} { allow read: if signedIn(); allow write: if false; }
+    match /shipments/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
     match /chats/{chatId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
+        allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
       allow write: if false;
       match /messages/{messageId} {
         allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
-        allow create: if signedIn() && request.resource.data.senderId == request.auth.uid
-          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
-        allow update, delete: if false;
+        allow create, update, delete: if false;
       }
     }
     match /reviews/{id} { allow read: if true; allow write: if false; }
