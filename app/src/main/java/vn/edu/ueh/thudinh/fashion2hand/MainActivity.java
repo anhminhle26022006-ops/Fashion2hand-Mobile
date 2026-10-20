@@ -28,6 +28,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import vn.edu.ueh.thudinh.fashion2hand.admin.AdminLoginActivity;
+import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
 
 /** Main entry point for the Fashion2hand frontend prototype. Uses local sample data only. */
 public class MainActivity extends AppCompatActivity {
@@ -127,7 +129,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(layoutId);
         applySystemBarInsets();
         if (layoutId == R.layout.activity_login) bindLogin();
-        if (layoutId == R.layout.activity_admin_login) bindAdminLogin();
         if (layoutId == R.layout.activity_register) bindRegister();
         bindNavigation();
         if (layoutId == R.layout.activity_home) bindHome();
@@ -211,13 +212,19 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            // Phân quyền: tài khoản ADMIN được chuyển sang khu vực quản trị
+            if (AdminRepository.getInstance().isAdminEmail(emailValue)) {
+                startActivity(new Intent(this, AdminLoginActivity.class));
+                return;
+            }
+
             Toast.makeText(this, "Đăng nhập demo thành công.", Toast.LENGTH_SHORT).show();
             showScreen(R.layout.activity_home);
         });
 
         bindClick(R.id.btnOpenRegister, () -> showScreen(R.layout.activity_register));
 
-        bindClick(R.id.btnOpenAdminLogin, () -> showScreen(R.layout.activity_admin_login));
+        bindClick(R.id.btnOpenAdminLogin, () -> startActivity(new Intent(this, AdminLoginActivity.class)));
 
         bindClick(R.id.btnGoogleLogin, () -> {
             Toast.makeText(this, "Mô phỏng đăng nhập Google ở frontend.", Toast.LENGTH_SHORT).show();
@@ -239,25 +246,6 @@ public class MainActivity extends AppCompatActivity {
             if (password.getText().length() < 6) { password.setError("Mật khẩu cần ít nhất 6 ký tự"); return; }
             Toast.makeText(this, "Đăng ký demo thành công. Vui lòng đăng nhập.", Toast.LENGTH_SHORT).show();
             showScreen(R.layout.activity_login);
-        });
-    }
-
-    private void bindAdminLogin() {
-        bindClick(R.id.btnAdminLoginBack, () -> showScreen(R.layout.activity_login));
-        bindClick(R.id.btnAdminLogin, () -> {
-            EditText email = findViewById(R.id.edtAdminEmail);
-            EditText password = findViewById(R.id.edtAdminPassword);
-            String emailValue = email.getText().toString().trim();
-            String passwordValue = password.getText().toString();
-            if (!"admin@fashion2hand.com".equalsIgnoreCase(emailValue)) {
-                email.setError("Email quản trị không hợp lệ");
-                return;
-            }
-            if (passwordValue.trim().isEmpty()) {
-                password.setError("Vui lòng nhập mật khẩu");
-                return;
-            }
-            startActivity(new Intent(this, AdminActivity.class));
         });
     }
 
