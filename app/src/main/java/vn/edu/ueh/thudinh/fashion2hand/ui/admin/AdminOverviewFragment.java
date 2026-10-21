@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -16,6 +16,9 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Tab Tổng quan: số liệu, việc cần xử lý, biểu đồ đơn hàng 7 ngày, hoạt động gần đây. */
 public class AdminOverviewFragment extends Fragment {

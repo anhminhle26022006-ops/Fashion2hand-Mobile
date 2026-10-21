@@ -25,24 +25,24 @@
 
         <!-- Khu vực Admin -->
         <activity
-            android:name=".admin.AdminLoginActivity"
+            android:name=".ui.admin.AdminLoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name=".admin.AdminAccessDeniedActivity"
+            android:name=".ui.admin.AdminAccessDeniedActivity"
             android:exported="false" />
         <activity
-            android:name=".admin.AdminMainActivity"
+            android:name=".ui.admin.AdminMainActivity"
             android:exported="false" />
         <activity
-            android:name=".admin.AdminListActivity"
+            android:name=".ui.admin.AdminListActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
         <activity
-            android:name=".admin.AdminDetailActivity"
+            android:name=".ui.admin.AdminDetailActivity"
             android:exported="false" />
         <activity
-            android:name=".admin.AdminSettingsActivity"
+            android:name=".ui.admin.AdminSettingsActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
     </application>

@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.adapter.admin;
 
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /** Adapter dùng chung cho mọi danh sách Admin. */
 public class AdminRowAdapter extends RecyclerView.Adapter<AdminRowAdapter.RowHolder> {

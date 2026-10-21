@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -10,6 +10,7 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
 import vn.edu.ueh.thudinh.fashion2hand.model.Category;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /** Cài đặt hệ thống: bật/tắt danh mục, quy tắc kiểm duyệt. */
 public class AdminSettingsActivity extends BaseAdminActivity {

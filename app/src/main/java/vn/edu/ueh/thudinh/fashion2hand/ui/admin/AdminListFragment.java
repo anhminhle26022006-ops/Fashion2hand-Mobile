@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -11,6 +11,8 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Tab danh sách dùng chung cho Người dùng, Bài đăng, Đơn hàng. */
 public class AdminListFragment extends Fragment {

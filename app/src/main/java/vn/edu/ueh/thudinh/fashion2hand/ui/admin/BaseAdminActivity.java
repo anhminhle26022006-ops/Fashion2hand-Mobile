@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,6 +12,9 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Lớp cha cho mọi Activity Admin: tránh tai thỏ/thanh hệ thống và tạo ViewModel. */
 public abstract class BaseAdminActivity extends AppCompatActivity {

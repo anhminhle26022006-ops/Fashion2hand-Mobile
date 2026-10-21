@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Context;
 import android.os.Handler;
@@ -21,7 +21,10 @@ import com.google.android.material.chip.ChipGroup;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
+import vn.edu.ueh.thudinh.fashion2hand.adapter.admin.AdminRow;
+import vn.edu.ueh.thudinh.fashion2hand.adapter.admin.AdminRowAdapter;
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /**
  * Điều khiển phần thân danh sách (view_admin_list_content.xml):

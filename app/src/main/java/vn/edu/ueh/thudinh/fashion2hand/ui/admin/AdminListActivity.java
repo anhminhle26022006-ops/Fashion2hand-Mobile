@@ -1,11 +1,14 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
+import vn.edu.ueh.thudinh.fashion2hand.adapter.admin.AdminRow;
 import vn.edu.ueh.thudinh.fashion2hand.R;
 import vn.edu.ueh.thudinh.fashion2hand.model.Transaction;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Màn danh sách con: Báo cáo, Khiếu nại, Xác minh, Giao dịch, Thông báo. */
 public class AdminListActivity extends BaseAdminActivity {

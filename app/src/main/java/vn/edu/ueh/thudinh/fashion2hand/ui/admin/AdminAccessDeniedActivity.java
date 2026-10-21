@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -6,6 +6,8 @@ import android.widget.LinearLayout;
 
 import vn.edu.ueh.thudinh.fashion2hand.MainActivity;
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /** Màn hiện khi tài khoản USER cố vào khu vực Admin. */
 public class AdminAccessDeniedActivity extends BaseAdminActivity {

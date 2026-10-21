@@ -1,4 +1,7 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.adapter.admin;
+
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /** Dữ liệu hiển thị cho một dòng trong danh sách Admin (đã đổi sang nhãn tiếng Việt). */
 public class AdminRow {

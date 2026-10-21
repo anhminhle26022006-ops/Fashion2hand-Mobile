@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.model;
+package vn.edu.ueh.thudinh.fashion2hand.model.admin;
 
 /** Hồ sơ xác minh tài khoản (Verification Simulation, chưa tích hợp VNeID). */
 public class VerificationRequest {

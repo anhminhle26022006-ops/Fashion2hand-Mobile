@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Context;
 import android.content.Intent;
@@ -12,13 +12,16 @@ import android.widget.TextView;
 import androidx.core.content.ContextCompat;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
-import vn.edu.ueh.thudinh.fashion2hand.model.Dispute;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Dispute;
 import vn.edu.ueh.thudinh.fashion2hand.model.Order;
 import vn.edu.ueh.thudinh.fashion2hand.model.Post;
-import vn.edu.ueh.thudinh.fashion2hand.model.Report;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Report;
 import vn.edu.ueh.thudinh.fashion2hand.model.Transaction;
 import vn.edu.ueh.thudinh.fashion2hand.model.User;
-import vn.edu.ueh.thudinh.fashion2hand.model.VerificationRequest;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.VerificationRequest;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /**
  * Màn chi tiết dùng chung (activity_admin_detail.xml) cho 6 loại:
