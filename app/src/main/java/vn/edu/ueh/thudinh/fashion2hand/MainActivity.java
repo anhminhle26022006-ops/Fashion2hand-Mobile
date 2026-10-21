@@ -37,7 +37,6 @@ import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.exceptions.GetCredentialException;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 import vn.edu.ueh.thudinh.fashion2hand.admin.AdminLoginActivity;
 import vn.edu.ueh.thudinh.fashion2hand.repository.AuthRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
@@ -348,21 +347,17 @@ public class MainActivity extends AppCompatActivity {
                             Toast.makeText(MainActivity.this, "Không nhận được thông tin tài khoản Google hợp lệ.", Toast.LENGTH_LONG).show();
                             return;
                         }
-                        try {
-                            GoogleIdTokenCredential googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());
-                            com.google.firebase.auth.AuthCredential firebaseCredential = com.google.firebase.auth.GoogleAuthProvider
-                                    .getCredential(googleCredential.getIdToken(), null);
-                            authRepository.signInWithGoogleCredential(firebaseCredential, new AuthRepository.AuthCallback() {
-                                @Override public void onSuccess(FirebaseUser user) {
-                                    ensureUserProfile(user, googleCredential.getDisplayName(), () -> showScreen(R.layout.activity_home));
-                                }
-                                @Override public void onFailure(String message) {
-                                    Toast.makeText(MainActivity.this, message == null ? "Đăng nhập Google thất bại." : message, Toast.LENGTH_LONG).show();
-                                }
-                            });
-                        } catch (GoogleIdTokenParsingException exception) {
-                            showFirebaseError(exception);
-                        }
+                        GoogleIdTokenCredential googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());
+                        com.google.firebase.auth.AuthCredential firebaseCredential = com.google.firebase.auth.GoogleAuthProvider
+                                .getCredential(googleCredential.getIdToken(), null);
+                        authRepository.signInWithGoogleCredential(firebaseCredential, new AuthRepository.AuthCallback() {
+                            @Override public void onSuccess(FirebaseUser user) {
+                                ensureUserProfile(user, googleCredential.getDisplayName(), () -> showScreen(R.layout.activity_home));
+                            }
+                            @Override public void onFailure(String message) {
+                                Toast.makeText(MainActivity.this, message == null ? "Đăng nhập Google thất bại." : message, Toast.LENGTH_LONG).show();
+                            }
+                        });
                     }
                     @Override public void onError(GetCredentialException exception) {
                         if (isFinishing()) return;
@@ -523,6 +518,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindHome() {
+        TextView greeting = findViewById(R.id.txtHomeGreeting);
+        FirebaseUser signedInUser = authRepository.getCurrentUser();
+        if (greeting != null && signedInUser != null) {
+            String fallbackName = signedInUser.getDisplayName();
+            if (fallbackName == null || fallbackName.trim().isEmpty()) {
+                String email = signedInUser.getEmail();
+                fallbackName = email == null || email.trim().isEmpty() ? "bạn" : email.substring(0, email.indexOf('@') > 0 ? email.indexOf('@') : email.length());
+            }
+            greeting.setText("Hi, " + fallbackName.trim() + " 👋");
+            FirebaseFirestore.getInstance().collection("users").document(signedInUser.getUid()).get()
+                    .addOnSuccessListener(profile -> {
+                        if (!greeting.isAttachedToWindow()) return;
+                        String profileName = profile.getString("name");
+                        if (profileName != null && !profileName.trim().isEmpty()) {
+                            greeting.setText("Hi, " + profileName.trim() + " 👋");
+                        }
+                    });
+        }
         EditText search = findViewById(R.id.edtSearch);
         if (search != null) {
             search.setOnClickListener(view -> {
@@ -749,76 +762,6 @@ public class MainActivity extends AppCompatActivity {
         }
         TextView empty = findViewById(R.id.txtFavoritesEmpty);
         if (empty != null) empty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
-        if (count >= 0) return;
-        String[][] products = {
-                {"👕", "Áo thun basic", "0 đ", "Tốt · M · Quận 3", "FREE · 0đ", "#E4F0E8", "available", "home_favorite_1"},
-                {"👗", "Váy hoa vintage", "0 đ", "Tốt · S · Thủ Đức", "FREE · 0đ", "#EEE9F7", "available", "home_favorite_2"},
-                {"👖", "Quần jeans xanh", "0 đ", "Tốt · L · Bình Thạnh", "FREE · 0đ", "#E7EEF8", "unavailable", "home_favorite_3"},
-                {"🥼", "Áo khoác denim", "120.000 đ", "Tốt · M · Quận 1", "FOR SALE", "#F4EBDD", "available", "home_favorite_4"}
-        };
-        android.content.SharedPreferences favorites = getSharedPreferences("favorite_products", MODE_PRIVATE);
-        int favoriteCount = 0;
-        for (String[] product : products) {
-            if (!favorites.getBoolean(product[7], false)) continue;
-            if (filterId == R.id.filterFavoritesAvailable && !"available".equals(product[6])) continue;
-            if (filterId == R.id.filterFavoritesUnavailable && !"unavailable".equals(product[6])) continue;
-            favoriteCount++;
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(0, 0, 0, dp(8));
-            card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            card.setClipToOutline(true);
-            GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-            params.width = 0;
-            params.height = GridLayout.LayoutParams.WRAP_CONTENT;
-            params.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            params.setMargins(0, 0, dp(8), dp(14));
-            card.setLayoutParams(params);
-
-            FrameLayout photo = new FrameLayout(this);
-            photo.setBackgroundColor(android.graphics.Color.parseColor(product[5]));
-            TextView emoji = new TextView(this);
-            emoji.setText(product[0]); emoji.setTextSize(48); emoji.setGravity(17);
-            photo.addView(emoji, new FrameLayout.LayoutParams(-1, dp(150)));
-            if ("unavailable".equals(product[6])) {
-                View dim = new View(this);
-                dim.setBackgroundColor(0x55333333);
-                photo.addView(dim, new FrameLayout.LayoutParams(-1, dp(150)));
-            }
-            TextView badge = new TextView(this);
-            badge.setText("unavailable".equals(product[6]) ? "ĐÃ BÁN" : product[4]);
-            badge.setTextSize(8); badge.setTextColor(0xFFFFFFFF); badge.setTypeface(null, android.graphics.Typeface.BOLD);
-            badge.setPadding(dp(7), dp(4), dp(7), dp(4)); badge.setBackgroundResource(R.drawable.bg_button_primary);
-            FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM | android.view.Gravity.START);
-            badgeParams.setMargins(dp(7), 0, 0, dp(7)); photo.addView(badge, badgeParams);
-            TextView heart = new TextView(this);
-            heart.setText("♥"); heart.setTextSize(17); heart.setTextColor(0xFFF0785D); heart.setGravity(17); heart.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            FrameLayout.LayoutParams heartParams = new FrameLayout.LayoutParams(dp(32), dp(32), android.view.Gravity.TOP | android.view.Gravity.END);
-            heartParams.setMargins(0, dp(7), dp(7), 0); photo.addView(heart, heartParams);
-            heart.setOnClickListener(v -> {
-                favorites.edit().putBoolean(product[7], false).apply();
-                renderFavoriteProducts(filterId);
-                Toast.makeText(this, "Đã xóa khỏi sản phẩm đã lưu.", Toast.LENGTH_SHORT).show();
-            });
-            card.addView(photo);
-            TextView name = new TextView(this);
-            name.setText(product[1]); name.setTextSize(11); name.setMaxLines(2); name.setTextColor(0xFF173B32); name.setTypeface(null, android.graphics.Typeface.BOLD); name.setPadding(dp(8), dp(8), dp(8), dp(2)); card.addView(name);
-            TextView price = new TextView(this);
-            price.setText(product[2]); price.setTextSize(10); price.setTextColor(0xFFE66F55); price.setPadding(dp(8), dp(2), dp(8), dp(2)); card.addView(price);
-            TextView meta = new TextView(this);
-            meta.setText(product[3]); meta.setTextSize(9); meta.setTextColor(0xFF75857F); meta.setPadding(dp(8), dp(2), dp(8), 0); card.addView(meta);
-            card.setOnClickListener(v -> openProduct(product[1], product[0], product[2]));
-            grid.addView(card);
-        }
-        if (favoriteCount == 0) {
-            TextView empty = new TextView(this);
-            empty.setText("Chưa có sản phẩm đã lưu. Chạm vào ♡ trên món đồ bạn thích.");
-            empty.setTextColor(0xFF75857F); empty.setTextSize(12); empty.setGravity(android.view.Gravity.CENTER);
-            empty.setPadding(dp(24), dp(36), dp(24), dp(36));
-            GridLayout.LayoutParams emptyParams = new GridLayout.LayoutParams();
-            emptyParams.width = -1; emptyParams.columnSpec = GridLayout.spec(0, 2); empty.setLayoutParams(emptyParams);
-            grid.addView(empty);
-        }
     }
 
     private void bindMyListings() {
@@ -1945,9 +1888,6 @@ public class MainActivity extends AppCompatActivity {
             FrameLayout photo = new FrameLayout(this); photo.setBackgroundColor(0xFFE8E6E0);
             TextView photoFallback = new TextView(this); photoFallback.setText(listing[0]); photoFallback.setTextSize(32); photoFallback.setGravity(17);
             photo.addView(photoFallback, new FrameLayout.LayoutParams(-1, -1));
-            ImageView photoImage = new ImageView(this); photoImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            photo.addView(photoImage, new FrameLayout.LayoutParams(-1, -1));
-            loadPostPhoto(post.getData(), 0, photoImage, photoFallback);
             detailsRow.addView(photo, new LinearLayout.LayoutParams(dp(66), dp(78)));
             LinearLayout info = new LinearLayout(this);
             info.setOrientation(LinearLayout.VERTICAL);
@@ -2304,8 +2244,9 @@ public class MainActivity extends AppCompatActivity {
                 String peerId = "";
                 for (String participant : participants) if (!participant.equals(currentUid())) peerId = participant;
                 if (peerId.isEmpty()) continue;
+                final String chatPeerId = peerId;
                 String previewText = textValue(chat.getData(), "lastMessage", "Bắt đầu cuộc trò chuyện");
-                String searchTag = (peerId + " " + previewText).toLowerCase(java.util.Locale.ROOT);
+                String searchTag = (chatPeerId + " " + previewText).toLowerCase(java.util.Locale.ROOT);
                 LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
                 row.setPadding(dp(14), dp(14), dp(14), dp(14)); row.setBackgroundResource(R.drawable.bg_white_card_rounded);
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2); params.topMargin = dp(10); row.setLayoutParams(params);
@@ -2316,9 +2257,9 @@ public class MainActivity extends AppCompatActivity {
                 TextView name = new TextView(this); name.setText("Thành viên"); name.setTextColor(0xFF173B32); name.setTextSize(14); name.setTypeface(null, android.graphics.Typeface.BOLD);
                 TextView preview = new TextView(this); preview.setText(previewText); preview.setTextColor(0xFF75857F); preview.setTextSize(12); preview.setMaxLines(1);
                 info.addView(name); info.addView(preview); row.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-                row.setOnClickListener(v -> { currentChatId = chat.getId(); currentPeerId = peerId; chatReturnScreen = R.layout.activity_messages; showScreen(R.layout.activity_chat); });
+                row.setOnClickListener(v -> { currentChatId = chat.getId(); currentPeerId = chatPeerId; chatReturnScreen = R.layout.activity_messages; showScreen(R.layout.activity_chat); });
                 list.addView(row);
-                FirebaseFirestore.getInstance().collection("users").document(peerId).get().addOnSuccessListener(user -> name.setText(textValue(user.getData(), "name", "Thành viên")));
+                FirebaseFirestore.getInstance().collection("users").document(chatPeerId).get().addOnSuccessListener(user -> name.setText(textValue(user.getData(), "name", "Thành viên")));
             }
             applyMessageFilters();
         }));
@@ -2667,11 +2608,11 @@ public class MainActivity extends AppCompatActivity {
         });
         bindClick(R.id.btnViewSellerProfile, () -> Toast.makeText(this, "Hồ sơ người đăng.", Toast.LENGTH_SHORT).show());
         bindClick(R.id.btnProductReadMore, () -> {
-            TextView description = findViewById(R.id.txtProductDescription);
+            TextView descriptionView = findViewById(R.id.txtProductDescription);
             TextView toggle = findViewById(R.id.btnProductReadMore);
-            if (description != null && toggle != null) {
-                boolean expanded = description.getMaxLines() <= 4;
-                description.setMaxLines(expanded ? Integer.MAX_VALUE : 4);
+            if (descriptionView != null && toggle != null) {
+                boolean expanded = descriptionView.getMaxLines() <= 4;
+                descriptionView.setMaxLines(expanded ? Integer.MAX_VALUE : 4);
                 toggle.setText(expanded ? "Thu gọn" : "Xem thêm");
             }
         });

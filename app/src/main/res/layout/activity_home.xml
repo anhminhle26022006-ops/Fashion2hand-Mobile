@@ -26,7 +26,7 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hi, Minh Anh 👋" android:textColor="#173B32" android:textSize="20sp" />
+                    <TextView android:id="@+id/txtHomeGreeting" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hi 👋" android:textColor="#173B32" android:textSize="20sp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Cho quần áo một vòng đời mới." android:textColor="#75857F" android:textSize="11sp" />
                 </LinearLayout>
                 <TextView android:id="@+id/btnNotificationsHome" android:layout_width="40dp" android:layout_height="40dp" android:layout_marginStart="5dp" android:background="@drawable/bg_white_card_rounded" android:clickable="true" android:contentDescription="Thông báo" android:focusable="true" android:gravity="center" android:text="♧" android:textColor="#173B32" android:textSize="19sp" />
