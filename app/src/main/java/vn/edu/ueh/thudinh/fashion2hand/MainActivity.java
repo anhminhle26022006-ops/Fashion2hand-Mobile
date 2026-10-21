@@ -40,7 +40,6 @@ import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.exceptions.GetCredentialException;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException;
 import vn.edu.ueh.thudinh.fashion2hand.repository.AuthRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.MemberTwoRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.MemberOneRepository;
@@ -364,21 +363,17 @@ public class MainActivity extends AppCompatActivity {
                             Toast.makeText(MainActivity.this, "Không nhận được thông tin tài khoản Google hợp lệ.", Toast.LENGTH_LONG).show();
                             return;
                         }
-                        try {
-                            GoogleIdTokenCredential googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());
-                            com.google.firebase.auth.AuthCredential firebaseCredential = com.google.firebase.auth.GoogleAuthProvider
-                                    .getCredential(googleCredential.getIdToken(), null);
-                            authRepository.signInWithGoogleCredential(firebaseCredential, new AuthRepository.AuthCallback() {
-                                @Override public void onSuccess(FirebaseUser user) {
-                                    ensureUserProfile(user, googleCredential.getDisplayName(), () -> showScreen(R.layout.activity_home));
-                                }
-                                @Override public void onFailure(String message) {
-                                    Toast.makeText(MainActivity.this, message == null ? "Đăng nhập Google thất bại." : message, Toast.LENGTH_LONG).show();
-                                }
-                            });
-                        } catch (GoogleIdTokenParsingException exception) {
-                            showFirebaseError(exception);
-                        }
+                        GoogleIdTokenCredential googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());
+                        com.google.firebase.auth.AuthCredential firebaseCredential = com.google.firebase.auth.GoogleAuthProvider
+                                .getCredential(googleCredential.getIdToken(), null);
+                        authRepository.signInWithGoogleCredential(firebaseCredential, new AuthRepository.AuthCallback() {
+                            @Override public void onSuccess(FirebaseUser user) {
+                                ensureUserProfile(user, googleCredential.getDisplayName(), () -> showScreen(R.layout.activity_home));
+                            }
+                            @Override public void onFailure(String message) {
+                                Toast.makeText(MainActivity.this, message == null ? "Đăng nhập Google thất bại." : message, Toast.LENGTH_LONG).show();
+                            }
+                        });
                     }
                     @Override public void onError(GetCredentialException exception) {
                         if (isFinishing()) return;
@@ -539,6 +534,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindHome() {
+        TextView greeting = findViewById(R.id.txtHomeGreeting);
+        FirebaseUser signedInUser = authRepository.getCurrentUser();
+        if (greeting != null && signedInUser != null) {
+            String fallbackName = signedInUser.getDisplayName();
+            if (fallbackName == null || fallbackName.trim().isEmpty()) {
+                String email = signedInUser.getEmail();
+                fallbackName = email == null || email.trim().isEmpty() ? "bạn" : email.substring(0, email.indexOf('@') > 0 ? email.indexOf('@') : email.length());
+            }
+            greeting.setText("Hi, " + fallbackName.trim() + " 👋");
+            FirebaseFirestore.getInstance().collection("users").document(signedInUser.getUid()).get()
+                    .addOnSuccessListener(profile -> {
+                        if (!greeting.isAttachedToWindow()) return;
+                        String profileName = profile.getString("name");
+                        if (profileName != null && !profileName.trim().isEmpty()) {
+                            greeting.setText("Hi, " + profileName.trim() + " 👋");
+                        }
+                    });
+        }
         EditText search = findViewById(R.id.edtSearch);
         if (search != null) {
             search.setOnClickListener(view -> {
@@ -2090,7 +2103,6 @@ public class MainActivity extends AppCompatActivity {
             for (DocumentSnapshot chat : activeChats) {
                 List<String> participants = (List<String>) chat.get("participantIds");
                 if (participants == null) continue;
-
                 String peerIdTemp = "";
                 for (String participant : participants) {
                     if (!participant.equals(currentUid())) {
@@ -2123,7 +2135,6 @@ public class MainActivity extends AppCompatActivity {
                 avatar.setGravity(17);
                 avatar.setBackgroundResource(R.drawable.bg_green_circle_soft);
                 row.addView(avatar, new LinearLayout.LayoutParams(dp(48), dp(48)));
-
                 LinearLayout info = new LinearLayout(this);
                 info.setOrientation(LinearLayout.VERTICAL);
                 info.setPadding(dp(12), 0, 0, 0);
