@@ -18,8 +18,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.content.Intent;
-import vn.edu.ueh.thudinh.fashion2hand.admin.AdminLoginActivity;
-import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
+import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminLoginActivity;
+import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 
 /** Main entry point for the Fashion2hand frontend prototype. Uses local sample data only. */
 public class MainActivity extends AppCompatActivity {

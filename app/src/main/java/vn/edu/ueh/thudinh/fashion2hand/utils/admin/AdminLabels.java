@@ -1,12 +1,12 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.utils.admin;
 
-import vn.edu.ueh.thudinh.fashion2hand.model.Dispute;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Dispute;
 import vn.edu.ueh.thudinh.fashion2hand.model.Order;
 import vn.edu.ueh.thudinh.fashion2hand.model.Post;
-import vn.edu.ueh.thudinh.fashion2hand.model.Report;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Report;
 import vn.edu.ueh.thudinh.fashion2hand.model.Transaction;
 import vn.edu.ueh.thudinh.fashion2hand.model.User;
-import vn.edu.ueh.thudinh.fashion2hand.model.VerificationRequest;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.VerificationRequest;
 
 /** Đổi mã trạng thái (lưu trong dữ liệu) thành nhãn tiếng Việt + màu chip. */
 public final class AdminLabels {

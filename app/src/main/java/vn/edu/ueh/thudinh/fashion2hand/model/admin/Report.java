@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.model;
+package vn.edu.ueh.thudinh.fashion2hand.model.admin;
 
 /** Báo cáo vi phạm. targetType cho biết targetId là postId, userId hay orderId. */
 public class Report {

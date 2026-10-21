@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.model;
+package vn.edu.ueh.thudinh.fashion2hand.model.admin;
 
 /** Khiếu nại giao dịch. Khi đang mở, tiền của đơn vẫn bị giữ. */
 public class Dispute {

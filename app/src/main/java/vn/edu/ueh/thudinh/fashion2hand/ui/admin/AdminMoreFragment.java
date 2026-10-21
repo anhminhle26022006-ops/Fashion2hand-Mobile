@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.ui.admin;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -13,7 +13,10 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
-import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
+import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Tab Khác: tài khoản admin, kiểm duyệt, giao dịch, cài đặt, đăng xuất, chế độ demo. */
 public class AdminMoreFragment extends Fragment {

@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.utils.admin;
 
 import android.content.Context;
 import android.content.res.ColorStateList;

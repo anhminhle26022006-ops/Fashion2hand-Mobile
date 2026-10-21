@@ -1,4 +1,4 @@
-package vn.edu.ueh.thudinh.fashion2hand.admin;
+package vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin;
 
 import androidx.lifecycle.ViewModel;
 
@@ -8,15 +8,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import vn.edu.ueh.thudinh.fashion2hand.adapter.admin.AdminRow;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
+import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 import vn.edu.ueh.thudinh.fashion2hand.model.Category;
-import vn.edu.ueh.thudinh.fashion2hand.model.Dispute;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Dispute;
 import vn.edu.ueh.thudinh.fashion2hand.model.Order;
 import vn.edu.ueh.thudinh.fashion2hand.model.Post;
-import vn.edu.ueh.thudinh.fashion2hand.model.Report;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Report;
 import vn.edu.ueh.thudinh.fashion2hand.model.Transaction;
 import vn.edu.ueh.thudinh.fashion2hand.model.User;
-import vn.edu.ueh.thudinh.fashion2hand.model.VerificationRequest;
-import vn.edu.ueh.thudinh.fashion2hand.repository.AdminRepository;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.VerificationRequest;
+import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 
 /**
  * Tầng ViewModel của khu vực Admin (UI → ViewModel → Repository).

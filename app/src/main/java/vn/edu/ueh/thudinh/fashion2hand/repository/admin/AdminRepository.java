@@ -1,16 +1,16 @@
-package vn.edu.ueh.thudinh.fashion2hand.repository;
+package vn.edu.ueh.thudinh.fashion2hand.repository.admin;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import vn.edu.ueh.thudinh.fashion2hand.model.Category;
-import vn.edu.ueh.thudinh.fashion2hand.model.Dispute;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Dispute;
 import vn.edu.ueh.thudinh.fashion2hand.model.Order;
 import vn.edu.ueh.thudinh.fashion2hand.model.Post;
-import vn.edu.ueh.thudinh.fashion2hand.model.Report;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.Report;
 import vn.edu.ueh.thudinh.fashion2hand.model.Transaction;
 import vn.edu.ueh.thudinh.fashion2hand.model.User;
-import vn.edu.ueh.thudinh.fashion2hand.model.VerificationRequest;
+import vn.edu.ueh.thudinh.fashion2hand.model.admin.VerificationRequest;
 
 /**
  * Nguồn dữ liệu cho khu vực Admin.
