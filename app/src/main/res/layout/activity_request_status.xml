@@ -45,10 +45,15 @@
     </LinearLayout>
 
     <!-- CONTENT CENTER -->
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:fillViewport="true"
+        android:clipToPadding="false">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center_horizontal"
         android:paddingHorizontal="24dp"
@@ -85,6 +90,7 @@
             android:letterSpacing="0.05" />
 
         <TextView
+            android:id="@+id/txtRequestStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Đang chờ người tặng xác nhận"
@@ -203,6 +209,7 @@
         </LinearLayout>
 
     </LinearLayout>
+    </ScrollView>
 
     <!-- Nút Chat với người tặng ở đáy (Đã loại bỏ nút mô phỏng) -->
     <LinearLayout

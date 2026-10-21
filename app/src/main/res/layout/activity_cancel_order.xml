@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <include layout="@layout/activity_order_detail" />
+    <View android:layout_width="match_parent" android:layout_height="match_parent" android:background="#99000000" android:clickable="true" android:focusable="true" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="bottom" android:fillViewport="true" android:clipToPadding="false" android:paddingTop="100dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="590dp" android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingTop="8dp" android:paddingBottom="14dp" android:background="@drawable/bg_bottom_sheet">
+            <View android:layout_width="42dp" android:layout_height="4dp" android:layout_gravity="center_horizontal" android:layout_marginBottom="12dp" android:background="#C8D0CA" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ĐƠN HÀNG #ORD10283" android:textColor="#E97859" android:textSize="7sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Yêu cầu hủy đơn" android:textColor="#183C32" android:textSize="17sp" android:textStyle="bold" />
+                </LinearLayout>
+                <TextView android:id="@+id/btnCloseCancel" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="Đóng" android:textColor="#E66F55" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="11dp" android:background="#FFF4E3">
+                <TextView android:layout_width="30dp" android:layout_height="30dp" android:gravity="center" android:text="⛨" android:textColor="#A36A22" android:textSize="15sp" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="7dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Đơn đủ điều kiện yêu cầu hủy" android:textColor="#80561E" android:textSize="9sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Shop chưa lấy hàng. Vui lòng cung cấp lý do để người bán và hệ thống xem xét." android:textColor="#977F5E" android:textSize="7sp" />
+                </LinearLayout>
+            </LinearLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="34dp" android:layout_marginTop="9dp" android:gravity="center_vertical">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Lý do hủy đơn" android:textColor="#263B32" android:textSize="9sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bắt buộc" android:textColor="#DF574B" android:textSize="7sp" />
+            </LinearLayout>
+            <RadioGroup android:id="@+id/rgCancelReason" android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/bg_white_card_rounded" android:paddingHorizontal="11dp">
+                <RadioButton android:id="@+id/cancelNoNeed" android:layout_width="match_parent" android:layout_height="40dp" android:buttonTint="#104536" android:text="Tôi đổi ý, không còn nhu cầu" android:textColor="#52645A" android:textSize="8sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/cancelWrongAddress" android:layout_width="match_parent" android:layout_height="40dp" android:buttonTint="#104536" android:text="Tôi nhập sai địa chỉ nhận hàng" android:textColor="#52645A" android:textSize="8sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/cancelChangeProduct" android:layout_width="match_parent" android:layout_height="40dp" android:buttonTint="#104536" android:text="Tôi muốn thay đổi sản phẩm" android:textColor="#52645A" android:textSize="8sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/cancelSellerSlow" android:layout_width="match_parent" android:layout_height="40dp" android:buttonTint="#104536" android:text="Người bán phản hồi chậm" android:textColor="#52645A" android:textSize="8sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/cancelOther" android:layout_width="match_parent" android:layout_height="40dp" android:buttonTint="#104536" android:text="Lý do khác" android:textColor="#52645A" android:textSize="8sp" />
+            </RadioGroup>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="112dp" android:layout_marginTop="10dp" android:orientation="vertical" android:padding="11dp" android:background="@drawable/bg_white_card_rounded">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mô tả chi tiết · Bắt buộc" android:textColor="#263B32" android:textSize="8sp" android:textStyle="bold" />
+                <EditText android:id="@+id/edtCancelDescription" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="@null" android:gravity="top|start" android:hint="Cho chúng tôi biết thêm lý do bạn muốn hủy đơn..." android:inputType="textCapSentences|textMultiLine" android:paddingTop="6dp" android:textColor="#173B32" android:textSize="8sp" />
+            </LinearLayout>
+            <Button android:id="@+id/btnSubmitCancel" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:backgroundTint="#E4E8E5" android:enabled="false" android:text="Gửi yêu cầu hủy" android:textAllCaps="false" android:textColor="#75857F" android:textSize="10sp" android:textStyle="bold" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

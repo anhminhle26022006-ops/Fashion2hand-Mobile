@@ -67,7 +67,7 @@
     <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="2dp" android:background="#E5E9E4" />
 
     <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingBottom="18dp">
+        <LinearLayout android:id="@+id/orderListContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingBottom="18dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingVertical="13dp">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
                     <TextView android:id="@+id/txtOrderListSection" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ĐƠN ĐẾN" android:textColor="#E97859" android:textSize="9sp" android:textStyle="bold" />

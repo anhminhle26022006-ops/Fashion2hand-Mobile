@@ -1,29 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="16dp">
-        <TextView android:id="@+id/btnHistoryBack" android:layout_width="44dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="32sp" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Lịch sử giao dịch" android:textColor="#173B32" android:textSize="19sp" android:textStyle="bold" />
-        <TextView android:layout_width="44dp" android:layout_height="48dp" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:background="#FFFFFF">
+        <TextView android:id="@+id/btnHistoryBack" android:layout_width="40dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="29sp" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Lịch sử giao dịch" android:textColor="#173B32" android:textSize="15sp" />
+        <View android:layout_width="40dp" android:layout_height="1dp" />
     </LinearLayout>
-    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="10dp" android:text="THÁNG 10, 2026" android:textColor="#75857F" android:textSize="12sp" android:textStyle="bold" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp" android:layout_marginBottom="10dp">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="16/10/2026  ·  F2H-240816" android:textColor="#75857F" android:textSize="12sp" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Vintage Denim Jacket" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="−145.000đ  ·  Đang giao" android:textColor="#D35400" android:textSize="13sp" />
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp" android:layout_marginBottom="10dp">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="12/10/2026  ·  F2H-240712" android:textColor="#75857F" android:textSize="12sp" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Áo thun basic" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Miễn phí  ·  Đã hoàn tất" android:textColor="#23795C" android:textSize="13sp" />
-            </LinearLayout>
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="16dp" android:paddingBottom="10dp" android:text="THÁNG 9, 2026" android:textColor="#75857F" android:textSize="12sp" android:textStyle="bold" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="16dp">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="28/09/2026  ·  F2H-240509" android:textColor="#75857F" android:textSize="12sp" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Váy hoa vintage" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Miễn phí  ·  Đã hoàn tất" android:textColor="#23795C" android:textSize="13sp" />
-            </LinearLayout>
-        </LinearLayout>
+
+    <RadioGroup android:id="@+id/historyFilters" android:layout_width="match_parent" android:layout_height="40dp" android:layout_marginHorizontal="14dp" android:layout_marginTop="10dp" android:layout_marginBottom="8dp" android:background="#ECEDE9" android:orientation="horizontal" android:padding="3dp">
+        <RadioButton android:id="@+id/filterHistoryAll" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:checked="true" android:background="@drawable/bg_favorite_filter" android:gravity="center" android:text="Tất cả" android:textColor="#173B32" android:textSize="9sp" />
+        <RadioButton android:id="@+id/filterHistoryBuy" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:background="@drawable/bg_favorite_filter" android:gravity="center" android:text="Mua" android:textColor="#75857F" android:textSize="9sp" />
+        <RadioButton android:id="@+id/filterHistorySell" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:background="@drawable/bg_favorite_filter" android:gravity="center" android:text="Bán" android:textColor="#75857F" android:textSize="9sp" />
+        <RadioButton android:id="@+id/filterHistoryFree" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:background="@drawable/bg_favorite_filter" android:gravity="center" android:text="Chia sẻ miễn phí" android:textColor="#75857F" android:textSize="8sp" />
+    </RadioGroup>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:id="@+id/transactionHistoryList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingBottom="14dp" />
     </ScrollView>
 </LinearLayout>
