@@ -59,6 +59,8 @@ public class AdminListController {
     private final TextView[] summaryCells;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    private BooleanSupplier loadingCheck = () -> false;
+    private Runnable retryAction;
     private int filterIndex = 0;
     private boolean loadedOnce = false;
     private String emptyTitle = "Không có kết quả";
@@ -120,7 +122,20 @@ public class AdminListController {
             });
         }
 
-        stateRetry.setOnClickListener(v -> reload(true));
+        stateRetry.setOnClickListener(v -> {
+            if (retryAction != null) retryAction.run();
+            reload(true);
+        });
+    }
+
+    /** Đang chờ backend trả dữ liệu lần đầu: hiện trạng thái đang tải thay vì danh sách rỗng. */
+    public void setLoadingCheck(BooleanSupplier loadingCheck) {
+        this.loadingCheck = loadingCheck;
+    }
+
+    /** Việc cần làm khi bấm Thử lại (gọi lại backend). */
+    public void setRetryAction(Runnable retryAction) {
+        this.retryAction = retryAction;
     }
 
     public void setEmptyText(String title, String message) {
@@ -164,6 +179,10 @@ public class AdminListController {
     }
 
     private void render() {
+        if (loadingCheck.getAsBoolean()) {
+            showState(STATE_LOADING);
+            return;
+        }
         if (errorCheck.getAsBoolean()) {
             showState(STATE_ERROR);
             return;

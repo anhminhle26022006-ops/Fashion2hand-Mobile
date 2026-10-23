@@ -13,7 +13,6 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
-import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminLabels;
 import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
@@ -40,7 +39,7 @@ public class AdminMoreFragment extends Fragment {
         AdminUi.bindTopbar(view, "Khác", "Kiểm duyệt và cấu hình hệ thống",
                 v -> AdminListActivity.open(requireContext(), AdminListActivity.TYPE_NOTIFICATIONS));
         ((TextView) view.findViewById(R.id.txtMoreAdminName)).setText("Quản trị viên");
-        ((TextView) view.findViewById(R.id.txtMoreAdminEmail)).setText(AdminRepository.ADMIN_EMAIL);
+        ((TextView) view.findViewById(R.id.txtMoreAdminEmail)).setText(viewModel.getAdminEmail());
         AdminUi.styleChip(view.findViewById(R.id.txtMoreAdminRole), new AdminLabels.Label("ADMIN", AdminUi.KIND_OK));
 
         AdminUi.bindMenuRow(view, R.id.rowMoreTransactions, R.drawable.ic_admin_wallet, AdminUi.KIND_HOLD,
@@ -58,11 +57,18 @@ public class AdminMoreFragment extends Fragment {
                     viewModel.setSimulateError(checked);
                     AdminUi.toast(requireContext(), checked ? "Đã bật giả lập lỗi" : "Đã tắt giả lập lỗi");
                 });
+
+        viewModel.getDataVersion().observe(getViewLifecycleOwner(), version -> bindCounts());
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        bindCounts();
+    }
+
+    private void bindCounts() {
+        if (root == null || !isAdded()) return;
         int reports = viewModel.countOpenReports();
         int disputes = viewModel.countOpenDisputes();
         int verifications = viewModel.countPendingVerifications();
@@ -82,6 +88,7 @@ public class AdminMoreFragment extends Fragment {
 
     private void confirmLogout() {
         AdminUi.confirm(requireContext(), "Đăng xuất?", "Bạn sẽ rời khu vực quản trị.", "Đăng xuất", () -> {
+            viewModel.logout();
             Intent intent = new Intent(requireContext(), AdminLoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
