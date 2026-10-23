@@ -205,6 +205,8 @@ public final class AdminUi {
         ((TextView) row.findViewById(R.id.txtSwitchTitle)).setText(title);
         ((TextView) row.findViewById(R.id.txtSwitchSubtitle)).setText(subtitle);
         MaterialSwitch sw = row.findViewById(R.id.switchAdminRow);
+        // Các dòng dùng chung id: tắt tự khôi phục khi xoay để không lẫn giá trị / tự bật tắt danh mục.
+        sw.setSaveEnabled(false);
         sw.setOnCheckedChangeListener(null);
         sw.setChecked(checked);
         sw.setOnCheckedChangeListener(listener);
@@ -215,6 +217,7 @@ public final class AdminUi {
         ((TextView) row.findViewById(R.id.txtInputTitle)).setText(title);
         ((TextView) row.findViewById(R.id.txtInputSubtitle)).setText(subtitle);
         EditText input = row.findViewById(R.id.edtAdminInput);
+        input.setSaveEnabled(false);
         input.setText(value);
         return input;
     }

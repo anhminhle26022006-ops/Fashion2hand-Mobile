@@ -66,7 +66,10 @@ public class AdminListFragment extends Fragment {
                     row -> AdminDetailActivity.open(requireContext(), AdminDetailActivity.TYPE_USER, row.id));
             controller.setEmptyText("Không có người dùng", "Không tìm thấy tài khoản phù hợp.");
         }
+        controller.setLoadingCheck(vm::isLoading);
+        controller.setRetryAction(vm::refresh);
         controller.reload(true);
+        vm.getDataVersion().observe(getViewLifecycleOwner(), version -> controller.refresh());
     }
 
     @Override

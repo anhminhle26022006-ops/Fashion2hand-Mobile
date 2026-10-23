@@ -15,6 +15,11 @@ public class AdminAccessDeniedActivity extends BaseAdminActivity {
     public static final String EXTRA_EMAIL = "denied_email";
 
     @Override
+    protected boolean requiresAdminSession() {
+        return false;
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setAdminContent(R.layout.activity_admin_access_denied);

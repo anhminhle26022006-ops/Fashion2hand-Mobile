@@ -1,5 +1,6 @@
 package vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin;
 
+import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModel;
 
 import java.text.SimpleDateFormat;
@@ -39,13 +40,18 @@ public class AdminViewModel extends ViewModel {
 
     private final AdminRepository repository = AdminRepository.getInstance();
 
-    // ---------------------------------------------------------------- Đăng nhập
+    // ---------------------------------------------------------------- Phiên và trạng thái tải
 
-    public String getRoleByEmail(String email) { return repository.getRoleByEmail(email); }
-
-    public boolean checkAdminPassword(String email, String password) {
-        return repository.checkAdminPassword(email, password);
-    }
+    public void refresh() { repository.refresh(); }
+    public void refreshIfStale() { repository.refreshIfStale(); }
+    public boolean isLoaded() { return repository.isLoaded(); }
+    public boolean isLoading() { return repository.isLoading(); }
+    public LiveData<Integer> getDataVersion() { return repository.getDataVersion(); }
+    public LiveData<AdminRepository.Event<String>> getMessage() { return repository.getMessage(); }
+    public LiveData<AdminRepository.Event<Boolean>> getSessionDenied() { return repository.getSessionDenied(); }
+    public String getAdminEmail() { return repository.getAdminEmail(); }
+    public void logout() { repository.logout(); }
+    public void reset() { repository.reset(); }
 
     // ---------------------------------------------------------------- Đếm cho Tổng quan và badge
 
@@ -61,8 +67,142 @@ public class AdminViewModel extends ViewModel {
         return new SimpleDateFormat("EEEE, dd/MM/yyyy", Locale.forLanguageTag("vi-VN")).format(new Date());
     }
 
-    private String now() {
-        return new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.ROOT).format(new Date());
+
+    // ---------------------------------------------------------------- Số liệu Tổng quan (tính từ dữ liệu backend)
+
+    public int countUsers() {
+        int n = 0;
+        for (User u : repository.getUsers()) if (!User.ROLE_ADMIN.equals(u.getRole())) n++;
+        return n;
+    }
+
+    public int countActiveUsers() {
+        int n = 0;
+        for (User u : repository.getUsers()) if (!User.ROLE_ADMIN.equals(u.getRole()) && !u.isLocked()) n++;
+        return n;
+    }
+
+    public int countPosts() { return repository.getPosts().size(); }
+
+    public int countActivePosts() {
+        int n = 0;
+        for (Post p : repository.getPosts()) if (Post.STATUS_ACTIVE.equals(p.getStatus())) n++;
+        return n;
+    }
+
+    public int countOrders() { return repository.getOrders().size(); }
+
+    public int countOrdersSince(int days) {
+        long from = System.currentTimeMillis() - days * 24L * 60 * 60 * 1000;
+        int n = 0;
+        for (Order o : repository.getOrders()) {
+            Long created = repository.getCreatedMillis("orders", o.getOrderId());
+            if (created != null && created >= from) n++;
+        }
+        return n;
+    }
+
+    /** Doanh số mô phỏng: tổng giá các đơn mua bán đã hoàn tất. */
+    public long getCompletedSales() {
+        long total = 0;
+        for (Order o : repository.getOrders())
+            if (!o.isFree() && Order.STATUS_COMPLETED.equals(o.getOrderStatus())) total += o.getPrice();
+        return total;
+    }
+
+    public int countCompletedSales() {
+        int n = 0;
+        for (Order o : repository.getOrders())
+            if (!o.isFree() && Order.STATUS_COMPLETED.equals(o.getOrderStatus())) n++;
+        return n;
+    }
+
+    public int countFreeOrders() {
+        int n = 0;
+        for (Order o : repository.getOrders()) if (o.isFree()) n++;
+        return n;
+    }
+
+    public int countCompletedFreeOrders() {
+        int n = 0;
+        for (Order o : repository.getOrders())
+            if (o.isFree() && Order.STATUS_COMPLETED.equals(o.getOrderStatus())) n++;
+        return n;
+    }
+
+    /** Số đơn tạo mỗi ngày trong 7 ngày gần nhất, phần tử cuối là hôm nay. */
+    public int[] getOrdersLast7Days() {
+        int[] counts = new int[7];
+        java.util.Calendar today = startOfDay(System.currentTimeMillis());
+        for (Order o : repository.getOrders()) {
+            Long created = repository.getCreatedMillis("orders", o.getOrderId());
+            if (created == null) continue;
+            long diff = today.getTimeInMillis() - startOfDay(created).getTimeInMillis();
+            int daysAgo = (int) Math.round(diff / (24.0 * 60 * 60 * 1000));
+            if (daysAgo >= 0 && daysAgo < 7) counts[6 - daysAgo]++;
+        }
+        return counts;
+    }
+
+    /** Nhãn thứ cho 7 ngày gần nhất: T2 ... CN, phần tử cuối là hôm nay. */
+    public String[] getLast7DayLabels() {
+        String[] names = {"CN", "T2", "T3", "T4", "T5", "T6", "T7"};
+        String[] labels = new String[7];
+        java.util.Calendar day = startOfDay(System.currentTimeMillis());
+        day.add(java.util.Calendar.DAY_OF_YEAR, -6);
+        for (int i = 0; i < 7; i++) {
+            labels[i] = names[day.get(java.util.Calendar.DAY_OF_WEEK) - 1];
+            day.add(java.util.Calendar.DAY_OF_YEAR, 1);
+        }
+        return labels;
+    }
+
+    /** Hoạt động gần đây: {tiêu đề, thời gian} của 4 sự kiện mới nhất. */
+    public List<String[]> getRecentActivities() {
+        List<Object[]> events = new ArrayList<>();
+        for (Report r : repository.getReports())
+            addEvent(events, repository.getCreatedMillis("reports", r.getReportId()), "Báo cáo: " + r.getReason());
+        for (Dispute d : repository.getDisputes())
+            addEvent(events, repository.getCreatedMillis("disputes", d.getDisputeId()), "Khiếu nại đơn " + shortId(d.getOrderId()));
+        for (VerificationRequest v : repository.getVerifications())
+            addEvent(events, repository.getCreatedMillis("verificationRequests", v.getRequestId()),
+                    "Hồ sơ xác minh: " + repository.getUserName(v.getUserId()));
+        for (Order o : repository.getOrders())
+            addEvent(events, repository.getCreatedMillis("orders", o.getOrderId()),
+                    (o.isFree() ? "Đơn cho tặng: " : "Đơn mới: ") + repository.getPostTitle(o.getPostId()));
+        java.util.Collections.sort(events, (a, b) -> Long.compare((Long) b[0], (Long) a[0]));
+        List<String[]> result = new ArrayList<>();
+        for (int i = 0; i < events.size() && i < 4; i++)
+            result.add(new String[]{(String) events.get(i)[1], timeAgo((Long) events.get(i)[0])});
+        return result;
+    }
+
+    private static void addEvent(List<Object[]> events, Long millis, String title) {
+        if (millis != null) events.add(new Object[]{millis, title});
+    }
+
+    private static String shortId(String id) {
+        return id == null || id.length() <= 8 ? String.valueOf(id) : id.substring(0, 8);
+    }
+
+    private static String timeAgo(long millis) {
+        long minutes = Math.max(0, (System.currentTimeMillis() - millis) / 60000);
+        if (minutes < 1) return "Vừa xong";
+        if (minutes < 60) return minutes + " phút trước";
+        long hours = minutes / 60;
+        if (hours < 24) return hours + " giờ trước";
+        long days = hours / 24;
+        return days == 1 ? "Hôm qua" : days + " ngày trước";
+    }
+
+    private static java.util.Calendar startOfDay(long millis) {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.setTimeInMillis(millis);
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        return c;
     }
 
     // ---------------------------------------------------------------- Danh sách
@@ -310,22 +450,21 @@ public class AdminViewModel extends ViewModel {
 
     public void setPostStatus(String postId, String status) { repository.setPostStatus(postId, status); }
 
-    public void rejectReport(String reportId) { repository.setReportStatus(reportId, Report.REJECTED); }
+    public void sendWarning(String userId, String text) { repository.sendWarning(userId, text); }
 
-    /** Xác nhận vi phạm: xử lý đối tượng bị báo cáo rồi đóng báo cáo. */
-    public void acceptReport(Report report) {
-        if (Report.TARGET_POST.equals(report.getTargetType())) {
-            repository.setPostStatus(report.getTargetId(), Post.STATUS_HIDDEN);
-        } else if (Report.TARGET_USER.equals(report.getTargetType())) {
-            repository.setUserLocked(report.getTargetId(), true);
-        }
-        repository.setReportStatus(report.getReportId(), Report.RESOLVED);
+    public boolean isSupportTicket(String reportId) { return repository.isSupportTicket(reportId); }
+
+    public void rejectReport(String reportId) {
+        repository.setReportStatus(reportId, Report.REJECTED, "Bác bỏ báo cáo sau khi xem xét");
     }
+
+    /** Xác nhận vi phạm: xử lý đối tượng bị báo cáo, thành công mới đóng báo cáo (làm ở Repository). */
+    public void acceptReport(Report report) { repository.acceptReport(report); }
 
     public void requestDisputeEvidence(String disputeId) { repository.requestDisputeEvidence(disputeId); }
 
     public void resolveDispute(String disputeId, boolean refundBuyer) {
-        repository.resolveDispute(disputeId, refundBuyer, now());
+        repository.resolveDispute(disputeId, refundBuyer);
     }
 
     public void reviewVerification(String requestId, boolean approve, String note) {
@@ -343,8 +482,9 @@ public class AdminViewModel extends ViewModel {
     public long getMaxPrice() { return repository.getMaxPrice(); }
     public boolean isRequirePhoneBeforeSelling() { return repository.isRequirePhoneBeforeSelling(); }
 
-    public void saveSettings(boolean autoHide, int threshold, int days, long maxPrice, boolean requirePhone) {
-        repository.saveSettings(autoHide, threshold, days, maxPrice, requirePhone);
+    public void saveSettings(boolean autoHide, int threshold, int days, long maxPrice, boolean requirePhone,
+                             Runnable onSaved) {
+        repository.saveSettings(autoHide, threshold, days, maxPrice, requirePhone, onSaved);
     }
 
     public boolean isSimulateError() { return repository.isSimulateError(); }

@@ -9,8 +9,11 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.functions.FirebaseFunctions;
+import com.google.firebase.functions.FirebaseFunctionsException;
 import java.util.Collections;
+import androidx.lifecycle.ViewModelProvider;
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.viewmodel.admin.AdminViewModel;
 
 /** Password validation is performed exclusively by Firebase Auth. */
 public class AdminLoginActivity extends AppCompatActivity {
@@ -33,10 +36,31 @@ public class AdminLoginActivity extends AppCompatActivity {
                 return FirebaseFunctions.getInstance().getHttpsCallable("adminSession").call(Collections.emptyMap());
             }).addOnCompleteListener(result->{
                 if(isDestroyed())return;pending=false;v.setEnabled(true);password.setText("");
-                if(!result.isSuccessful()){FirebaseAuth.getInstance().signOut();status.setText("Đăng nhập thất bại hoặc tài khoản không có quyền Admin đang hoạt động. Kiểm tra tài khoản và kết nối Emulator.");return;}
+                if(!result.isSuccessful()){
+                    boolean signedIn=FirebaseAuth.getInstance().getCurrentUser()!=null;
+                    FirebaseAuth.getInstance().signOut();
+                    if(signedIn && notAdmin(result.getException())){
+                        startActivity(new Intent(this,AdminAccessDeniedActivity.class).putExtra(AdminAccessDeniedActivity.EXTRA_EMAIL,address));
+                        status.setText("Tài khoản này không có quyền Admin.");
+                        return;
+                    }
+                    status.setText("Đăng nhập thất bại hoặc tài khoản không có quyền Admin đang hoạt động. Kiểm tra tài khoản và kết nối Emulator.");return;
+                }
+                new ViewModelProvider(this).get(AdminViewModel.class).reset();
                 startActivity(new Intent(this,AdminMainActivity.class));finish();
             });
         });
         findViewById(R.id.btnBackToUserApp).setOnClickListener(v->finish());
+    }
+
+    /** Đăng nhập Firebase đúng nhưng backend từ chối quyền Admin. */
+    private static boolean notAdmin(Exception error) {
+        Throwable current=error;
+        while(current!=null){
+            if(current instanceof FirebaseFunctionsException)
+                return ((FirebaseFunctionsException)current).getCode()==FirebaseFunctionsException.Code.PERMISSION_DENIED;
+            current=current.getCause();
+        }
+        return false;
     }
 }
