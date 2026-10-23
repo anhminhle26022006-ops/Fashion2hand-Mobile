@@ -185,20 +185,30 @@
         </LinearLayout>
     </LinearLayout>
 
-    <ScrollView
+    <TextView
+        android:id="@+id/tvMessageState"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:text="Đang tải tin nhắn…"
+        android:textColor="#52645A" />
+
+    <Button
+        android:id="@+id/btnOlderMessages"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tải tin nhắn trước"
+        android:textAllCaps="false"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/chatMessagesContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:fillViewport="true"
-        android:paddingHorizontal="16dp">
-        <LinearLayout
-            android:id="@+id/chatMessagesContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingVertical="12dp" />
-    </ScrollView>
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp" />
 
     <!-- BOTTOM CHAT BAR -->
     <LinearLayout

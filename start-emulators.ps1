@@ -24,7 +24,11 @@ try {
     $firebaseCommand = Get-Command firebase.cmd -ErrorAction SilentlyContinue
     $firebasePath = if ($firebaseCommand) { $firebaseCommand.Source } else { Join-Path $env:APPDATA 'npm\firebase.cmd' }
     if (!(Test-Path $firebasePath)) { throw 'Chưa có Firebase CLI. Cài bằng npm install -g firebase-tools.' }
-    & $firebasePath emulators:start --only auth,firestore,functions,storage --project fashion2hand
+    $emulatorArgs = @('emulators:start', '--only', 'auth,firestore,functions,storage', '--project', 'fashion2hand', '--export-on-exit=emulator-data')
+    if (Test-Path (Join-Path $PSScriptRoot 'emulator-data/firebase-export-metadata.json')) {
+        $emulatorArgs += '--import=emulator-data'
+    }
+    & $firebasePath @emulatorArgs
     $emulatorExitCode = $LASTEXITCODE
 } finally {
     $env:JAVA_HOME = $previousJavaHome

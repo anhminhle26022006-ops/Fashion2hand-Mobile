@@ -1,4 +1,4 @@
-param([switch]$RunUnitTests, [switch]$RunDeviceTests)
+param([switch]$RunUnitTests, [switch]$RunDeviceTests, [switch]$UseFirebaseEmulators, [string]$TestClass, [switch]$BuildDeviceTests)
 
 $ErrorActionPreference = 'Stop'
 $previousJavaHome = $env:JAVA_HOME
@@ -21,7 +21,11 @@ try {
     $buildTasks = @(':app:assembleDebug')
     if ($RunUnitTests) { $buildTasks += ':app:testDebugUnitTest' }
     if ($RunDeviceTests) { $buildTasks += ':app:connectedDebugAndroidTest' }
-    & .\gradlew.bat @buildTasks --no-daemon --no-configuration-cache
+    elseif ($BuildDeviceTests) { $buildTasks += ':app:assembleDebugAndroidTest' }
+    $firebaseMode = if ($UseFirebaseEmulators -or $RunDeviceTests) { 'true' } else { 'false' }
+    $testArguments = @()
+    if ($TestClass) { $testArguments += "-Pandroid.testInstrumentationRunnerArguments.class=$TestClass" }
+    & .\gradlew.bat @buildTasks @testArguments "-PuseFirebaseEmulators=$firebaseMode" --no-daemon --no-configuration-cache
     $buildExitCode = $LASTEXITCODE
 } finally {
     $env:JAVA_HOME = $previousJavaHome

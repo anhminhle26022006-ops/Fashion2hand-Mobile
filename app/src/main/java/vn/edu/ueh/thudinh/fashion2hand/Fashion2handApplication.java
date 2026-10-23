@@ -14,9 +14,12 @@ public class Fashion2handApplication extends Application {
         super.onCreate();
         // Remove the plaintext value left by the old frontend-only password demo.
         getSharedPreferences("account_contact", MODE_PRIVATE).edit().remove("password").apply();
-        FirebaseFirestore.getInstance().useEmulator("10.0.2.2", 8080);
-        FirebaseAuth.getInstance().useEmulator("10.0.2.2", 9099);
-        FirebaseStorage.getInstance().useEmulator("10.0.2.2", 9199);
-        FirebaseFunctions.getInstance().useEmulator("10.0.2.2", 5001);
+        if (BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS) {
+            String host = BuildConfig.FIREBASE_EMULATOR_HOST;
+            FirebaseFirestore.getInstance().useEmulator(host, 8080);
+            FirebaseAuth.getInstance().useEmulator(host, 9099);
+            FirebaseStorage.getInstance().useEmulator(host, 9199);
+            FirebaseFunctions.getInstance().useEmulator(host, 5001);
+        }
     }
 }

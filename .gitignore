@@ -18,3 +18,4 @@ functions/.env*
 .firebase/
 firebase-debug.log
 ui-debug.log
+emulator-data/

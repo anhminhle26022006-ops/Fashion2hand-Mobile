@@ -6,6 +6,7 @@
   },
   "main": "index.js",
   "scripts": {
+    "test:chat": "node --test test/chat.emulator.test.js",
     "test:admin": "node --test test/admin.emulator.test.js",
     "test:transactions": "node --test test/transactions.emulator.test.js",
     "test:marketplace": "node --test test/marketplace.emulator.test.js",

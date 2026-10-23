@@ -1,0 +1,12 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="112dp" android:layout_marginBottom="12dp" android:padding="14dp" android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_transaction_card" android:clickable="true" android:focusable="true">
+    <com.google.android.material.imageview.ShapeableImageView xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/historyProductImage" android:layout_width="62dp" android:layout_height="76dp" android:src="@drawable/img_product_placeholder" android:scaleType="centerCrop" android:contentDescription="Ảnh món đồ" app:shapeAppearanceOverlay="@style/HistoryImageShape"/>
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:paddingStart="12dp" android:paddingEnd="8dp" android:orientation="vertical">
+        <TextView android:id="@+id/historyMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#65776D" android:textSize="9sp" android:maxLines="1" android:ellipsize="end"/>
+        <TextView android:id="@+id/historyProductTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:textColor="#173B32" android:textSize="13sp" android:textStyle="bold" android:maxLines="2" android:ellipsize="end"/>
+        <TextView android:id="@+id/historyOrderStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:textColor="#287455" android:textSize="11sp"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="top" android:gravity="end" android:orientation="vertical" android:layout_marginTop="2dp">
+        <TextView android:id="@+id/historyAmount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#C65B40" android:textSize="13sp" android:textStyle="bold"/>
+        <TextView android:id="@+id/historyPaymentBadge" android:layout_width="96dp" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:gravity="end" android:textColor="#287455" android:textSize="9sp" android:maxLines="3"/>
+    </LinearLayout>
+</LinearLayout>

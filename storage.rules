@@ -9,10 +9,20 @@ service firebase.storage {
       return signedIn()
         && firestore.get(/databases/(default)/documents/posts/$(postId)).data.ownerId == request.auth.uid;
     }
+    // Reserved/sold photos remain visible to the two parties of that order.
+    function postOrderMember(postId) {
+      let post = firestore.get(/databases/(default)/documents/posts/$(postId)).data;
+      return signedIn() && 'reservedForOrderId' in post
+        && post.reservedForOrderId is string
+        && request.auth.uid in [
+          firestore.get(/databases/(default)/documents/orders/$(post.reservedForOrderId)).data.buyerId,
+          firestore.get(/databases/(default)/documents/orders/$(post.reservedForOrderId)).data.sellerId
+        ];
+    }
 
     match /posts/{postId}/images/{fileName} {
       allow read: if firestore.get(/databases/(default)/documents/posts/$(postId)).data.status == 'ACTIVE'
-        || ownsPost(postId);
+        || ownsPost(postId) || postOrderMember(postId);
       allow create, update: if ownsPost(postId)
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');

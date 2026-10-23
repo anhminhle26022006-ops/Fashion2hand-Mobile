@@ -84,11 +84,26 @@ public class MainActivity extends AppCompatActivity {
         public void openOrder(String id) { openTransactionDestination(R.layout.activity_order_detail, () -> { currentOrderId = id; activeOrder = null; }); }
         public void openRequest(String id) { openTransactionDestination(R.layout.activity_request_status, () -> currentFreeRequestId = id); }
         public void checkout(String id) { openTransactionDestination(R.layout.activity_checkout, () -> { currentPostId = id; checkoutReturnScreen = R.layout.activity_cart; }); }
+        public void checkoutCart(java.util.List<String> ids) { openTransactionDestination(R.layout.activity_checkout, () -> {
+            currentPostId = ""; checkoutReturnScreen = R.layout.activity_cart; transactionScreens.selectCartCheckout(ids);
+        }); }
         public void orders(boolean seller) { orderRoleFilter = seller ? "seller" : "buyer"; showScreen(R.layout.activity_orders); }
         public void back() { goBack(); }
         public void orderSnapshot(DocumentSnapshot order) { activeOrder = order; }
         public void listen(ListenerRegistration listener) { addScreenListener(listener); }
         public void error(Exception error) { showFirebaseError(error); }
+        public void photo(Map<String, Object> data, ImageView target) {
+            Object raw = data.get("imageUrls");
+            if (!(raw instanceof List) || ((List<?>) raw).isEmpty() || !(((List<?>) raw).get(0) instanceof String)) return;
+            com.google.firebase.storage.StorageReference ref = storageImageReference((String) ((List<?>) raw).get(0));
+            if (ref == null) return;
+            Object tag = target.getTag();
+            ref.getBytes(5 * 1024 * 1024).addOnSuccessListener(bytes -> {
+                if (!target.isAttachedToWindow() || !java.util.Objects.equals(tag, target.getTag())) return;
+                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (bitmap != null) target.setImageBitmap(bitmap);
+            });
+        }
         public void chat(String peerId, String postId) { startChatWithPeer(peerId, postId, R.layout.activity_order_detail); }
     });
     private String reportEvidenceOrderId = "";
@@ -124,6 +139,7 @@ public class MainActivity extends AppCompatActivity {
         public boolean restoringDraft() { return restoredForm != null; }
     });
     private final ArrayList<ListenerRegistration> screenListeners = new ArrayList<>();
+    private vn.edu.ueh.thudinh.fashion2hand.repository.ChatRepository.MessageFeed chatFeed;
     private final ArrayList<DocumentSnapshot> activePosts = new ArrayList<>();
     private boolean postsAwaitingServer;
     private final Set<String> favoritePostIds = new HashSet<>();
@@ -529,6 +545,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearScreenListeners() {
+        if (chatFeed != null) { chatFeed.removeObservers(this); chatFeed = null; }
         transactionScreens.invalidate();
         accountScreens.invalidate();
         for (ListenerRegistration listener : screenListeners) listener.remove();
@@ -1466,10 +1483,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindTransactionHistory() {
-        bindClick(R.id.btnHistoryBack, () -> showScreen(R.layout.activity_orders));
-        RadioGroup filters = findViewById(R.id.historyFilters);
-        if (filters != null) filters.setOnCheckedChangeListener((group, checkedId) -> renderTransactionHistory(checkedId));
-        renderTransactionHistory(R.id.filterHistoryAll);
+        transactionScreens.bind(R.layout.activity_transaction_history);
     }
 
     private void bindTransactions() {
@@ -1770,6 +1784,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindOrderChat() {
+        if (chatFeed != null) { chatFeed.removeObservers(this); chatFeed = null; }
         setTextIfPresent(R.id.tvChatStatus,"Tin nhắn được đồng bộ từ backend");
         View attach=findViewById(R.id.btnAttach);if(attach!=null)attach.setVisibility(View.GONE);
         bindClick(R.id.btnMenu,()->new android.app.AlertDialog.Builder(this).setItems(new String[]{"Xem hồ sơ thành viên","Thông báo"},(dialog,which)->{if(which==1)showScreen(R.layout.activity_notifications);else if(!currentPeerId.isEmpty()){viewedSellerId=currentPeerId;showScreen(R.layout.activity_seller_profile);}}).show());
@@ -1791,27 +1806,46 @@ public class MainActivity extends AppCompatActivity {
         }).addOnFailureListener(error->{if(currentScreen==R.layout.activity_chat)setTextIfPresent(R.id.tvPinnedProductName,"Không tải được sản phẩm. Quay lại để thử lại.");});
         bindClick(R.id.btnAddToCart,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;cartButton.setEnabled(false);memberTwoRepository.addCartItem(currentUid(),currentPostId,cartDataForCurrentProduct()).addOnSuccessListener(done->Toast.makeText(this,"Đã thêm vào giỏ hàng.",Toast.LENGTH_SHORT).show()).addOnFailureListener(this::showFirebaseError).addOnCompleteListener(done->{if(cartButton.isAttachedToWindow())cartButton.setEnabled(true);});});
         bindClick(R.id.btnBuyNow,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;checkoutReturnScreen=R.layout.activity_chat;showScreen(currentProductIsFree?R.layout.activity_requestfree:R.layout.activity_checkout);});
-        LinearLayout messages = findViewById(R.id.chatMessagesContainer);
+        androidx.recyclerview.widget.RecyclerView messages = findViewById(R.id.chatMessagesContainer);
+        vn.edu.ueh.thudinh.fashion2hand.viewmodel.ChatViewModel chatModel =
+                new androidx.lifecycle.ViewModelProvider(this).get(vn.edu.ueh.thudinh.fashion2hand.viewmodel.ChatViewModel.class);
         if (messages != null && !currentChatId.isEmpty()) {
-            messages.removeAllViews();
-            addScreenListener(memberTwoRepository.listenMessages(currentChatId, (snapshot, error) -> {
-                if (error != null) { showFirebaseError(error); return; }
-                messages.removeAllViews();
-                if (snapshot == null) return;
-                for (DocumentSnapshot message : snapshot.getDocuments()) {
-                    TextView bubble = new TextView(this);
-                    bubble.setText(textValue(message.getData(), "text", ""));
-                    bubble.setTextSize(14); bubble.setTextColor(0xFF173B32); bubble.setPadding(dp(12), dp(9), dp(12), dp(9));
-                    boolean mine = currentUid().equals(textValue(message.getData(), "senderId", ""));
-                    bubble.setBackgroundResource(mine ? R.drawable.bg_button_primary : R.drawable.bg_white_card_rounded);
-                    if (mine) bubble.setTextColor(0xFFFFFFFF);
-                    LinearLayout row = new LinearLayout(this); row.setGravity(mine ? android.view.Gravity.END : android.view.Gravity.START);
-                    LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2); rowParams.bottomMargin = dp(7);
-                    row.addView(bubble, new LinearLayout.LayoutParams(-2, -2)); messages.addView(row, rowParams);
+            final String boundChat = currentChatId;
+            vn.edu.ueh.thudinh.fashion2hand.adapter.MessageAdapter adapter =
+                    new vn.edu.ueh.thudinh.fashion2hand.adapter.MessageAdapter(currentUid());
+            androidx.recyclerview.widget.LinearLayoutManager manager = new androidx.recyclerview.widget.LinearLayoutManager(this);
+            manager.setStackFromEnd(true);
+            messages.setLayoutManager(manager); messages.setAdapter(adapter);
+            chatFeed = chatModel.open(boundChat);
+            Button older = findViewById(R.id.btnOlderMessages);
+            older.setOnClickListener(view -> { if (chatFeed != null) chatFeed.loadOlder(); });
+            final boolean[] markingRead = {false};
+            chatFeed.observe(this, state -> {
+                if (currentScreen != R.layout.activity_chat || !boundChat.equals(currentChatId)) return;
+                boolean atBottom = !messages.canScrollVertically(1);
+                String previousLast = adapter.getItemCount() == 0 ? "" : adapter.getCurrentList().get(adapter.getItemCount() - 1).id;
+                String nextLast = state.messages.isEmpty() ? "" : state.messages.get(state.messages.size() - 1).id;
+                boolean newTail = !previousLast.equals(nextLast);
+                adapter.submitList(state.messages, () -> {
+                    if (atBottom && newTail && adapter.getItemCount() > 0) messages.scrollToPosition(adapter.getItemCount() - 1);
+                });
+                setTextIfPresent(R.id.tvMessageState, state.error != null ? "Không tải được tin nhắn. Nhấn để thử lại."
+                        : state.loading ? "Đang tải tin nhắn…"
+                        : state.fromCache ? "Dữ liệu đã lưu trên máy · đang chờ kết nối"
+                        : state.messages.isEmpty() ? "Chưa có tin nhắn. Hãy bắt đầu cuộc trò chuyện." : "");
+                findViewById(R.id.tvMessageState).setOnClickListener(view -> {
+                    if (state.error != null) bindOrderChat();
+                });
+                older.setVisibility(state.hasMore ? View.VISIBLE : View.GONE);
+                older.setEnabled(!state.loading);
+                boolean unread = false;
+                for (vn.edu.ueh.thudinh.fashion2hand.model.Message message : state.messages)
+                    if (!message.senderId.equals(currentUid()) && !message.read) { unread = true; break; }
+                if (unread && !state.fromCache && !markingRead[0]) {
+                    markingRead[0] = true;
+                    memberTwoRepository.markChatRead(boundChat).addOnCompleteListener(done -> markingRead[0] = false);
                 }
-                messages.post(() -> { if (messages.getParent() instanceof android.widget.ScrollView) ((android.widget.ScrollView) messages.getParent()).fullScroll(View.FOCUS_DOWN); });
-            }));
-            memberTwoRepository.markChatRead(currentChatId).addOnFailureListener(this::showFirebaseError);
+            });
         }
         bindClick(R.id.btnSendMessage, () -> {
             if(messageBusy)return;
@@ -1821,7 +1855,7 @@ public class MainActivity extends AppCompatActivity {
             if(currentChatId.isEmpty()){messageInput.setError("Chưa chọn cuộc trò chuyện");return;}
             String text = messageInput.getText().toString().trim();
             messageBusy=true;findViewById(R.id.btnSendMessage).setEnabled(false);
-            memberTwoRepository.sendMessage(currentChatId, text)
+            chatModel.send(currentChatId, text)
                     .addOnSuccessListener(result -> {if(text.equals(messageInput.getText().toString().trim()))messageInput.setText("");}).addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done->{messageBusy=false;View send=findViewById(R.id.btnSendMessage);if(send!=null)send.setEnabled(true);});
         });
@@ -2674,13 +2708,17 @@ public class MainActivity extends AppCompatActivity {
         View freeNotice = findViewById(R.id.freeProductNotice);
         if (badge == null || chat == null || addToCart == null || buyNow == null || requestFree == null) return;
         badge.setText(currentProductIsFree ? "TẶNG MIỄN PHÍ" : "ĐANG BÁN");
-        badge.setTextColor(currentProductIsFree ? 0xFF23795C : 0xFFB95242);
-        badge.setBackgroundResource(currentProductIsFree ? R.drawable.bg_green_light_card : R.drawable.bg_badge_red);
+        badge.setTextColor(currentProductIsFree ? 0xFF23795C : 0xFF9C3D28);
+        badge.setBackgroundResource(currentProductIsFree ? R.drawable.bg_green_light_card : R.drawable.bg_product_sale_badge);
         addToCart.setVisibility(currentProductIsFree ? View.GONE : View.VISIBLE);
         buyNow.setVisibility(currentProductIsFree ? View.GONE : View.VISIBLE);
         requestFree.setVisibility(currentProductIsFree ? View.VISIBLE : View.GONE);
-        chat.setText(currentProductIsFree ? "Chat với người tặng" : "□");
-        chat.setTextSize(currentProductIsFree ? 9 : 17);
+        chat.setText(currentProductIsFree ? "Chat với người tặng" : "Chat");
+        chat.setTextSize(currentProductIsFree ? 11 : 10);
+        chat.setPadding(0, 0, 0, 0);
+        chat.setMinWidth(0);
+        chat.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFEAF0EC));
+        chat.setTextColor(0xFF14513E);
         LinearLayout.LayoutParams chatParams = (LinearLayout.LayoutParams) chat.getLayoutParams();
         chatParams.width = currentProductIsFree ? 0 : dp(42);
         chatParams.weight = currentProductIsFree ? 1 : 0;
