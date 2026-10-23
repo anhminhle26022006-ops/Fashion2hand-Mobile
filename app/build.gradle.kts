@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "vn.edu.ueh.thudinh.fashion2hand"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "vn.edu.ueh.thudinh.fashion2hand"

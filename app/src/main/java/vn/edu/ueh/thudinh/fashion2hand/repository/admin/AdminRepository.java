@@ -21,7 +21,6 @@ import vn.edu.ueh.thudinh.fashion2hand.model.admin.VerificationRequest;
 public class AdminRepository {
 
     public static final String ADMIN_EMAIL = "admin@fashion2hand.com";
-    private static final String ADMIN_DEMO_PASSWORD = "admin123";
 
     private static AdminRepository instance;
 
@@ -50,13 +49,8 @@ public class AdminRepository {
     }
 
     private AdminRepository() {
-        seedUsers();
-        seedPosts();
-        seedOrders();
-        seedReports();
-        seedDisputes();
-        seedVerifications();
-        seedCategories();
+        // Retained only for legacy renderers; live Admin activities use server callables.
+        // Never initialize fabricated business records or grant roles here.
     }
 
     // ---------------------------------------------------------------- Đăng nhập
@@ -67,7 +61,7 @@ public class AdminRepository {
     }
 
     public boolean checkAdminPassword(String email, String password) {
-        return ADMIN_EMAIL.equalsIgnoreCase(email.trim()) && ADMIN_DEMO_PASSWORD.equals(password);
+        return false;
     }
 
     public boolean isAdminEmail(String email) {

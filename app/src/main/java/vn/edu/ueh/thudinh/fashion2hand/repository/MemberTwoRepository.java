@@ -75,6 +75,25 @@ public final class MemberTwoRepository {
                 "addressId", addressId == null ? "" : addressId));
     }
 
+    public Task<HttpsCallableResult> checkout(String postId, String key, String addressId, long price, long fee) {
+        return call("createPaidOrder", payload("postId", postId, "idempotencyKey", key, "addressId", addressId,
+                "expectedPrice", price, "expectedShippingFee", fee));
+    }
+
+    public Task<HttpsCallableResult> quote(String postId) { return call("getCheckoutQuote", payload("postId", postId)); }
+    public Task<HttpsCallableResult> capabilities() { return call("getTransactionCapabilities", payload()); }
+    public Task<HttpsCallableResult> refreshOrder(String orderId) { return call("refreshOrder", payload("orderId", orderId)); }
+
+    public Task<HttpsCallableResult> createDispute(String orderId, String reason, String description, String uploadKey, java.util.List<String> evidencePaths) {
+        return call("createDispute", payload("orderId", orderId, "reason", reason, "description", description,
+                "uploadKey", uploadKey, "evidencePaths", evidencePaths));
+    }
+
+    public Task<HttpsCallableResult> simulateShipmentLocation(String orderId, double lat, double lng) {
+        return call("simulateShipmentUpdate", payload("orderId", orderId, "status", "IN_TRANSIT",
+                "description", "Cập nhật vị trí mô phỏng", "location", payload("lat", lat, "lng", lng)));
+    }
+
     /** Test/coursework simulation only. The server rejects this unless explicitly enabled. */
     public Task<HttpsCallableResult> simulatePaymentResult(String orderId, boolean paid) {
         return call("simulatePaymentResult", payload("orderId", orderId, "status", paid ? "PAID" : "FAILED"));
@@ -130,77 +149,77 @@ public final class MemberTwoRepository {
 
     public ListenerRegistration listenActivePosts(EventListener<QuerySnapshot> listener) {
         return firestore.collection("posts").whereEqualTo("status", "ACTIVE")
-                .orderBy("createdAt", Query.Direction.DESCENDING).limit(50).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).limit(50).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE,listener);
     }
 
     public ListenerRegistration listenCart(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("users").document(uid).collection("cartItems")
-                .orderBy("addedAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("addedAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE,listener);
     }
 
     public ListenerRegistration listenFavorites(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("users").document(uid).collection("favorites")
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenFreeRequest(String requestId, EventListener<DocumentSnapshot> listener) {
-        return firestore.collection("freeRequests").document(requestId).addSnapshotListener(listener);
+        return firestore.collection("freeRequests").document(requestId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenChats(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("chats").whereArrayContains("participantIds", uid)
-                .orderBy("updatedAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("updatedAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenMessages(String chatId, EventListener<QuerySnapshot> listener) {
         return firestore.collection("chats").document(chatId).collection("messages")
-                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenFreeRequestsAsRequester(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("freeRequests").whereEqualTo("requesterId", uid)
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE,listener);
     }
 
     public ListenerRegistration listenFreeRequestsAsOwner(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("freeRequests").whereEqualTo("ownerId", uid)
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE,listener);
     }
 
     public ListenerRegistration listenOrdersAsBuyer(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("orders").whereEqualTo("buyerId", uid)
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenOrdersAsSeller(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("orders").whereEqualTo("sellerId", uid)
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenOrder(String orderId, EventListener<DocumentSnapshot> listener) {
-        return firestore.collection("orders").document(orderId).addSnapshotListener(listener);
+        return firestore.collection("orders").document(orderId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenOrderStatusEvents(String orderId, EventListener<QuerySnapshot> listener) {
         return firestore.collection("orders").document(orderId).collection("statusEvents")
-                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenPayment(String paymentId, EventListener<DocumentSnapshot> listener) {
-        return firestore.collection("payments").document(paymentId).addSnapshotListener(listener);
+        return firestore.collection("payments").document(paymentId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenMoneyTransactions(String orderId, EventListener<QuerySnapshot> listener) {
         return firestore.collection("moneyTransactions").whereEqualTo("orderId", orderId)
-                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.ASCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenNotifications(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("users").document(uid).collection("notifications")
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public ListenerRegistration listenShipment(String orderId, EventListener<DocumentSnapshot> listener) {
-        return firestore.collection("shipments").document(orderId).addSnapshotListener(listener);
+        return firestore.collection("shipments").document(orderId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 }

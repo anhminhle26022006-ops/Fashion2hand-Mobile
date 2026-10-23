@@ -57,7 +57,7 @@
         <EditText
             android:id="@+id/edtAdminEmail"
             style="@style/AdminInput"
-            android:hint="admin@fashion2hand.com"
+            android:hint="Email được cấp quyền quản trị"
             android:inputType="textEmailAddress" />
 
         <TextView
@@ -90,7 +90,7 @@
             android:backgroundTint="@color/f2h_info_soft"
             android:lineSpacingExtra="2dp"
             android:padding="12dp"
-            android:text="Tài khoản demo: admin@fashion2hand.com / admin123.\nNhập email người dùng khác (vd: ngoc.tran@gmail.com) để xem màn từ chối truy cập."
+            android:text="Đăng nhập bằng tài khoản Firebase được cấp quyền Admin. Quyền truy cập được kiểm tra tại backend."
             android:textColor="@color/f2h_info"
             android:textSize="12sp" />
 

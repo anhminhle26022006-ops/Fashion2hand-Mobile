@@ -33,25 +33,27 @@
                     android:textColor="#FFFFFF"
                     android:textSize="17sp"
                     android:textStyle="bold" />
-                <TextView
+                <ImageButton
                     android:id="@+id/btnNotifications"
                     android:layout_width="42dp"
                     android:layout_height="42dp"
                     android:gravity="center"
-                    android:text="♧"
-                    android:textColor="#FFFFFF"
+                    android:src="@drawable/ic_admin_bell"
+                    android:contentDescription="Thông báo"
+                    android:padding="10dp"
                     android:textSize="20sp"
                     android:background="@drawable/bg_white_card_rounded"
                     android:clickable="true"
                     android:focusable="true" />
-                <TextView
+                <ImageButton
                     android:id="@+id/btnSettings"
                     android:layout_width="42dp"
                     android:layout_height="42dp"
                     android:layout_marginStart="8dp"
                     android:gravity="center"
-                    android:text="⚙"
-                    android:textColor="#FFFFFF"
+                    android:src="@drawable/ic_admin_settings"
+                    android:contentDescription="Cài đặt"
+                    android:padding="10dp"
                     android:textSize="18sp"
                     android:background="@drawable/bg_white_card_rounded"
                     android:clickable="true"
@@ -82,7 +84,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:gravity="center"
-                    android:text="Nguyễn Minh Anh"
+                    android:text="Đang tải hồ sơ…"
                     android:textColor="#173B32"
                     android:textSize="18sp" />
                 <TextView
@@ -91,7 +93,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:gravity="center"
-                    android:text="Chưa xác minh · Quận 3"
+                    android:text="Chưa cập nhật khu vực"
                     android:textColor="#75857F"
                     android:textSize="10sp" />
                 <TextView
@@ -99,7 +101,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:gravity="center"
-                    android:text="★  4.9  (28 đánh giá)"
+                    android:text="Chưa có dữ liệu đánh giá"
                     android:textColor="#A97619"
                     android:textSize="10sp" />
                 <LinearLayout
@@ -108,11 +110,11 @@
                     android:layout_marginTop="10dp"
                     android:gravity="center"
                     android:orientation="horizontal">
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="24\nTin đăng" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/txtProfilePostCount" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="—\nTin đăng" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
                     <View android:layout_width="1dp" android:layout_height="38dp" android:background="#E2E8E3" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="18\nHoàn thành" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/txtProfileCompletedCount" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="—\nHoàn thành" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
                     <View android:layout_width="1dp" android:layout_height="38dp" android:background="#E2E8E3" />
-                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="4.8\nĐánh giá" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="—\nĐánh giá" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
                 </LinearLayout>
                 <Button
                     android:id="@+id/btnEditProfile"
@@ -153,11 +155,11 @@
                 android:orientation="vertical"
                 android:paddingHorizontal="12dp"
                 android:background="@drawable/bg_white_card_rounded">
-                <Button android:id="@+id/btnMyListings" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⬡   Tin đăng của tôi                         ›\n      12 đang hoạt động" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <Button android:id="@+id/btnMyListings" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⬡   Tin đăng của tôi                         ›\n      Đang tải…" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
                 <Button android:id="@+id/btnMyOrders" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⛨   Trung tâm giao dịch                    ›\n      Yêu cầu, mua bán và trao tặng" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
-                <Button android:id="@+id/btnMyCart" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="▣   Đơn hàng của tôi                          ›\n      2 đang giao" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
+                <Button android:id="@+id/btnMyCart" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="▣   Đơn hàng của tôi                          ›\n      Đang tải…" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />
                 <Button android:id="@+id/btnMyHistory" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="start|center_vertical" android:backgroundTint="#FFFFFF" android:text="⛨   Lịch sử giao dịch                         ›\n      An toàn, minh bạch" android:textAllCaps="false" android:textColor="#173B32" android:textSize="11sp" />
                 <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E7EBE7" />

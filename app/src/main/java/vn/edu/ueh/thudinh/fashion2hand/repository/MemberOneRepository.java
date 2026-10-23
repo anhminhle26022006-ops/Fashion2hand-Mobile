@@ -77,23 +77,29 @@ public final class MemberOneRepository {
         StorageReference ref = storage.getReference().child("posts/" + postId + "/images/" + index + ".jpg");
         TaskCompletionSource<String> result = new TaskCompletionSource<>();
         com.google.firebase.storage.UploadTask upload;
-        if (photoUri != null) upload = ref.putFile(photoUri);
+        if (photoUri != null) {
+            String mime = com.google.firebase.FirebaseApp.getInstance().getApplicationContext().getContentResolver().getType(photoUri);
+            com.google.firebase.storage.StorageMetadata metadata = new com.google.firebase.storage.StorageMetadata.Builder()
+                    .setContentType(mime != null ? mime : "image/jpeg").build();
+            upload = ref.putFile(photoUri, metadata);
+        }
         else {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             photoBitmap.compress(Bitmap.CompressFormat.JPEG, 88, output);
-            upload = ref.putBytes(output.toByteArray());
+            upload = ref.putBytes(output.toByteArray(), new com.google.firebase.storage.StorageMetadata.Builder()
+                    .setContentType("image/jpeg").build());
         }
         upload.continueWithTask(task -> {
             if (!task.isSuccessful()) throw task.getException();
             return ref.getDownloadUrl();
-        }).addOnSuccessListener(uri -> result.setResult(uri.toString()))
+        }).addOnSuccessListener(uri -> result.setResult(ref.toString()))
                 .addOnFailureListener(result::setException);
         return result.getTask();
     }
 
     public ListenerRegistration listenMyListings(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("posts").whereEqualTo("ownerId", uid)
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
     public Task<Void> deleteListing(String postId) {
@@ -149,6 +155,6 @@ public final class MemberOneRepository {
 
     public ListenerRegistration listenFavorites(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("users").document(uid).collection("favorites")
-                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(listener);
+                .orderBy("createdAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 }

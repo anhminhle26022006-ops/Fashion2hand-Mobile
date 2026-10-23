@@ -120,13 +120,12 @@
                     android:textColor="#111111" />
 
                 <!-- Badge số 2 -->
-                <TextView
-                    android:layout_width="18dp"
+                <TextView android:id="@+id/txtMessageUnreadCount" android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:layout_marginStart="6dp"
                     android:background="@drawable/bg_badge_red"
                     android:gravity="center"
-                    android:text="2"
+                    android:text="0" android:visibility="gone"
                     android:textSize="10sp"
                     android:textColor="@android:color/white"
                     android:textStyle="bold" />

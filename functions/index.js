@@ -1,17 +1,29 @@
 const crypto = require("node:crypto");
 const { initializeApp } = require("firebase-admin/app");
+const { getStorage } = require("firebase-admin/storage");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onCall: firebaseOnCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 
 initializeApp();
 const db = getFirestore();
+const { getAuth } = require("firebase-admin/auth");
 const paymentWebhookToken = defineSecret("PAYMENT_WEBHOOK_TOKEN");
 const shipmentWebhookToken = defineSecret("SHIPMENT_WEBHOOK_TOKEN");
 
 const fail = (code, message) => { throw new HttpsError(code, message); };
+// Check the current server profile on every callable, including tokens issued before a lock.
+function onCall(handler) {
+  return firebaseOnCall(async request => {
+    if (request.auth) {
+      const profile = await db.doc(`users/${request.auth.uid}`).get();
+      if (profile.exists && profile.get("accountStatus") !== "ACTIVE") fail("permission-denied", "Tài khoản đã bị khóa.");
+    }
+    return handler(request);
+  });
+}
 function uidOf(request) {
   if (!request.auth) fail("unauthenticated", "Vui lòng đăng nhập.");
   return request.auth.uid;
@@ -27,6 +39,154 @@ function cleanDocumentId(value, label) {
   if (result.includes("/") || result === "." || result === "..") fail("invalid-argument", `${label} không hợp lệ.`);
   return result;
 }
+
+function simulationEnabled(kind) {
+  return process.env.FUNCTIONS_EMULATOR === "true" && process.env[`ENABLE_SIMULATED_${kind}`] === "true";
+}
+function validatedAddress(address) {
+  if (!address || !address.exists) fail("failed-precondition", "Vui lòng chọn địa chỉ nhận hàng đã lưu.");
+  const value = addressSnapshot(address);
+  if (!value.recipient.trim() || !value.province.trim() || !value.district.trim() || !value.ward.trim()
+      || !value.street.trim() || !/^\+?[0-9 ()-]{9,20}$/.test(value.phone))
+    fail("failed-precondition", "Địa chỉ nhận hàng chưa đầy đủ hoặc số điện thoại không hợp lệ.");
+  return value;
+}
+function shipmentLocation(value) {
+  if (value == null) return null;
+  if (typeof value.lat !== "number" || typeof value.lng !== "number" || !Number.isFinite(value.lat)
+      || !Number.isFinite(value.lng) || Math.abs(value.lat) > 90 || Math.abs(value.lng) > 180)
+    fail("invalid-argument", "Tọa độ vận chuyển không hợp lệ.");
+  return { lat: value.lat, lng: value.lng, recordedAt: new Date().toISOString() };
+}
+
+exports.getTransactionCapabilities = onCall(async request => {
+  uidOf(request);
+  return { simulatedPayments: simulationEnabled("PAYMENTS"), simulatedShipping: simulationEnabled("SHIPPING"),
+    checkoutItemsPerOrder: 1, shippingFee: await shippingFeeVnd(), liveProvidersConnected: false };
+});
+
+exports.getCheckoutQuote = onCall(async request => {
+  const uid = uidOf(request);
+  const postId = cleanDocumentId(request.data.postId, "Bài đăng");
+  const post = await db.doc(`posts/${postId}`).get();
+  if (!post.exists || !["SALE", "FREE"].includes(postType(post))) fail("not-found", "Không tìm thấy món đồ.");
+  if (postOwnerId(post) === uid) fail("failed-precondition", "Không thể nhận hoặc mua món đồ của chính bạn.");
+  if (post.get("status") !== "ACTIVE" || post.get("reservedForOrderId")) {
+    const reserved = post.get("reservedForOrderId");
+    const order = reserved ? await db.doc(`orders/${reserved}`).get() : null;
+    if (order?.exists && order.get("buyerId") === uid && order.get("orderStatus") === "PENDING_PAYMENT")
+      return { existingOrderId: order.id };
+    fail("failed-precondition", "Món đồ không còn khả dụng.");
+  }
+  const price = postType(post) === "FREE" ? 0 : post.get("price");
+  if (!Number.isSafeInteger(price) || price < 0 || (postType(post) === "SALE" && price === 0))
+    fail("failed-precondition", "Giá bài đăng không hợp lệ.");
+  const shippingFee = await shippingFeeVnd();
+  return { postId, sellerId: postOwnerId(post), title: post.get("title") || "", type: postType(post),
+    price, shippingFee, total: price + shippingFee, currency: "VND", mode: "SIMULATED" };
+});
+
+// Emulator does not execute scheduled jobs. Opening an order also reconciles
+// deadlines using server time; clients cannot force an unexpired order to expire.
+exports.refreshOrder = onCall(async request => {
+  const uid = uidOf(request), orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
+  const ref = db.doc(`orders/${orderId}`);
+  await db.runTransaction(async tx => {
+    const order = await tx.get(ref);
+    if (!order.exists || ![order.get("buyerId"), order.get("sellerId")].includes(uid)) fail("permission-denied", "Không thể xem đơn hàng này.");
+    const now = new Date();
+    const unpaid = order.get("orderStatus") === "PENDING_PAYMENT" && order.get("paymentDeadline")?.toDate() <= now;
+    const unconfirmed = order.get("orderStatus") === "CONFIRMED" && order.get("sellerResponseDeadline")?.toDate() <= now;
+    if (!unpaid && !unconfirmed) return;
+    const postRef = db.doc(`posts/${order.get("postId")}`), post = await tx.get(postRef);
+    const paymentRef = order.get("paymentId") ? db.doc(`payments/${order.get("paymentId")}`) : null;
+    const payment = paymentRef ? await tx.get(paymentRef) : null;
+    const next = unconfirmed ? "REFUNDED" : "CANCELLED";
+    tx.update(ref, { orderStatus: next, paymentStatus: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
+    if (post.exists && post.get("reservedForOrderId") === orderId) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+    if (payment?.exists) tx.update(paymentRef, { status: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
+    if (unconfirmed && payment?.exists) {
+      tx.update(db.doc(`moneyTransactions/received_${orderId}`), { status: "REFUNDED", refundedAt: FieldValue.serverTimestamp() });
+      tx.set(db.doc(`refunds/${orderId}`), { orderId, paymentId: paymentRef.id, amount: payment.get("amount"), status: "COMPLETED", mode: "SIMULATED", reason: "Người bán quá hạn phản hồi", createdAt: FieldValue.serverTimestamp() });
+      tx.set(db.doc(`moneyTransactions/refund_${orderId}`), { orderId, paymentId: paymentRef.id, type: "REFUND", amount: payment.get("amount"), status: "COMPLETED", mode: "SIMULATED", createdAt: FieldValue.serverTimestamp() });
+    }
+    writeOrderEvent(tx, ref, order.get("orderStatus"), next, "SYSTEM", unpaid ? "Quá hạn thanh toán 15 phút" : "Người bán quá hạn phản hồi 48 giờ");
+  });
+  return { ok: true };
+});
+
+exports.createDispute = onCall(async request => {
+  const uid = uidOf(request);
+  const orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
+  const reason = cleanText(request.data.reason, 40, "Lý do");
+  if (!["NOT_RECEIVED", "DAMAGED", "MISMATCH", "WRONG_ITEM", "OTHER"].includes(reason)) fail("invalid-argument", "Lý do không hợp lệ.");
+  const description = cleanText(request.data.description, 2000, "Mô tả");
+  if (description.length < 10) fail("invalid-argument", "Mô tả cần ít nhất 10 ký tự.");
+  const uploadKey = cleanDocumentId(request.data.uploadKey, "Mã bằng chứng");
+  const evidence = request.data.evidencePaths || [];
+  if (!Array.isArray(evidence) || evidence.length > 5 || new Set(evidence).size !== evidence.length)
+    fail("invalid-argument", "Mỗi tranh chấp tối đa 5 ảnh khác nhau.");
+  const orderRef = db.doc(`orders/${orderId}`);
+  const disputeRef = db.doc(`disputes/${orderId}`);
+  const initial = await orderRef.get();
+  if (!initial.exists || ![initial.get("buyerId"), initial.get("sellerId")].includes(uid)) fail("permission-denied", "Bạn không thuộc đơn hàng này.");
+  const existing = await disputeRef.get();
+  if (existing.exists) {
+    if (existing.get("reporterId") === uid && existing.get("uploadKey") === uploadKey) return { disputeId: disputeRef.id };
+    fail("already-exists", "Đơn hàng đã có tranh chấp.");
+  }
+  if (!["SHIPPING", "DELIVERED"].includes(initial.get("orderStatus"))) fail("failed-precondition", "Chỉ báo cáo khi đang giao hoặc đã giao, trước khi xác nhận hoàn tất.");
+  const bucket = getStorage().bucket(process.env.EVIDENCE_BUCKET || "fashion2hand.firebasestorage.app");
+  const prefix = `disputeEvidence/${orderId}/${uid}/${uploadKey}/`;
+  await Promise.all(evidence.map(async path => {
+    if (typeof path !== "string" || !path.startsWith(prefix) || !/^[0-4]\.jpg$/.test(path.slice(prefix.length)))
+      fail("invalid-argument", "Đường dẫn bằng chứng không hợp lệ.");
+    let metadata;
+    try { [metadata] = await bucket.file(path).getMetadata(); }
+    catch { fail("failed-precondition", "Ảnh bằng chứng chưa được tải lên đầy đủ."); }
+    if (!metadata.contentType?.startsWith("image/") || Number(metadata.size) >= 5 * 1024 * 1024)
+      fail("invalid-argument", "Ảnh bằng chứng không hợp lệ hoặc vượt quá 5 MB.");
+  }));
+  await db.runTransaction(async tx => {
+    const [order, prior] = await Promise.all([tx.get(orderRef), tx.get(disputeRef)]);
+    if (prior.exists) {
+      if (prior.get("reporterId") === uid && prior.get("uploadKey") === uploadKey) return;
+      fail("already-exists", "Đơn hàng đã có tranh chấp.");
+    }
+    if (!order.exists || ![order.get("buyerId"), order.get("sellerId")].includes(uid)
+        || !["SHIPPING", "DELIVERED"].includes(order.get("orderStatus"))) fail("failed-precondition", "Đơn hàng không còn cho phép báo cáo.");
+    tx.create(disputeRef, { orderId, buyerId: order.get("buyerId"), sellerId: order.get("sellerId"), reporterId: uid,
+      reason, description, evidencePaths: evidence, evidenceBucket: bucket.name, uploadKey, status: "OPEN", createdAt: FieldValue.serverTimestamp() });
+    tx.update(orderRef, { disputeId: disputeRef.id, disputeStatus: "OPEN", updatedAt: FieldValue.serverTimestamp() });
+    writeOrderEvent(tx, orderRef, order.get("orderStatus"), order.get("orderStatus"), uid, "Đã mở tranh chấp; chờ xử lý trước khi hoàn tất đơn.");
+  });
+  const other = initial.get("buyerId") === uid ? initial.get("sellerId") : initial.get("buyerId");
+  await notify(other, { type: "DISPUTE_OPENED", title: "Đơn hàng có tranh chấp", body: "Một bên đã gửi báo cáo và bằng chứng.", orderId });
+  return { disputeId: disputeRef.id };
+});
+
+// Publish only explicitly public profile fields, never contact or identity data.
+exports.getSellerProfile = onCall(async request => {
+  uidOf(request);
+  const sellerId = cleanDocumentId(request.data?.sellerId, "Người đăng");
+  const user = await db.collection("users").doc(sellerId).get();
+  if (!user.exists || user.get("accountStatus") !== "ACTIVE")
+    fail("not-found", "Hồ sơ không tồn tại hoặc không còn hoạt động.");
+  const publicString = field => typeof user.get(field) === "string" ? user.get(field) : "";
+  return { uid: sellerId, name: publicString("name"), photoUrl: publicString("photoUrl"),
+    region: publicString("region"), bio: publicString("bio") };
+});
+
+// Copy contact details from Auth, not from client-supplied verification flags.
+exports.syncAccountContact = onCall(async request => {
+  const uid = uidOf(request);
+  const user = await getAuth().getUser(uid);
+  const profile = db.collection("users").doc(uid);
+  const update = { email: user.email || "", emailVerified: user.emailVerified,
+    phone: user.phoneNumber || "", phoneVerified: Boolean(user.phoneNumber), updatedAt: FieldValue.serverTimestamp() };
+  await profile.update(update);
+  return { email: update.email, emailVerified: update.emailVerified, phone: update.phone, phoneVerified: update.phoneVerified };
+});
 function postOwnerId(post) { return post.get("ownerId") || post.get("userId") || ""; }
 function postType(post) {
   const value = post.get("type") || post.get("listingType");
@@ -73,8 +233,8 @@ function writeOrderEvent(tx, orderRef, from, to, actorId, reason = "") {
 }
 async function shippingFeeVnd() {
   const tariff = await db.collection("shippingTariffs").doc("active").get();
-  return tariff.exists && Number.isSafeInteger(tariff.get("minimumFeeVnd"))
-    ? Math.max(0, tariff.get("minimumFeeVnd")) : 15000;
+  return tariff.exists && Number.isSafeInteger(tariff.get("minFee"))
+    ? Math.max(0, tariff.get("minFee")) : 15000;
 }
 function validPaymentWebhook(req) {
   const expected = paymentWebhookToken.value();
@@ -196,16 +356,16 @@ exports.createFreeRequest = onCall(async (request) => {
       .where("postId", "==", postId).where("requesterId", "==", uid).where("status", "==", "PENDING").limit(1));
     if (!pending.empty) fail("already-exists", "Bạn đã gửi yêu cầu cho món đồ này.");
     const prior = await tx.get(requestRef);
-    if (prior.exists && !["REJECTED", "CANCELLED"].includes(prior.get("status"))) fail("already-exists", "Bạn đã gửi yêu cầu cho món đồ này.");
+    if (prior.exists && !["REJECTED", "CANCELLED", "UNAVAILABLE"].includes(prior.get("status"))) fail("already-exists", "Bạn đã gửi yêu cầu cho món đồ này.");
     const address = addressRef ? await tx.get(addressRef) : null;
     if (addressRef && !address.exists) fail("not-found", "Không tìm thấy địa chỉ nhận hàng.");
-    const shippingAddress = address && address.exists ? addressSnapshot(address) : null;
+    const shippingAddress = validatedAddress(address);
     if (prior.exists) {
-      tx.update(requestRef, { note, addressId: addressId || null, shippingAddress, status: "PENDING", createdAt: now, updatedAt: FieldValue.serverTimestamp() });
+      tx.update(requestRef, { note, postSnapshot: orderPostSnapshot(post), addressId: addressId || null, shippingAddress, status: "PENDING", createdAt: now, updatedAt: FieldValue.serverTimestamp() });
       return;
     }
     tx.create(requestRef, {
-      postId, ownerId, requesterId: uid, note, addressId: addressId || null, shippingAddress, status: "PENDING",
+      postId, ownerId, requesterId: uid, postSnapshot: orderPostSnapshot(post), note, addressId: addressId || null, shippingAddress, status: "PENDING",
       createdAt: now, updatedAt: now
     });
   });
@@ -235,6 +395,7 @@ exports.respondFreeRequest = onCall(async (request) => {
     }
     const next = accept ? "ACCEPTED" : "REJECTED";
     if (accept) {
+      if (!req.get("shippingAddress")) fail("failed-precondition", "Yêu cầu chưa có địa chỉ nhận hàng. Người nhận cần gửi lại yêu cầu với địa chỉ đầy đủ.");
       if (post.get("status") !== "ACTIVE") fail("failed-precondition", "Món đồ đã được nhận bởi người khác hoặc đã ẩn.");
       const otherPendingRequests = await tx.get(db.collection("freeRequests")
         .where("postId", "==", postRef.id).where("status", "==", "PENDING").limit(450));
@@ -294,6 +455,7 @@ exports.createPaidOrder = onCall(async (request) => {
     const previous = await tx.get(idemRef);
     if (previous.exists) {
       if (previous.get("postId") && previous.get("postId") !== postId) fail("already-exists", "Mã yêu cầu này đã được dùng cho sản phẩm khác.");
+      if (previous.get("addressId") && previous.get("addressId") !== addressId) fail("already-exists", "Đơn đã được tạo với địa chỉ trước đó. Hãy mở đơn đang chờ thanh toán.");
       orderId = previous.get("orderId"); return;
     }
     const post = await tx.get(postRef);
@@ -307,13 +469,18 @@ exports.createPaidOrder = onCall(async (request) => {
     if (!Number.isSafeInteger(price) || price <= 0) fail("failed-precondition", "Giá sản phẩm không hợp lệ.");
     const address = addressRef ? await tx.get(addressRef) : null;
     if (addressRef && !address.exists) fail("not-found", "Không tìm thấy địa chỉ nhận hàng.");
+    const shippingAddress = validatedAddress(address);
+    if (request.data.expectedPrice != null && request.data.expectedPrice !== price)
+      fail("failed-precondition", "Giá sản phẩm đã thay đổi. Vui lòng tải lại báo giá.");
+    if (request.data.expectedShippingFee != null && request.data.expectedShippingFee !== shippingFee)
+      fail("failed-precondition", "Phí vận chuyển đã thay đổi. Vui lòng tải lại báo giá.");
     const orderRef = db.collection("orders").doc();
     const paymentRef = db.collection("payments").doc();
     orderId = orderRef.id;
     tx.create(orderRef, {
       orderType: "PAID", buyerId: uid, sellerId, postId, price, shippingFee,
       postSnapshot: orderPostSnapshot(post),
-      shippingAddress: address && address.exists ? addressSnapshot(address) : null,
+      shippingAddress,
       orderStatus: "PENDING_PAYMENT", paymentStatus: "PENDING", shippingStatus: "READY",
       paymentId: paymentRef.id, trackingCode: "", paymentDeadline: new Date(Date.now() + 15 * 60 * 1000),
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
@@ -325,7 +492,7 @@ exports.createPaidOrder = onCall(async (request) => {
     });
     writeOrderEvent(tx, orderRef, "", "PENDING_PAYMENT", uid, "Đơn được tạo; thời hạn thanh toán 15 phút.");
     tx.update(postRef, { status: "RESERVED", updatedAt: FieldValue.serverTimestamp(), reservedForOrderId: orderId });
-    tx.create(idemRef, { orderId, postId, createdAt: FieldValue.serverTimestamp() });
+    tx.create(idemRef, { orderId, postId, addressId, createdAt: FieldValue.serverTimestamp() });
   });
   if (sellerId) await notify(sellerId, { type: "ORDER_AWAITING_PAYMENT", title: "Có đơn hàng mới", body: `Đơn ${orderId} đang chờ người mua thanh toán.`, orderId });
   return { orderId };
@@ -333,15 +500,17 @@ exports.createPaidOrder = onCall(async (request) => {
 
 exports.simulatePaymentResult = onCall(async (request) => {
   const uid = uidOf(request);
-  if (process.env.ENABLE_SIMULATED_PAYMENTS !== "true") fail("failed-precondition", "Thanh toán mô phỏng đang tắt.");
+  if (!simulationEnabled("PAYMENTS")) fail("failed-precondition", "Thanh toán mô phỏng chỉ khả dụng trên Emulator khi được bật.");
   const orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
   const status = cleanText(request.data.status, 16, "Kết quả");
   if (!["PAID", "FAILED"].includes(status)) fail("invalid-argument", "Kết quả thanh toán không hợp lệ.");
   const orderRef = db.collection("orders").doc(orderId);
-  let buyerId; let sellerId;
+  let buyerId; let sellerId; let alreadyApplied = false;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
-    if (!order.exists || order.get("buyerId") !== uid || order.get("orderStatus") !== "PENDING_PAYMENT") fail("permission-denied", "Đơn hàng không thể thanh toán.");
+    if (!order.exists || order.get("buyerId") !== uid) fail("permission-denied", "Đơn hàng không thể thanh toán.");
+    if (order.get("paymentStatus") === status) { alreadyApplied = true; return; }
+    if (order.get("orderStatus") !== "PENDING_PAYMENT") fail("permission-denied", "Đơn hàng không thể thanh toán.");
     if (order.get("paymentDeadline") && order.get("paymentDeadline").toDate() <= new Date()) fail("deadline-exceeded", "Đơn hàng đã hết thời hạn thanh toán.");
     const paymentRef = db.collection("payments").doc(order.get("paymentId"));
     const postRef = db.collection("posts").doc(order.get("postId"));
@@ -359,7 +528,7 @@ exports.simulatePaymentResult = onCall(async (request) => {
       tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     }
   });
-  await Promise.all([buyerId, sellerId].map((targetUid) => notify(targetUid, { type: "PAYMENT_UPDATED", title: "Cập nhật thanh toán", body: `Thanh toán đơn ${orderId}: ${status}`, orderId })));
+  if (!alreadyApplied) await Promise.all([buyerId, sellerId].map((targetUid) => notify(targetUid, { type: "PAYMENT_UPDATED", title: "Cập nhật thanh toán", body: `Thanh toán đơn ${orderId}: ${status}`, orderId })));
   return { ok: true };
 });
 
@@ -443,35 +612,38 @@ exports.rejectOrder = onCall(async (request) => {
 
 exports.createShipment = onCall(async (request) => {
   const uid = uidOf(request);
+  if (!simulationEnabled("SHIPPING")) fail("failed-precondition", "Chưa kết nối hãng vận chuyển. Vận đơn mô phỏng chỉ bật trên Emulator.");
   const orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
   const requestedCarrier = cleanText(request.data.carrier, 80, "Đơn vị vận chuyển", false);
   if (requestedCarrier && requestedCarrier !== "MOCK_CARRIER") fail("failed-precondition", "Hiện chỉ hỗ trợ đơn vị vận chuyển mô phỏng.");
   const carrier = "MOCK_CARRIER";
-  const trackingCode = cleanText(request.data.trackingCode, 100, "Mã vận đơn");
+  const trackingCode = cleanText(request.data.trackingCode, 100, "Mã vận đơn", false) || `EMU-${orderId}`;
   const orderRef = db.collection("orders").doc(orderId);
   const shipmentRef = db.collection("shipments").doc(orderId);
   let buyerId;
   await db.runTransaction(async (tx) => {
-    const order = await tx.get(orderRef);
+    const [order, priorShipment] = await Promise.all([tx.get(orderRef), tx.get(shipmentRef)]);
+    if (order.exists && order.get("sellerId") === uid && priorShipment.exists) return;
     if (!order.exists || order.get("sellerId") !== uid || order.get("orderStatus") !== "READY_TO_SHIP") {
       fail("permission-denied", "Bạn không thể tạo vận đơn cho đơn hàng này.");
     }
     buyerId = order.get("buyerId");
-    tx.set(shipmentRef, { orderId, buyerId, sellerId: uid, carrier: "MOCK_CARRIER", trackingCode, status: "IN_TRANSIT", events: [{ status: "IN_TRANSIT", createdAt: new Date().toISOString() }], updatedAt: FieldValue.serverTimestamp() });
+    tx.set(shipmentRef, { orderId, buyerId, sellerId: uid, carrier: "MOCK_CARRIER", mode: "SIMULATED", trackingCode, status: "IN_TRANSIT", events: [{ status: "IN_TRANSIT", description: "Bàn giao cho đơn vị vận chuyển mô phỏng", createdAt: new Date().toISOString() }], updatedAt: FieldValue.serverTimestamp() });
     tx.update(orderRef, { orderStatus: "SHIPPING", shippingStatus: "IN_TRANSIT", trackingCode, updatedAt: FieldValue.serverTimestamp() });
     writeOrderEvent(tx, orderRef, "READY_TO_SHIP", "SHIPPING", uid, "Đã bàn giao cho đơn vị vận chuyển.");
   });
-  await notify(buyerId, { type: "SHIPMENT_UPDATED", title: "Đơn hàng đang được giao", body: `Mã vận đơn ${trackingCode} · ${carrier}`, orderId });
+  if (buyerId) await notify(buyerId, { type: "SHIPMENT_UPDATED", title: "Đơn hàng đang được giao", body: `Mã vận đơn ${trackingCode} · ${carrier}`, orderId });
   return { shipmentId: shipmentRef.id };
 });
 
 exports.simulateShipmentUpdate = onCall(async (request) => {
   const uid = uidOf(request);
-  if (process.env.ENABLE_SIMULATED_SHIPPING !== "true") fail("failed-precondition", "Cập nhật vận chuyển mô phỏng đang tắt.");
+  if (!simulationEnabled("SHIPPING")) fail("failed-precondition", "Cập nhật vận chuyển mô phỏng chỉ khả dụng trên Emulator khi được bật.");
   const orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
   const status = cleanText(request.data.status, 16, "Trạng thái");
   const description = cleanText(request.data.description, 250, "Mô tả", false);
-  if (!["DELIVERED", "RETURNED"].includes(status)) fail("invalid-argument", "Trạng thái vận chuyển không hợp lệ.");
+  if (!["IN_TRANSIT", "DELIVERED", "RETURNED"].includes(status)) fail("invalid-argument", "Trạng thái vận chuyển không hợp lệ.");
+  const location = shipmentLocation(request.data.location);
   const orderRef = db.collection("orders").doc(orderId);
   const shipmentRef = db.collection("shipments").doc(orderId);
   let buyerId; let sellerId;
@@ -485,9 +657,9 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
     const shipment = await tx.get(shipmentRef);
     if (!shipment.exists) fail("not-found", "Không tìm thấy vận đơn.");
     buyerId = order.get("buyerId"); sellerId = order.get("sellerId");
-    const nextOrderStatus = status === "DELIVERED" ? "DELIVERED" : (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED");
+    const nextOrderStatus = status === "IN_TRANSIT" ? "SHIPPING" : status === "DELIVERED" ? "DELIVERED" : (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED");
     tx.update(orderRef, { shippingStatus: status, orderStatus: nextOrderStatus, ...(status === "RETURNED" && order.get("orderType") === "PAID" ? { paymentStatus: "REFUNDED" } : {}), updatedAt: FieldValue.serverTimestamp() });
-    tx.update(shipmentRef, { status, updatedAt: FieldValue.serverTimestamp(), events: FieldValue.arrayUnion({ status, description, createdAt: new Date().toISOString() }) });
+    tx.update(shipmentRef, { status, ...(location ? { location: { ...location, source: "SIMULATED" } } : {}), updatedAt: FieldValue.serverTimestamp(), events: FieldValue.arrayUnion({ status, description, ...(location ? { location } : {}), createdAt: new Date().toISOString() }) });
     writeOrderEvent(tx, orderRef, order.get("orderStatus"), nextOrderStatus, "SIMULATED_CARRIER", description || status);
     if (status === "RETURNED") {
       if (post.exists) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
@@ -515,6 +687,8 @@ exports.updateOrderStatus = onCall(async (request) => {
     if (!order.exists) fail("not-found", "Không tìm thấy đơn hàng.");
     buyerId = order.get("buyerId"); sellerId = order.get("sellerId"); postId = order.get("postId");
     const current = order.get("orderStatus");
+    if (nextStatus === "COMPLETED" && ["OPEN", "WAITING_EVIDENCE"].includes(order.get("disputeStatus")))
+      fail("failed-precondition", "Đơn có tranh chấp đang mở, chưa thể hoàn tất hoặc giải ngân.");
     const postRef = db.collection("posts").doc(postId);
     const post = nextStatus === "COMPLETED" && order.get("orderType") === "FREE" ? await tx.get(postRef) : null;
     const sellerSteps = { CONFIRMED: "PREPARING", PREPARING: "READY_TO_SHIP" };
@@ -699,3 +873,6 @@ exports.markNotificationRead = onCall(async (request) => {
   await db.collection("users").doc(uid).collection("notifications").doc(notificationId).update({ read: true, readAt: FieldValue.serverTimestamp() });
   return { ok: true };
 });
+
+Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }));
+Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));

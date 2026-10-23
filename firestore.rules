@@ -1,7 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
+    // Profile role/accountStatus are server-owned; a locked profile invalidates
+    // existing client sessions immediately, including their still-unexpired tokens.
+    function signedIn() {
+      return request.auth != null
+        && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'ACTIVE');
+    }
     function owns(uid) { return signedIn() && request.auth.uid == uid; }
     function involvedInPostOrder(data) {
       return signedIn() && data.reservedForOrderId is string
@@ -52,9 +58,12 @@ service cloud.firestore {
         || involvedInPostOrder(resource.data);
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid
         && validPost(request.resource.data)
+        && !request.resource.data.keys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked'])
         && request.resource.data.status in ['DRAFT','PENDING_REVIEW','ACTIVE'];
       allow update: if signedIn() && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked','createdAt'])
+        && (!('moderationLocked' in resource.data) || resource.data.moderationLocked == false)
         && (request.resource.data.status == resource.data.status
           || (resource.data.status in ['DRAFT','PENDING_REVIEW'] && request.resource.data.status == 'ACTIVE')
           || (resource.data.status == 'ACTIVE' && request.resource.data.status == 'HIDDEN')

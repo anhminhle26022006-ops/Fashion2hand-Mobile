@@ -3,6 +3,12 @@ package vn.edu.ueh.thudinh.fashion2hand.repository;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.PhoneAuthCredential;
+import com.google.firebase.auth.PhoneAuthProvider;
+import com.google.firebase.auth.PhoneAuthOptions;
+import com.google.firebase.auth.EmailAuthProvider;
+import android.app.Activity;
+import java.util.concurrent.TimeUnit;
 import com.google.android.gms.tasks.Task;
 
 public class AuthRepository {
@@ -28,6 +34,42 @@ public class AuthRepository {
 
     public Task<Void> sendPasswordReset(String email) {
         return firebaseAuth.sendPasswordResetEmail(email);
+    }
+
+    public void sendPhoneCode(Activity activity, String phone,
+                              PhoneAuthProvider.ForceResendingToken resendToken,
+                              PhoneAuthProvider.OnVerificationStateChangedCallbacks callbacks) {
+        PhoneAuthOptions.Builder options = PhoneAuthOptions.newBuilder(firebaseAuth)
+                .setPhoneNumber(phone).setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(activity).setCallbacks(callbacks);
+        if (resendToken != null) options.setForceResendingToken(resendToken);
+        PhoneAuthProvider.verifyPhoneNumber(options.build());
+    }
+
+    public Task<Void> verifyPhone(PhoneAuthCredential credential) {
+        FirebaseUser user = getCurrentUser();
+        if (user == null) return com.google.android.gms.tasks.Tasks.forException(
+                new IllegalStateException("Vui lòng đăng nhập lại."));
+        if (user.getPhoneNumber() != null) return user.updatePhoneNumber(credential);
+        // Link to the signed-in account; signing in with SMS would switch users.
+        return user.linkWithCredential(credential).continueWithTask(result -> {
+            if (!result.isSuccessful()) throw result.getException();
+            return com.google.android.gms.tasks.Tasks.forResult(null);
+        });
+    }
+
+    public Task<Void> requestEmailChange(String email) {
+        FirebaseUser user = getCurrentUser();
+        if (user == null) return com.google.android.gms.tasks.Tasks.forException(
+                new IllegalStateException("Vui lòng đăng nhập lại."));
+        return user.verifyBeforeUpdateEmail(email);
+    }
+
+    public Task<Void> reauthenticate(String password) {
+        FirebaseUser user = getCurrentUser();
+        if (user == null || user.getEmail() == null) return com.google.android.gms.tasks.Tasks.forException(
+                new IllegalStateException("Vui lòng đăng nhập lại."));
+        return user.reauthenticate(EmailAuthProvider.getCredential(user.getEmail(), password));
     }
 
     // Lấy UID của user hiện tại

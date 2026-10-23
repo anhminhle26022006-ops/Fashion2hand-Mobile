@@ -1,27 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:background="#FFFFFF">
-        <TextView android:id="@+id/btnSupportContactBack" android:layout_width="40dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" android:clickable="true" android:focusable="true" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Liên hệ hỗ trợ" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
-        <View android:layout_width="40dp" android:layout_height="1dp" />
-    </LinearLayout>
-    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp">
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="FASHION2HAND · HỖ TRỢ NGƯỜI DÙNG" android:textColor="#E97859" android:textSize="9sp" android:textStyle="bold" />
-            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="13dp" android:text="Chúng tôi có thể giúp gì?" android:textColor="#173B32" android:textSize="21sp" />
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp" android:background="@drawable/bg_white_card_rounded">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Điện thoại hỗ trợ" android:textColor="#75857F" android:textSize="9sp" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="0900 000 000" android:textColor="#173B32" android:textSize="19sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Số minh họa cho giao diện · chưa phải hotline thật" android:textColor="#B47B39" android:textSize="8sp" />
-                <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginVertical="13dp" android:background="#E5E9E5" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Email" android:textColor="#75857F" android:textSize="9sp" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="support@fashion2hand.example" android:textColor="#173B32" android:textSize="12sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Email minh họa · chưa kết nối hộp thư" android:textColor="#B47B39" android:textSize="8sp" />
-            </LinearLayout>
-            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="11dp" android:orientation="vertical" android:padding="13dp" android:background="@drawable/bg_green_light_card">
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thời gian hỗ trợ" android:textColor="#173B32" android:textSize="10sp" android:textStyle="bold" />
-                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Thứ Hai – Thứ Sáu · 09:00 – 18:00\nThời gian phản hồi dự kiến: trong 1 ngày làm việc." android:textColor="#65756D" android:textSize="9sp" android:lineSpacingExtra="3dp" />
-            </LinearLayout>
-        </LinearLayout>
-    </ScrollView>
-</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical"><TextView android:id="@+id/btnSupportContactBack" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textSize="28sp" android:clickable="true" android:focusable="true"/><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Liên hệ hỗ trợ" android:textSize="18sp" android:textColor="#173B32"/></LinearLayout>
+<ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+<TextView  android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="12dp" android:text="Gửi yêu cầu đến quản trị viên. Mã yêu cầu, trạng thái và phản hồi được lưu trong hệ thống." android:textColor="#173B32" android:textSize="14sp"/>
+<EditText android:id="@+id/edtSupportTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="Tiêu đề yêu cầu" android:inputType="textCapSentences" android:maxLength="160"/>
+<EditText android:id="@+id/edtSupportDescription" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:hint="Mô tả vấn đề cần hỗ trợ" android:inputType="textCapSentences|textMultiLine" android:minLines="4" android:maxLength="3000"/>
+<Button android:id="@+id/btnSendSupport" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="Gửi yêu cầu hỗ trợ" android:textAllCaps="false"/>
+<TextView android:id="@+id/txtSupportStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="12dp" android:text="Đang tải lịch sử yêu cầu…" android:textColor="#173B32" android:textSize="14sp"/>
+</LinearLayout></ScrollView></LinearLayout>
