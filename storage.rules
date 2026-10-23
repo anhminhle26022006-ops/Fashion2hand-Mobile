@@ -1,7 +1,10 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() { return request.auth != null; }
+    function signedIn() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.accountStatus == 'ACTIVE';
+    }
     function ownsPost(postId) {
       return signedIn()
         && firestore.get(/databases/(default)/documents/posts/$(postId)).data.ownerId == request.auth.uid;
@@ -22,6 +25,26 @@ service firebase.storage {
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
       allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /disputeEvidence/{orderId}/{reporterId}/{uploadKey}/{fileName} {
+      function order() {
+        return firestore.get(/databases/(default)/documents/orders/$(orderId));
+      }
+      function member() {
+        return signedIn() && request.auth.uid in [order().data.buyerId, order().data.sellerId];
+      }
+      function editable() {
+        return member() && request.auth.uid == reporterId
+          && order().data.orderStatus in ['SHIPPING', 'DELIVERED']
+          && !('disputeId' in order().data);
+      }
+      allow read: if member();
+      allow create, update: if editable() && fileName.matches('[0-4]\\.jpg')
+        && uploadKey.size() <= 128 && uploadKey.size() > 0
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if editable();
     }
   }
 }

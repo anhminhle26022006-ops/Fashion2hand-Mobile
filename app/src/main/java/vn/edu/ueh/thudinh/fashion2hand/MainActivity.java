@@ -54,6 +54,7 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.functions.HttpsCallableResult;
 
 import java.util.ArrayList;
@@ -66,11 +67,65 @@ import java.util.UUID;
 
 /** Main entry point for Fashion2hand's Firebase-backed user flows. */
 public class MainActivity extends AppCompatActivity {
+    private final TransactionScreens transactionScreens = new TransactionScreens(this, new TransactionScreens.Host() {
+        public String uid() { return currentUid(); }
+        public String postId() { return currentPostId; }
+        public String orderId() { return currentOrderId; }
+        public String requestId() { return currentFreeRequestId; }
+        public boolean showing(int layout) { return currentScreen == layout; }
+        public boolean signedIn() { return requireSignedIn(); }
+        public boolean checkoutFromCart() { return checkoutReturnScreen == R.layout.activity_cart; }
+        public void open(int layout) {
+            if (layout == R.layout.activity_report_issue && !currentOrderId.equals(reportEvidenceOrderId)) {
+                reportEvidenceOrderId = currentOrderId; reportEvidenceItems.clear(); reportEvidenceCount = 0;
+            }
+            showScreen(layout);
+        }
+        public void openOrder(String id) { openTransactionDestination(R.layout.activity_order_detail, () -> { currentOrderId = id; activeOrder = null; }); }
+        public void openRequest(String id) { openTransactionDestination(R.layout.activity_request_status, () -> currentFreeRequestId = id); }
+        public void checkout(String id) { openTransactionDestination(R.layout.activity_checkout, () -> { currentPostId = id; checkoutReturnScreen = R.layout.activity_cart; }); }
+        public void orders(boolean seller) { orderRoleFilter = seller ? "seller" : "buyer"; showScreen(R.layout.activity_orders); }
+        public void back() { goBack(); }
+        public void orderSnapshot(DocumentSnapshot order) { activeOrder = order; }
+        public void listen(ListenerRegistration listener) { addScreenListener(listener); }
+        public void error(Exception error) { showFirebaseError(error); }
+        public void chat(String peerId, String postId) { startChatWithPeer(peerId, postId, R.layout.activity_order_detail); }
+    });
+    private String reportEvidenceOrderId = "";
+    private final java.util.ArrayDeque<ScreenEntry> backStack = new java.util.ArrayDeque<>();
+    private boolean restoringScreen;
+    private String phoneVerificationId = "";
+    private com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken phoneResendToken;
+    private long phoneResendAt;
+    private boolean contactBusy;
+    private boolean savingListing;
+    private String pendingProductLink = "";
+    private String viewedSellerId = "";
+    private final ArrayList<ListenerRegistration> favoritePostListeners = new ArrayList<>();
+    private final ArrayList<DocumentSnapshot> favoritePosts = new ArrayList<>();
+
+    private static final class ScreenEntry {
+        int layout;
+        String postId, sellerId, viewedSellerId, name, emoji, price, chatId, peerId, orderId, requestId;
+        boolean free;
+        Map<String, Object> product;
+        android.util.SparseArray<android.os.Parcelable> views;
+        Bundle draft;
+    }
+
     private final AuthRepository authRepository = new AuthRepository();
     private final MemberTwoRepository memberTwoRepository = MemberTwoRepository.getInstance();
     private final MemberOneRepository memberOneRepository = MemberOneRepository.getInstance();
+    private final AccountScreens accountScreens = new AccountScreens(this, new AccountScreens.Host() {
+        public String uid() { return currentUid(); }
+        public void open(int screen) { showScreen(screen); }
+        public void listen(ListenerRegistration listener) { addScreenListener(listener); }
+        public void pick(String slot) { showIdentityPicker(slot); }
+        public boolean restoringDraft() { return restoredForm != null; }
+    });
     private final ArrayList<ListenerRegistration> screenListeners = new ArrayList<>();
     private final ArrayList<DocumentSnapshot> activePosts = new ArrayList<>();
+    private boolean postsAwaitingServer;
     private final Set<String> favoritePostIds = new HashSet<>();
     private final ArrayList<DocumentSnapshot> activeCart = new ArrayList<>();
     private final ArrayList<DocumentSnapshot> activeOrders = new ArrayList<>();
@@ -114,7 +169,11 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<String> reportEvidencePicker;
     private ActivityResultLauncher<Void> reportCameraPicker;
     private String identityPhotoSlot = "";
+    private Bundle restoredForm;
+    private boolean authenticationBusy, profileBusy, messageBusy;
     private String messageFilter = "all";
+    private boolean ordersAwaitingServer=true;
+    private String ordersLoadError="";
     private String messageSearchQuery = "";
     private String orderRoleFilter = "buyer";
     private String orderStatusFilter = "all";
@@ -130,10 +189,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Kết nối ứng dụng Android với bộ giả lập (Emulator) chạy trên máy tính
-        FirebaseFirestore.getInstance().useEmulator("10.0.2.2", 8080);
-        FirebaseAuth.getInstance().useEmulator("10.0.2.2", 9099);
-        FirebaseStorage.getInstance().useEmulator("10.0.2.2", 9199);
         super.onCreate(savedInstanceState);
 
         galleryPicker = registerForActivityResult(new ActivityResultContracts.GetMultipleContents(), uris -> {
@@ -182,31 +237,76 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         EdgeToEdge.enable(this);
-        showScreen(R.layout.activity_splash);
-        new android.os.Handler(getMainLooper()).postDelayed(() -> {
-            if (currentScreen == R.layout.activity_splash) {
-                showScreen(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
-            }
-        }, 1200);
+        if (savedInstanceState != null) { transactionScreens.restore(savedInstanceState.getBundle("transactions")); if(java.util.Objects.equals(savedInstanceState.getString("sessionUid"),currentUid()))accountScreens.restore(savedInstanceState.getBundle("accountScreens")); identityPhotoSlot=savedInstanceState.getString("identityPhotoSlot", "front"); }
+        if (savedInstanceState != null && savedInstanceState.getBundle("currentEntry") != null
+                && java.util.Objects.equals(savedInstanceState.getString("sessionUid"), currentUid())) {
+            otpFlow = savedInstanceState.getString("otpFlow", "password_reset");
+            otpTarget = savedInstanceState.getString("otpTarget", "");
+            phoneVerificationId = savedInstanceState.getString("phoneVerificationId", "");
+            phoneResendToken = savedInstanceState.getParcelable("phoneResendToken");
+            phoneResendAt = savedInstanceState.getLong("phoneResendAt");
+            pendingProductLink = savedInstanceState.getString("pendingProductLink", "");
+            checkoutReturnScreen = savedInstanceState.getInt("checkoutReturnScreen", R.layout.activity_cart);
+            orderRoleFilter=savedInstanceState.getString("orderRoleFilter","buyer"); orderStatusFilter=savedInstanceState.getString("orderStatusFilter","all"); orderSearchQuery=savedInstanceState.getString("orderSearchQuery","");
+            messageFilter=savedInstanceState.getString("messageFilter","all"); messageSearchQuery=savedInstanceState.getString("messageSearchQuery","");
+            selectedCategory=savedInstanceState.getString("selectedCategory","Tất cả"); notificationFilter=savedInstanceState.getString("notificationFilter","all"); hideReadNotifications=savedInstanceState.getBoolean("hideReadNotifications");
+            editingAddress=savedInstanceState.getBoolean("editingAddress"); editingSecondaryAddress=savedInstanceState.getBoolean("editingSecondaryAddress");
+            reportEvidenceOrderId=savedInstanceState.getString("reportEvidenceOrderId","");
+            ArrayList<android.os.Parcelable> evidence=savedInstanceState.getParcelableArrayList("reportEvidence"); if(evidence!=null)reportEvidenceItems.addAll(evidence);reportEvidenceCount=reportEvidenceItems.size();
+            selectedProfilePhotoUri=savedInstanceState.getParcelable("profilePhoto");
+            if(selectedProfilePhotoUri!=null)try(java.io.InputStream stream=getContentResolver().openInputStream(selectedProfilePhotoUri)){selectedProfilePhoto=android.graphics.BitmapFactory.decodeStream(stream);}catch(java.io.IOException ignored){}
+            listingDraft = unpackMap(savedInstanceState.getBundle("listingDraft"));
+            editingListing = savedInstanceState.getBoolean("editingListing");
+            editingPostId = savedInstanceState.getString("editingPostId", "");
+            ArrayList<android.os.Parcelable> photos = savedInstanceState.getParcelableArrayList("listingPhotos");
+            if (photos != null) selectedListingPhotos.addAll(photos);
+            selectedListingPhoto = savedInstanceState.getParcelable("listingPhoto");
+            capturedListingPhoto = savedInstanceState.getParcelable("capturedListingPhoto");
+            ArrayList<Bundle> history = savedInstanceState.getParcelableArrayList("screenHistory");
+            if (history != null) for (Bundle entry : history) backStack.addLast(unpackScreen(entry));
+            ScreenEntry screen = unpackScreen(savedInstanceState.getBundle("currentEntry"));
+            if (screen.layout == R.layout.activity_splash) screen.layout = authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home;
+            restoreScreenEntry(screen);
+        } else {
+            showScreen(R.layout.activity_splash);
+            openIncomingProduct(getIntent());
+            new android.os.Handler(getMainLooper()).postDelayed(() -> {
+                if (!isFinishing() && !isDestroyed() && currentScreen == R.layout.activity_splash) {
+                    showScreen(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
+                    openPendingProduct();
+                }
+            }, 1200);
+        }
 
         // Đăng ký bộ xử lý nút Back theo chuẩn AndroidX mới
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (currentScreen == R.layout.activity_home || currentScreen == R.layout.activity_login) {
-                    finish();
-                } else {
-                    showScreen(R.layout.activity_home);
-                }
+                goBack();
             }
         });
     }
 
     private void showScreen(int layoutId) {
+        if(layoutId==R.layout.activity_login && authRepository.getCurrentUser()==null) accountScreens.clearSession();
+        if (!restoringScreen && currentScreen != layoutId && currentScreen != R.layout.activity_splash) {
+            if (layoutId == R.layout.activity_home || layoutId == R.layout.activity_login) backStack.clear();
+            else if (!backStack.isEmpty() && backStack.peek().layout == layoutId) {
+                goBack();
+                return;
+            } else backStack.push(captureScreen());
+        }
         clearScreenListeners();
         currentScreen = layoutId;
-        setContentView(layoutId);
+        if(!restoringScreen)restoredForm=null;
+        if (transactionScreens.owns(layoutId)) transactionScreens.prepare(layoutId);
+        else setContentView(layoutId);
         applySystemBarInsets();
+        if (transactionScreens.owns(layoutId)) {
+            transactionScreens.bind(layoutId);
+            bindVisibleBackButtons(findViewById(android.R.id.content));
+            return;
+        }
         if (layoutId == R.layout.activity_login) bindLogin();
         if (layoutId == R.layout.activity_register) bindRegister();
         bindNavigation();
@@ -255,6 +355,173 @@ public class MainActivity extends AppCompatActivity {
         if (layoutId == R.layout.activity_account_verification) bindAccountVerification();
         if (layoutId == R.layout.activity_verification_status) bindVerificationStatus();
         if (layoutId == R.layout.activity_product_detail) bindProductDetail();
+        if (layoutId == R.layout.activity_seller_profile) bindSellerProfile();
+        bindVisibleBackButtons(findViewById(android.R.id.content));
+    }
+
+    private ScreenEntry captureScreen() {
+        ScreenEntry entry = new ScreenEntry();
+        entry.layout = currentScreen;
+        entry.postId = currentPostId; entry.sellerId = currentSellerId;
+        entry.viewedSellerId = viewedSellerId;
+        entry.name = currentProductName; entry.emoji = currentProductEmoji; entry.price = currentProductPrice;
+        entry.free = currentProductIsFree; entry.product = new HashMap<>(currentProductData);
+        entry.chatId = currentChatId; entry.peerId = currentPeerId; entry.orderId = currentOrderId;
+        entry.requestId = currentFreeRequestId;
+        entry.draft = UiFormState.capture(findViewById(android.R.id.content));
+        entry.views = new android.util.SparseArray<>();
+        findViewById(android.R.id.content).saveHierarchyState(entry.views);
+        return entry;
+    }
+
+    private void goBack() {
+        // Preserve listing fields before leaving a step, including toolbar Back.
+        if (currentScreen == R.layout.activity_sell_details) captureSellDetails();
+        if (currentScreen == R.layout.activity_sell_type) captureSellType();
+        if (backStack.isEmpty()) {
+            if (currentScreen == R.layout.activity_home || currentScreen == R.layout.activity_login) finish();
+            else navigateRoot(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
+            return;
+        }
+        ScreenEntry entry = backStack.pop();
+        restoreScreenEntry(entry);
+    }
+
+    private void restoreScreenEntry(ScreenEntry entry) {
+        restoredForm=entry.draft;
+        currentPostId = entry.postId; currentSellerId = entry.sellerId; viewedSellerId = entry.viewedSellerId;
+        currentProductName = entry.name; currentProductEmoji = entry.emoji; currentProductPrice = entry.price;
+        currentProductIsFree = entry.free; currentProductData = entry.product;
+        currentChatId = entry.chatId; currentPeerId = entry.peerId; currentOrderId = entry.orderId;
+        currentFreeRequestId = entry.requestId;
+        restoringScreen = true;
+        showScreen(entry.layout);
+        restoringScreen = false;
+        if (entry.views != null) findViewById(android.R.id.content).restoreHierarchyState(entry.views);
+        UiFormState.restore(findViewById(android.R.id.content),entry.draft);
+    }
+
+    private static Bundle packMap(Map<String, Object> data) {
+        Bundle result = new Bundle();
+        for (Map.Entry<String, Object> item : data.entrySet()) {
+            Object value = item.getValue(); String key = item.getKey();
+            if (value instanceof String) result.putString(key, (String) value);
+            else if (value instanceof Boolean) result.putBoolean(key, (Boolean) value);
+            else if (value instanceof Double || value instanceof Float) result.putDouble(key, ((Number) value).doubleValue());
+            else if (value instanceof Number) result.putLong(key, ((Number) value).longValue());
+            else if (value instanceof com.google.firebase.Timestamp) {
+                Bundle timestamp = new Bundle(); timestamp.putLong("seconds", ((com.google.firebase.Timestamp) value).getSeconds());
+                timestamp.putInt("nanoseconds", ((com.google.firebase.Timestamp) value).getNanoseconds()); result.putBundle(key, timestamp);
+            } else if (value instanceof List) {
+                ArrayList<String> strings = new ArrayList<>();
+                for (Object element : (List<?>) value) if (element instanceof String) strings.add((String) element);
+                result.putStringArrayList(key, strings);
+            }
+        }
+        return result;
+    }
+
+    private static Map<String, Object> unpackMap(Bundle bundle) {
+        Map<String, Object> data = new HashMap<>();
+        if (bundle != null) for (String key : bundle.keySet()) {
+            Object value = bundle.get(key);
+            if (value instanceof Bundle) value = new com.google.firebase.Timestamp(((Bundle) value).getLong("seconds"), ((Bundle) value).getInt("nanoseconds"));
+            data.put(key, value);
+        }
+        return data;
+    }
+
+    private Bundle packScreen(ScreenEntry entry) {
+        Bundle bundle = new Bundle(); bundle.putInt("layout", entry.layout);
+        bundle.putString("postId", entry.postId); bundle.putString("sellerId", entry.sellerId);
+        bundle.putString("viewedSellerId", entry.viewedSellerId); bundle.putString("name", entry.name);
+        bundle.putString("emoji", entry.emoji); bundle.putString("price", entry.price); bundle.putBoolean("free", entry.free);
+        bundle.putString("chatId", entry.chatId); bundle.putString("peerId", entry.peerId); bundle.putString("orderId", entry.orderId);
+        bundle.putString("requestId", entry.requestId);
+        bundle.putBundle("product", packMap(entry.product)); bundle.putSparseParcelableArray("views", entry.views);
+        bundle.putBundle("draft",entry.draft);return bundle;
+    }
+
+    private ScreenEntry unpackScreen(Bundle bundle) {
+        ScreenEntry entry = new ScreenEntry();
+        entry.layout = bundle.getInt("layout", R.layout.activity_home);
+        entry.postId = bundle.getString("postId", ""); entry.sellerId = bundle.getString("sellerId", "");
+        entry.viewedSellerId = bundle.getString("viewedSellerId", ""); entry.name = bundle.getString("name", "");
+        entry.emoji = bundle.getString("emoji", "👕"); entry.price = bundle.getString("price", ""); entry.free = bundle.getBoolean("free");
+        entry.chatId = bundle.getString("chatId", ""); entry.peerId = bundle.getString("peerId", ""); entry.orderId = bundle.getString("orderId", "");
+        entry.requestId = bundle.getString("requestId", "");
+        entry.product = unpackMap(bundle.getBundle("product")); entry.views = bundle.getSparseParcelableArray("views");
+        entry.draft=bundle.getBundle("draft");
+        return entry;
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        state.putString("orderRoleFilter",orderRoleFilter);state.putString("orderStatusFilter",orderStatusFilter);state.putString("orderSearchQuery",orderSearchQuery);
+        state.putString("messageFilter",messageFilter);state.putString("messageSearchQuery",messageSearchQuery);state.putString("selectedCategory",selectedCategory);state.putString("notificationFilter",notificationFilter);state.putBoolean("hideReadNotifications",hideReadNotifications);
+        state.putBoolean("editingAddress",editingAddress);state.putBoolean("editingSecondaryAddress",editingSecondaryAddress);
+        state.putString("reportEvidenceOrderId",reportEvidenceOrderId);state.putParcelableArrayList("reportEvidence",cachePhotos(reportEvidenceItems,"report-state"));
+        ArrayList<Object> profileImages=new ArrayList<>();if(selectedProfilePhotoUri!=null)profileImages.add(selectedProfilePhotoUri);else if(selectedProfilePhoto!=null)profileImages.add(selectedProfilePhoto);
+        ArrayList<android.os.Parcelable> profileSaved=cachePhotos(profileImages,"profile-state");if(!profileSaved.isEmpty())state.putParcelable("profilePhoto",profileSaved.get(0));
+        state.putBundle("transactions", transactionScreens.save());
+        state.putBundle("accountScreens", accountScreens.save());state.putString("identityPhotoSlot",identityPhotoSlot);
+        state.putInt("checkoutReturnScreen", checkoutReturnScreen);
+        state.putString("sessionUid", currentUid());
+        state.putString("otpFlow", otpFlow); state.putString("otpTarget", otpTarget);
+        state.putString("phoneVerificationId", phoneVerificationId); state.putParcelable("phoneResendToken", phoneResendToken);
+        state.putLong("phoneResendAt", phoneResendAt); state.putString("pendingProductLink", pendingProductLink);
+        state.putBundle("listingDraft", packMap(listingDraft)); state.putBoolean("editingListing", editingListing);
+        state.putString("editingPostId", editingPostId);
+        ArrayList<android.os.Parcelable> photos = new ArrayList<>();
+        // Keep large bitmaps out of the saved-state Binder transaction.
+        for (int i = 0; i < selectedListingPhotos.size(); i++) {
+            Object photo = selectedListingPhotos.get(i);
+            if (photo instanceof Uri) photos.add((Uri) photo);
+            else if (photo instanceof Bitmap) {
+                java.io.File file = new java.io.File(getCacheDir(), "listing-state-" + i + ".jpg");
+                try (java.io.FileOutputStream output = new java.io.FileOutputStream(file)) {
+                    ((Bitmap) photo).compress(Bitmap.CompressFormat.JPEG, 88, output);
+                    photos.add(Uri.fromFile(file));
+                } catch (java.io.IOException ignored) { /* The form can ask the user to select this photo again. */ }
+            }
+        }
+        state.putParcelable("listingPhoto", photos.isEmpty() ? selectedListingPhoto : photos.get(0));
+        state.putParcelableArrayList("listingPhotos", photos);
+        ArrayList<Bundle> history = new ArrayList<>(); for (ScreenEntry entry : backStack) history.add(packScreen(entry));
+        state.putParcelableArrayList("screenHistory", history); state.putBundle("currentEntry", packScreen(captureScreen()));
+        super.onSaveInstanceState(state);
+    }
+
+    private ArrayList<android.os.Parcelable> cachePhotos(java.util.List<Object> images,String prefix){
+        ArrayList<android.os.Parcelable> saved=new ArrayList<>();
+        for(int i=0;i<images.size();i++){Object item=images.get(i);if(item instanceof Uri)saved.add((Uri)item);else if(item instanceof Bitmap){java.io.File file=new java.io.File(getCacheDir(),prefix+"-"+i+".jpg");try(java.io.FileOutputStream stream=new java.io.FileOutputStream(file)){if(((Bitmap)item).compress(Bitmap.CompressFormat.JPEG,88,stream))saved.add(Uri.fromFile(file));}catch(java.io.IOException ignored){}}}
+        return saved;
+    }
+
+    private void navigateRoot(int layoutId) {
+        backStack.clear();
+        restoringScreen = true;
+        showScreen(layoutId);
+        restoringScreen = false;
+    }
+
+    private void openTransactionDestination(int layoutId, Runnable update) {
+        backStack.push(captureScreen());
+        update.run();
+        restoringScreen = true;
+        showScreen(layoutId);
+        restoringScreen = false;
+    }
+
+    private void bindVisibleBackButtons(View view) {
+        if (view.getId() != View.NO_ID) {
+            String name;
+            try { name = getResources().getResourceEntryName(view.getId()); }
+            catch (android.content.res.Resources.NotFoundException ignored) { name = ""; }
+            if (view.getId() != R.id.btnIdentityBack && (name.equals("btnBack") || name.endsWith("Back") || name.endsWith("Previous")))
+                view.setOnClickListener(v -> goBack());
+        }
+        if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++)
+            bindVisibleBackButtons(((ViewGroup) view).getChildAt(i));
     }
 
     private void addScreenListener(ListenerRegistration listener) {
@@ -262,8 +529,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void clearScreenListeners() {
+        transactionScreens.invalidate();
+        accountScreens.invalidate();
         for (ListenerRegistration listener : screenListeners) listener.remove();
         screenListeners.clear();
+        for (ListenerRegistration listener : favoritePostListeners) listener.remove();
+        favoritePostListeners.clear();
     }
 
     private String currentUid() {
@@ -293,12 +564,13 @@ public class MainActivity extends AppCompatActivity {
         int initialRight = content.getPaddingRight();
         int initialBottom = content.getPaddingBottom();
         ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            Insets keyboard = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
             view.setPadding(
                     initialLeft + bars.left,
                     initialTop + bars.top,
                     initialRight + bars.right,
-                    initialBottom + bars.bottom
+                    initialBottom + Math.max(bars.bottom,keyboard.bottom)
             );
             return windowInsets;
         });
@@ -310,6 +582,7 @@ public class MainActivity extends AppCompatActivity {
         EditText password = findViewById(R.id.edtLoginPassword);
 
         bindClick(R.id.btnLogin, () -> {
+            if(authenticationBusy)return;
             String emailValue = email == null ? "" : email.getText().toString().trim();
             String passwordValue = password == null ? "" : password.getText().toString();
 
@@ -317,6 +590,7 @@ public class MainActivity extends AppCompatActivity {
                 if (email != null) email.setError("Vui lòng nhập email");
                 return;
             }
+            if(!android.util.Patterns.EMAIL_ADDRESS.matcher(emailValue).matches()){email.setError("Email không hợp lệ");return;}
             if (passwordValue.isEmpty()) {
                 if (password != null) password.setError("Vui lòng nhập mật khẩu");
                 return;
@@ -327,9 +601,11 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+            authenticationBusy=true;findViewById(R.id.btnLogin).setEnabled(false);
             authRepository.signInWithEmail(emailValue, passwordValue)
                     .addOnSuccessListener(result -> ensureUserProfile(result.getUser(), "", () -> showScreen(R.layout.activity_home)))
-                    .addOnFailureListener(this::showFirebaseError);
+                    .addOnFailureListener(this::showFirebaseError)
+                    .addOnCompleteListener(done->{authenticationBusy=false;View button=findViewById(R.id.btnLogin);if(button!=null)button.setEnabled(true);});
         });
 
         bindClick(R.id.btnOpenRegister, () -> showScreen(R.layout.activity_register));
@@ -386,16 +662,20 @@ public class MainActivity extends AppCompatActivity {
     private void bindRegister() {
         bindClick(R.id.btnOpenLogin, () -> showScreen(R.layout.activity_login));
         bindClick(R.id.btnCreateAccount, () -> {
+            if(authenticationBusy)return;
             EditText name = findViewById(R.id.edtRegisterName);
             EditText email = findViewById(R.id.edtRegisterEmail);
             EditText password = findViewById(R.id.edtRegisterPassword);
             if (name.getText().toString().trim().isEmpty()) { name.setError("Vui lòng nhập họ tên"); return; }
             if (email.getText().toString().trim().isEmpty()) { email.setError("Vui lòng nhập email"); return; }
+            if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email.getText().toString().trim()).matches()){email.setError("Email không hợp lệ");return;}
             if (password.getText().length() < 6) { password.setError("Mật khẩu cần ít nhất 6 ký tự"); return; }
+            authenticationBusy=true;findViewById(R.id.btnCreateAccount).setEnabled(false);
             authRepository.createAccountWithEmail(email.getText().toString().trim(), password.getText().toString())
                     .addOnSuccessListener(result -> ensureUserProfile(result.getUser(), name.getText().toString().trim(),
                             () -> showScreen(R.layout.activity_home)))
-                    .addOnFailureListener(this::showFirebaseError);
+                    .addOnFailureListener(this::showFirebaseError)
+                    .addOnCompleteListener(done->{authenticationBusy=false;View button=findViewById(R.id.btnCreateAccount);if(button!=null)button.setEnabled(true);});
         });
     }
 
@@ -409,6 +689,7 @@ public class MainActivity extends AppCompatActivity {
         ref.get().addOnSuccessListener(snapshot -> {
             if (snapshot.exists()) {
                 onReady.run();
+                syncVerifiedContact(); openPendingProduct();
                 return;
             }
             Map<String, Object> profile = new HashMap<>();
@@ -419,7 +700,7 @@ public class MainActivity extends AppCompatActivity {
             profile.put("accountStatus", "ACTIVE");
             profile.put("createdAt", FieldValue.serverTimestamp());
             profile.put("updatedAt", FieldValue.serverTimestamp());
-            ref.set(profile).addOnSuccessListener(unused -> onReady.run()).addOnFailureListener(this::showFirebaseError);
+            ref.set(profile).addOnSuccessListener(unused -> { onReady.run(); syncVerifiedContact(); openPendingProduct(); }).addOnFailureListener(this::showFirebaseError);
         }).addOnFailureListener(this::showFirebaseError);
     }
 
@@ -439,98 +720,226 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void bindOtpVerification() {
-        TextView title = findViewById(R.id.txtOtpTitle);
-        TextView descView = findViewById(R.id.txtOtpDescription);
-        TextView target = findViewById(R.id.txtOtpTarget);
-        if ("email_change".equals(otpFlow)) {
-            title.setText("Xác nhận email mới");
-            descView.setText("Nhập mã xác thực được gửi đến email mới:");
-        } else if ("phone_verify".equals(otpFlow) || "phone_change".equals(otpFlow)) {
-            title.setText("Xác minh số điện thoại");
-            descView.setText("Nhập mã OTP được gửi đến số điện thoại:");
-        } else {
-            title.setText("Nhập mã xác thực");
-            descView.setText("Nhập mã xác thực được gửi đến email:");
+    private android.content.SharedPreferences contactPreferences() {
+        return getSharedPreferences("verified_contact_" + currentUid(), MODE_PRIVATE);
+    }
+
+    private void setContactBusy(boolean busy) {
+        contactBusy = busy;
+        for (int id : new int[]{R.id.btnSubmitOtp, R.id.btnResendOtp, R.id.btnSendPhoneOtp, R.id.btnContinueChangeEmail}) {
+            View button = findViewById(id);
+            if (button != null) button.setEnabled(!busy);
         }
-        target.setText(otpTarget);
-        bindClick(R.id.btnOtpBack, () -> {
-            if ("email_change".equals(otpFlow)) showScreen(R.layout.activity_change_email);
-            else if ("phone_verify".equals(otpFlow) || "phone_change".equals(otpFlow)) showScreen(R.layout.activity_verify_phone);
-            else showScreen(R.layout.activity_forgot_password);
-        });
-        bindClick(R.id.btnResendOtp, () -> Toast.makeText(this, "Đã gửi lại mã (demo).", Toast.LENGTH_SHORT).show());
-        bindClick(R.id.btnSubmitOtp, () -> {
-            EditText code = findViewById(R.id.edtOtpCode);
-            if (code.getText().length() != 6) { code.setError("Nhập đủ 6 chữ số"); return; }
-            android.content.SharedPreferences.Editor account = getSharedPreferences("account_contact", MODE_PRIVATE).edit();
-            if ("password_reset".equals(otpFlow)) {
-                showScreen(R.layout.activity_new_password);
-            } else if ("email_change".equals(otpFlow)) {
-                account.putString("email", otpTarget).apply();
-                showScreen(R.layout.activity_edit_profile);
-                Toast.makeText(this, "Email đã được cập nhật (demo).", Toast.LENGTH_SHORT).show();
-            } else {
-                account.putString("phone", otpTarget).putBoolean("phone_verified", true).apply();
-                showScreen(R.layout.activity_edit_profile);
-                Toast.makeText(this, "Số điện thoại đã được xác minh (demo).", Toast.LENGTH_SHORT).show();
+    }
+
+    private void contactError(Exception error, Runnable retry) {
+        setContactBusy(false);
+        if (error instanceof com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+            boolean passwordProvider = false;
+            FirebaseUser user = authRepository.getCurrentUser();
+            if (user != null) for (com.google.firebase.auth.UserInfo provider : user.getProviderData())
+                if ("password".equals(provider.getProviderId())) passwordProvider = true;
+            if (!passwordProvider) {
+                new android.app.AlertDialog.Builder(this).setTitle("Xác nhận tài khoản Google")
+                        .setMessage("Đăng nhập Google lại để tiếp tục cập nhật thông tin.")
+                        .setNegativeButton("Hủy", null)
+                        .setPositiveButton("Tiếp tục", (d, w) -> startGoogleReauthentication(retry)).show();
+                return;
             }
+            EditText password = new EditText(this);
+            password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            password.setHint("Mật khẩu hiện tại");
+            android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this).setTitle("Xác nhận tài khoản")
+                    .setView(password).setNegativeButton("Hủy", null).setPositiveButton("Xác nhận", null).create();
+            dialog.setOnShowListener(d -> dialog.getButton(-1).setOnClickListener(v -> {
+                if (password.getText().length() == 0) { password.setError("Nhập mật khẩu hiện tại"); return; }
+                dialog.getButton(-1).setEnabled(false);
+                authRepository.reauthenticate(password.getText().toString())
+                        .addOnSuccessListener(unused -> { dialog.dismiss(); retry.run(); })
+                        .addOnFailureListener(e -> { dialog.getButton(-1).setEnabled(true); password.setError("Xác thực thất bại. Vui lòng thử lại."); });
+            }));
+            dialog.show();
+        } else showFirebaseError(error);
+    }
+
+    private void startGoogleReauthentication(Runnable retry) {
+        int clientId = getResources().getIdentifier("default_web_client_id", "string", getPackageName());
+        if (clientId == 0) { showFirebaseError(new IllegalStateException("Chưa cấu hình đăng nhập Google.")); return; }
+        GetCredentialRequest request = new GetCredentialRequest.Builder().addCredentialOption(
+                new GetGoogleIdOption.Builder().setFilterByAuthorizedAccounts(false).setServerClientId(getString(clientId)).build()).build();
+        CredentialManager.create(this).getCredentialAsync(this, request, new CancellationSignal(), getMainExecutor(),
+                new CredentialManagerCallback<androidx.credentials.GetCredentialResponse, GetCredentialException>() {
+                    @Override public void onResult(androidx.credentials.GetCredentialResponse response) {
+                        try {
+                            Credential raw = response.getCredential();
+                            if (!(raw instanceof CustomCredential) || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(raw.getType()))
+                                throw new IllegalStateException("Thông tin Google không hợp lệ.");
+                            GoogleIdTokenCredential google = GoogleIdTokenCredential.createFrom(((CustomCredential) raw).getData());
+                            FirebaseUser user = authRepository.getCurrentUser();
+                            if (user == null) return;
+                            user.reauthenticate(com.google.firebase.auth.GoogleAuthProvider.getCredential(google.getIdToken(), null))
+                                    .addOnSuccessListener(unused -> retry.run()).addOnFailureListener(MainActivity.this::showFirebaseError);
+                        } catch (Exception e) { showFirebaseError(e); }
+                    }
+                    @Override public void onError(GetCredentialException e) { showFirebaseError(e); }
+                });
+    }
+
+    private void bindOtpVerification() {
+        boolean emailChange = "email_change".equals(otpFlow);
+        setTextIfPresent(R.id.txtOtpTitle, emailChange ? "Xác nhận email mới" : "Xác minh số điện thoại");
+        setTextIfPresent(R.id.txtOtpDescription, emailChange
+                ? "Mở liên kết trong email mới, sau đó quay lại nhấn kiểm tra."
+                : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
+        setTextIfPresent(R.id.txtOtpTarget, otpTarget);
+        findViewById(R.id.edtOtpCode).setVisibility(emailChange ? View.GONE : View.VISIBLE);
+        setTextIfPresent(R.id.btnSubmitOtp, emailChange ? "Tôi đã xác nhận — kiểm tra" : "Xác nhận");
+        setTextIfPresent(R.id.btnResendOtp, emailChange ? "Gửi lại email xác nhận" : "Gửi lại mã SMS");
+        bindClick(R.id.btnResendOtp, () -> {
+            if (contactBusy) return;
+            if (emailChange) requestEmailChange(); else sendPhoneOtp(true);
         });
+        bindClick(R.id.btnSubmitOtp, () -> {
+            if (contactBusy) return;
+            if (emailChange) { checkChangedEmail(true); return; }
+            EditText code = findViewById(R.id.edtOtpCode);
+            if (!code.getText().toString().matches("[0-9]{6}")) { code.setError("Nhập đủ 6 chữ số"); return; }
+            if (phoneVerificationId.isEmpty()) { code.setError("Phiên OTP đã hết hạn. Vui lòng gửi lại mã."); return; }
+            completePhoneVerification(com.google.firebase.auth.PhoneAuthProvider.getCredential(phoneVerificationId, code.getText().toString()));
+        });
+        setContactBusy(contactBusy);
+    }
+
+    private void sendPhoneOtp(boolean resend) {
+        if (!requireSignedIn() || contactBusy) return;
+        if (android.os.SystemClock.elapsedRealtime() < phoneResendAt) {
+            Toast.makeText(this, "Vui lòng chờ 60 giây trước khi gửi lại mã.", Toast.LENGTH_SHORT).show(); return;
+        }
+        String owner = currentUid();
+        String requestedPhone = otpTarget;
+        phoneVerificationId = "";
+        setContactBusy(true);
+        authRepository.sendPhoneCode(this, requestedPhone, resend ? phoneResendToken : null,
+                new com.google.firebase.auth.PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    @Override public void onVerificationCompleted(com.google.firebase.auth.PhoneAuthCredential credential) {
+                        if (!owner.equals(currentUid()) || !requestedPhone.equals(otpTarget)) return;
+                        completePhoneVerification(credential);
+                    }
+                    @Override public void onVerificationFailed(com.google.firebase.FirebaseException error) {
+                        if (!owner.equals(currentUid())) return;
+                        setContactBusy(false); showFirebaseError(error);
+                    }
+                    @Override public void onCodeSent(String verificationId, com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken token) {
+                        if (!owner.equals(currentUid()) || !requestedPhone.equals(otpTarget)) return;
+                        phoneVerificationId = verificationId; phoneResendToken = token;
+                        phoneResendAt = android.os.SystemClock.elapsedRealtime() + 60000;
+                        setContactBusy(false);
+                        if (currentScreen == R.layout.activity_verify_phone || currentScreen == R.layout.activity_otp_verification)
+                            showScreen(R.layout.activity_otp_verification);
+                    }
+                    @Override public void onCodeAutoRetrievalTimeOut(String verificationId) { setContactBusy(false); }
+                });
+    }
+
+    private void completePhoneVerification(com.google.firebase.auth.PhoneAuthCredential credential) {
+        if (!requireSignedIn()) return;
+        setContactBusy(true);
+        authRepository.verifyPhone(credential).addOnSuccessListener(unused -> {
+            setContactBusy(false); phoneVerificationId = ""; phoneResendToken = null;
+            syncVerifiedContact();
+            navigateRoot(R.layout.activity_profile); showScreen(R.layout.activity_edit_profile);
+            Toast.makeText(this, "Số điện thoại đã được Firebase xác minh.", Toast.LENGTH_SHORT).show();
+        }).addOnFailureListener(error -> contactError(error, () -> completePhoneVerification(credential)));
     }
 
     private void bindNewPassword() {
-        bindClick(R.id.btnNewPasswordBack, () -> showScreen(R.layout.activity_otp_verification));
-        bindClick(R.id.btnSaveNewPassword, () -> {
-            EditText password = findViewById(R.id.edtNewPassword);
-            EditText confirmation = findViewById(R.id.edtConfirmNewPassword);
-            if (password.getText().length() < 6) { password.setError("Cần ít nhất 6 ký tự"); return; }
-            if (!password.getText().toString().equals(confirmation.getText().toString())) { confirmation.setError("Mật khẩu chưa khớp"); return; }
-            getSharedPreferences("account_contact", MODE_PRIVATE).edit().putString("password", password.getText().toString()).apply();
-            showScreen(R.layout.activity_password_reset_success);
-        });
+        // Password resets are completed with Firebase's emailed action link.
+        navigateRoot(R.layout.activity_forgot_password);
     }
 
     private void bindPasswordResetSuccess() {
-        bindClick(R.id.btnReturnLogin, () -> showScreen(R.layout.activity_login));
+        bindClick(R.id.btnReturnLogin, () -> navigateRoot(R.layout.activity_login));
     }
 
     private void bindChangeEmail() {
-        TextView current = findViewById(R.id.txtCurrentEmail);
-        current.setText(getSharedPreferences("account_contact", MODE_PRIVATE).getString("email", "thudinh.31241026994@st.ueh.edu.vn"));
-        EditText newEmail = findViewById(R.id.edtNewEmail);
-        if ("email_change".equals(otpFlow) && !otpTarget.isEmpty()) newEmail.setText(otpTarget);
-        bindClick(R.id.btnChangeEmailBack, () -> showScreen(R.layout.activity_edit_profile));
+        if (!requireSignedIn()) return;
+        setTextIfPresent(R.id.txtCurrentEmail, authRepository.getCurrentUser().getEmail());
+        EditText email = findViewById(R.id.edtNewEmail);
+        String pending = contactPreferences().getString("pending_email", "");
+        if (!pending.isEmpty()) email.setText(pending);
         bindClick(R.id.btnContinueChangeEmail, () -> {
-            EditText email = findViewById(R.id.edtNewEmail);
             String value = email.getText().toString().trim();
-            if (!value.contains("@") || !value.contains(".")) { email.setError("Nhập email hợp lệ"); return; }
-            otpFlow = "email_change";
-            otpTarget = value;
-            showScreen(R.layout.activity_otp_verification);
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(value).matches()) { email.setError("Nhập email hợp lệ"); return; }
+            if (value.equalsIgnoreCase(authRepository.getCurrentUser().getEmail())) { email.setError("Email mới trùng email hiện tại"); return; }
+            otpFlow = "email_change"; otpTarget = value; requestEmailChange();
         });
+    }
+
+    private void requestEmailChange() {
+        if (!requireSignedIn() || contactBusy) return;
+        setContactBusy(true);
+        final String requestedEmail = otpTarget;
+        authRepository.requestEmailChange(requestedEmail).addOnSuccessListener(unused -> {
+            setContactBusy(false);
+            contactPreferences().edit().putString("pending_email", requestedEmail).apply();
+            showScreen(R.layout.activity_otp_verification);
+            Toast.makeText(this, "Đã gửi liên kết xác nhận đến email mới.", Toast.LENGTH_LONG).show();
+        }).addOnFailureListener(error -> contactError(error, this::requestEmailChange));
+    }
+
+    private void checkChangedEmail(boolean notifyPending) {
+        FirebaseUser user = authRepository.getCurrentUser();
+        if (user == null || contactBusy) return;
+        String pending = contactPreferences().getString("pending_email", "");
+        if (pending.isEmpty()) return;
+        setContactBusy(true);
+        user.reload().addOnSuccessListener(unused -> {
+            setContactBusy(false);
+            if (pending.equalsIgnoreCase(user.getEmail()) && user.isEmailVerified()) {
+                contactPreferences().edit().remove("pending_email").apply();
+                syncVerifiedContact();
+                navigateRoot(R.layout.activity_profile); showScreen(R.layout.activity_edit_profile);
+                Toast.makeText(this, "Email mới đã được xác nhận.", Toast.LENGTH_SHORT).show();
+            } else if (notifyPending) Toast.makeText(this, "Chưa xác nhận. Hãy mở liên kết trong email mới.", Toast.LENGTH_LONG).show();
+        }).addOnFailureListener(error -> {
+            setContactBusy(false);
+            if (error instanceof com.google.firebase.auth.FirebaseAuthInvalidUserException) {
+                authRepository.signOut(); navigateRoot(R.layout.activity_login);
+                Toast.makeText(this, "Phiên đăng nhập đã hết hạn. Đăng nhập bằng email mới sau khi xác nhận.", Toast.LENGTH_LONG).show();
+            } else showFirebaseError(error);
+        });
+    }
+
+    private void syncVerifiedContact() {
+        FirebaseFunctions.getInstance().getHttpsCallable("syncAccountContact").call()
+                .addOnFailureListener(this::showFirebaseError);
     }
 
     private void bindVerifyPhone() {
+        if (!requireSignedIn()) return;
         EditText phone = findViewById(R.id.edtVerifyPhoneNumber);
-        phone.setText(("phone_verify".equals(otpFlow) || "phone_change".equals(otpFlow)) && !otpTarget.isEmpty()
-                ? otpTarget : getSharedPreferences("account_contact", MODE_PRIVATE).getString("phone", "0901 234 567"));
-        TextView title = findViewById(R.id.txtVerifyPhoneTitle);
-        title.setText("phone_change".equals(otpFlow) ? "Đổi số điện thoại" : "Xác minh số điện thoại");
-        bindClick(R.id.btnVerifyPhoneBack, () -> showScreen(R.layout.activity_edit_profile));
+        String existing = authRepository.getCurrentUser().getPhoneNumber();
+        phone.setText(!otpTarget.isEmpty() && !"email_change".equals(otpFlow) ? otpTarget : existing == null ? "" : existing);
+        setTextIfPresent(R.id.txtVerifyPhoneTitle, "phone_change".equals(otpFlow) ? "Đổi số điện thoại" : "Xác minh số điện thoại");
         bindClick(R.id.btnSendPhoneOtp, () -> {
-            String value = phone.getText().toString().trim();
-            if (value.replaceAll("\\D", "").length() < 9) { phone.setError("Nhập số điện thoại hợp lệ"); return; }
-            otpTarget = value;
-            showScreen(R.layout.activity_otp_verification);
+            String value = MarketplaceLinks.normalizePhone(phone.getText().toString());
+            if (value.isEmpty()) { phone.setError("Nhập số Việt Nam 0… hoặc số quốc tế +…"); return; }
+            if (!value.equals(otpTarget)) { phoneResendToken = null; phoneResendAt = 0; }
+            otpTarget = value; sendPhoneOtp(false);
         });
+        setContactBusy(contactBusy);
     }
 
     private void bindNavigation() {
-        bindClick(R.id.navHome, () -> showScreen(R.layout.activity_home));
-        bindClick(R.id.navExplore, () -> showScreen(R.layout.activity_explore));
-        bindClick(R.id.navCreate, () -> showScreen(R.layout.activity_sell));
-        bindClick(R.id.navMessages, () -> showScreen(R.layout.activity_messages));
-        bindClick(R.id.navProfile, () -> showScreen(R.layout.activity_profile));
+        bindClick(R.id.navHome, () -> navigateRoot(R.layout.activity_home));
+        bindClick(R.id.navExplore, () -> navigateRoot(R.layout.activity_explore));
+        bindClick(R.id.navCreate, () -> {
+            editingListing = false; editingPostId = ""; listingDraft.clear(); selectedListingPhotos.clear();
+            selectedListingPhoto = null; capturedListingPhoto = null;
+            showScreen(R.layout.activity_sell);
+        });
+        bindClick(R.id.navMessages, () -> navigateRoot(R.layout.activity_messages));
+        bindClick(R.id.navProfile, () -> navigateRoot(R.layout.activity_profile));
     }
 
     private void bindHome() {
@@ -599,9 +1008,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void listenForActivePosts() {
+        postsAwaitingServer=true;
+        showProductLoadState("Đang tải tin đăng…",false);
         addScreenListener(memberTwoRepository.listenActivePosts((snapshots, error) -> {
             if (currentScreen != R.layout.activity_home && currentScreen != R.layout.activity_explore) return;
-            if (error != null) { showFirebaseError(error); return; }
+            if (error != null) { showProductLoadState("Không tải được tin đăng. Kiểm tra kết nối rồi thử lại.",true); return; }
+            if(snapshots!=null && snapshots.isEmpty() && snapshots.getMetadata().isFromCache()){postsAwaitingServer=true;showProductLoadState("Đang chờ kết nối với server…",true);return;}
+            postsAwaitingServer=false;
             activePosts.clear();
             if (snapshots != null) activePosts.addAll(snapshots.getDocuments());
             if (currentScreen == R.layout.activity_home) renderHomeProducts();
@@ -612,9 +1025,15 @@ public class MainActivity extends AppCompatActivity {
             if (error != null) return;
             favoritePostIds.clear();
             if (snapshots != null) for (DocumentSnapshot favorite : snapshots.getDocuments()) favoritePostIds.add(favorite.getId());
+            if(postsAwaitingServer)return;
             if (currentScreen == R.layout.activity_home) renderHomeProducts();
             else if (currentScreen == R.layout.activity_explore) renderExploreProducts();
         }));
+    }
+
+    private void showProductLoadState(String message,boolean retry){
+        GridLayout grid=findViewById(currentScreen==R.layout.activity_home?R.id.productGrid:R.id.exploreProductGrid);if(grid==null)return;grid.removeAllViews();addEmptyProductsMessage(grid,message);
+        if(retry){Button button=new Button(this);button.setText("Thử lại");button.setOnClickListener(v->{ScreenEntry entry=captureScreen();restoreScreenEntry(entry);});GridLayout.LayoutParams params=new GridLayout.LayoutParams();params.width=-1;params.columnSpec=GridLayout.spec(0,2);grid.addView(button,params);}
     }
 
     private void renderHomeProducts() {
@@ -718,12 +1137,33 @@ public class MainActivity extends AppCompatActivity {
         Object url = ((List<?>) raw).get(index);
         if (!(url instanceof String) || ((String) url).isEmpty()) return;
         target.setVisibility(View.INVISIBLE); fallback.setVisibility(View.VISIBLE);
-        FirebaseStorage.getInstance().getReferenceFromUrl((String) url)
+        com.google.firebase.storage.StorageReference image = storageImageReference((String) url);
+        if (image == null) return;
+        image
                 .getBytes(10 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
                     if (bitmap != null) { target.setImageBitmap(bitmap); target.setVisibility(View.VISIBLE); fallback.setVisibility(View.GONE); }
                 });
+    }
+
+    private com.google.firebase.storage.StorageReference storageImageReference(String value) {
+        try {
+            FirebaseStorage storage = FirebaseStorage.getInstance();
+            Uri uri = Uri.parse(value);
+            List<String> path = uri.getPathSegments();
+            // Download URLs returned by the local emulator have a local HTTP host.
+            // Resolve their bucket/object path through the configured SDK instead.
+            if (("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) && path.size() == 5
+                    && "v0".equals(path.get(0)) && "b".equals(path.get(1)) && "o".equals(path.get(3))
+                    && storage.getReference().getBucket().equals(path.get(2))) {
+                return storage.getReference().child(path.get(4));
+            }
+            return storage.getReferenceFromUrl(value);
+        } catch (IllegalArgumentException ignored) {
+            // A removed or malformed image must not crash the product list.
+            return null;
+        }
     }
 
     private long numberValue(Object value) {
@@ -741,20 +1181,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindFavorites() {
-        bindClick(R.id.btnFavoritesBack, () -> showScreen(R.layout.activity_profile));
         RadioGroup filters = findViewById(R.id.favoriteFilters);
         if (filters != null) filters.setOnCheckedChangeListener((group, checkedId) -> renderFavoriteProducts(checkedId));
-        if (requireSignedIn()) {
-            addScreenListener(memberTwoRepository.listenActivePosts((snapshot, error) -> {
-                if (error != null) { showFirebaseError(error); return; }
-                activePosts.clear(); if (snapshot != null) activePosts.addAll(snapshot.getDocuments()); renderFavoriteProducts(R.id.filterFavoritesAll);
-            }));
-            addScreenListener(memberOneRepository.listenFavorites(currentUid(), (snapshot, error) -> {
-                if (error != null) { showFirebaseError(error); return; }
-                favoritePostIds.clear(); if (snapshot != null) for (DocumentSnapshot favorite : snapshot.getDocuments()) favoritePostIds.add(favorite.getId());
-                renderFavoriteProducts(R.id.filterFavoritesAll);
-            }));
-        }
+        favoritePosts.clear();
+        if (requireSignedIn()) addScreenListener(memberOneRepository.listenFavorites(currentUid(), (snapshot, error) -> {
+            if (currentScreen != R.layout.activity_favorites) return;
+            if (error != null) { showFirebaseError(error); return; }
+            for (ListenerRegistration listener : favoritePostListeners) listener.remove();
+            favoritePostListeners.clear(); favoritePosts.clear(); favoritePostIds.clear();
+            if (snapshot != null) for (DocumentSnapshot favorite : snapshot.getDocuments()) {
+                String postId = favorite.getId(); favoritePostIds.add(postId);
+                favoritePostListeners.add(FirebaseFirestore.getInstance().collection("posts").document(postId)
+                        .addSnapshotListener((post, postError) -> {
+                            if (currentScreen != R.layout.activity_favorites) return;
+                            favoritePosts.removeIf(existing -> existing.getId().equals(postId));
+                            if (postError == null && post != null && post.exists()) favoritePosts.add(post);
+                            renderFavoriteProducts(filters == null ? R.id.filterFavoritesAll : filters.getCheckedRadioButtonId());
+                        }));
+            }
+            renderFavoriteProducts(filters == null ? R.id.filterFavoritesAll : filters.getCheckedRadioButtonId());
+        }));
         renderFavoriteProducts(R.id.filterFavoritesAll);
     }
 
@@ -763,15 +1209,17 @@ public class MainActivity extends AppCompatActivity {
         if (grid == null) return;
         grid.removeAllViews();
         int count = 0;
-        for (DocumentSnapshot post : activePosts) {
-            if (!favoritePostIds.contains(post.getId())) continue;
+        for (DocumentSnapshot post : favoritePosts) {
             String status = textValue(post.getData(), "status", "ACTIVE");
             if (filterId == R.id.filterFavoritesAvailable && !"ACTIVE".equalsIgnoreCase(status)) continue;
             if (filterId == R.id.filterFavoritesUnavailable && "ACTIVE".equalsIgnoreCase(status)) continue;
             grid.addView(createProductCard(post, false)); count++;
         }
         TextView empty = findViewById(R.id.txtFavoritesEmpty);
-        if (empty != null) empty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+        if (empty != null) {
+            empty.setText("Chưa có sản phẩm yêu thích hiển thị. Bài đã ẩn hoặc bị gỡ sẽ không hiển thị.");
+            empty.setVisibility(count == 0 ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void bindMyListings() {
@@ -842,6 +1290,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindOrders() {
+        activeOrders.clear();ordersAwaitingServer=true;ordersLoadError="";
         bindClick(R.id.btnOrdersBack, () -> showScreen(R.layout.activity_profile));
         bindClick(R.id.btnTransactionHistory, () -> showScreen(R.layout.activity_transaction_history));
         LinearLayout orderContainer = findViewById(R.id.orderListContainer);
@@ -890,9 +1339,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onOrdersChanged(QuerySnapshot snapshot, FirebaseFirestoreException error) {
-        if (error != null) { showFirebaseError(error); return; }
+        if(currentScreen!=R.layout.activity_orders)return;
+        ordersLoadError=error==null?"":"Không tải được đơn hàng. Nhấn để thử lại.";
+        ordersAwaitingServer=error==null&&(snapshot==null||snapshot.getMetadata().isFromCache());
         activeOrders.clear();
-        if (snapshot != null) activeOrders.addAll(snapshot.getDocuments());
+        if(snapshot!=null&&error==null)activeOrders.addAll(snapshot.getDocuments());
         renderOrders();
     }
 
@@ -936,8 +1387,10 @@ public class MainActivity extends AppCompatActivity {
             shown++;
         }
         empty.setVisibility(shown == 0 ? View.VISIBLE : View.GONE);
+        empty.setText(!ordersLoadError.isEmpty()?ordersLoadError:ordersAwaitingServer?"Đang chờ dữ liệu từ backend…":"Không tìm thấy đơn hàng phù hợp.");
+        empty.setOnClickListener(v->{if(!ordersLoadError.isEmpty()||ordersAwaitingServer)showScreen(R.layout.activity_orders);});
         TextView count = findViewById(R.id.txtOrderCount);
-        if (count != null) count.setText(String.valueOf(shown));
+        if(count!=null)count.setText((ordersAwaitingServer||!ordersLoadError.isEmpty())&&shown==0?"—":String.valueOf(shown));
         TextView section = findViewById(R.id.txtOrderListSection);
         if (section != null) section.setText("seller".equals(orderRoleFilter) ? "ĐƠN ĐẾN" : "ĐƠN ĐÃ ĐẶT");
     }
@@ -1020,35 +1473,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindTransactions() {
-        bindClick(R.id.btnTransactionsBack, () -> showScreen(R.layout.activity_profile));
-        TextView heading = findViewById(R.id.txtTransactionHeading);
-        bindClick(R.id.tabReceive, () -> {
-            if (heading != null) heading.setText("Món đồ bạn đang nhận và mua");
-            clearScreenListeners(); listenToFreeRequests(false);
-        });
-        bindClick(R.id.tabGive, () -> {
-            if (heading != null) heading.setText("Món đồ bạn đang tặng và bán");
-            clearScreenListeners(); listenToFreeRequests(true);
-        });
-        bindClick(R.id.transactionRequestRow, () -> {
-            if (currentFreeRequestId.isEmpty()) { Toast.makeText(this, "Chưa có yêu cầu nhận đồ.", Toast.LENGTH_SHORT).show(); return; }
-            if (currentFreeRequestOwnerView) {
-                new android.app.AlertDialog.Builder(this).setTitle("Xử lý yêu cầu")
-                        .setItems(new String[]{"Chấp nhận", "Từ chối"}, (dialog, which) -> memberTwoRepository.respondFreeRequest(currentFreeRequestId, which == 0)
-                                .addOnSuccessListener(result -> {
-                                    Object raw = result.getData();
-                                    if (which == 0 && raw instanceof Map && ((Map<?, ?>) raw).get("orderId") instanceof String) {
-                                        currentOrderId = (String) ((Map<?, ?>) raw).get("orderId");
-                                        orderRoleFilter = "seller";
-                                        showScreen(R.layout.activity_orders);
-                                    }
-                                }).addOnFailureListener(this::showFirebaseError)).show();
-            } else showScreen(R.layout.activity_request_status);
-        });
-        bindClick(R.id.transactionPurchaseRow, () -> { orderRoleFilter = "buyer"; showScreen(R.layout.activity_orders); });
-        bindClick(R.id.transactionIssueRow, () -> showScreen(R.layout.activity_order_detail));
-        currentFreeRequestOwnerView = false;
-        if (requireSignedIn()) listenToFreeRequests(false);
+        transactionScreens.bind(R.layout.activity_transactions);
     }
 
     private boolean currentFreeRequestOwnerView;
@@ -1063,21 +1488,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void renderFreeRequestRow(QuerySnapshot snapshot, FirebaseFirestoreException error, boolean ownerView) {
-        if (error != null) { showFirebaseError(error); return; }
-        View row = findViewById(R.id.transactionRequestRow);
-        if (row == null) return;
-        if (snapshot == null || snapshot.isEmpty()) {
-            currentFreeRequestId = ""; row.setVisibility(View.GONE); return;
-        }
-        row.setVisibility(View.VISIBLE);
-        DocumentSnapshot request = snapshot.getDocuments().get(0);
-        currentFreeRequestId = request.getId();
-        currentPostId = textValue(request.getData(), "postId", "");
-        currentSellerId = textValue(request.getData(), "ownerId", "");
-        TextView title = findFirstTextChild(row, 1);
-        TextView subtitle = findFirstTextChild(row, 2);
-        if (title != null) title.setText(ownerView ? "Yêu cầu nhận món đồ của bạn" : "Yêu cầu nhận đồ đã gửi");
-        if (subtitle != null) subtitle.setText(textValue(request.getData(), "status", "PENDING") + " · " + textValue(request.getData(), "note", "Không kèm lời nhắn"));
+        transactionScreens.bind(R.layout.activity_transactions);
     }
 
     private TextView findFirstTextChild(View parent, int index) {
@@ -1086,116 +1497,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindAddresses() {
-        bindClick(R.id.btnAddressesBack, () -> showScreen(R.layout.activity_profile));
-        android.content.SharedPreferences address = getSharedPreferences("shipping_address", MODE_PRIVATE);
-        String saved = address.getString("formatted", "Nguyễn Minh Anh · 0901 234 567\n12 Nguyễn Thị Minh Khai, Phường 6\nQuận 3, TP. Hồ Chí Minh");
-        TextView content = findViewById(R.id.txtAddressContent);
-        TextView typeLabel = findViewById(R.id.txtAddressTypeLabel);
-        if (content != null) content.setText(saved);
-        if (typeLabel != null) typeLabel.setText((address.getBoolean("work", false) ? "▣  Văn phòng" : "⌂  Nhà riêng")
-                + (address.getBoolean("default", true) ? "                         MẶC ĐỊNH" : ""));
-        LinearLayout cards = findViewById(R.id.addressCards);
-        if (cards != null) {
-            for (int i = cards.getChildCount() - 1; i > 0; i--) cards.removeViewAt(i);
-            String extraAddress = address.getString("formatted_secondary", "");
-            if (!extraAddress.isEmpty()) {
-                LinearLayout card = new LinearLayout(this);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setPadding(dp(15), dp(15), dp(15), dp(8));
-                card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-                LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
-                cardParams.topMargin = dp(10);
-                card.setLayoutParams(cardParams);
-                TextView label = new TextView(this);
-                label.setText((address.getBoolean("work_secondary", false) ? "▣  Văn phòng" : "⌂  Nhà riêng")
-                        + (address.getBoolean("default_secondary", false) ? "                         MẶC ĐỊNH" : ""));
-                label.setTextColor(0xFF173B32); label.setTextSize(12); label.setTypeface(null, android.graphics.Typeface.BOLD);
-                TextView details = new TextView(this);
-                details.setText(extraAddress); details.setTextColor(0xFF65756D); details.setTextSize(11); details.setLineSpacing(dp(3), 1f);
-                LinearLayout.LayoutParams detailsParams = new LinearLayout.LayoutParams(-1, -2); detailsParams.topMargin = dp(8);
-                TextView edit = new TextView(this);
-                edit.setText("Chỉnh sửa địa chỉ"); edit.setTextColor(0xFF23795C); edit.setTextSize(10); edit.setGravity(android.view.Gravity.CENTER_VERTICAL);
-                edit.setOnClickListener(v -> { editingAddress = true; editingSecondaryAddress = true; showScreen(R.layout.activity_address_form); });
-                card.addView(label); card.addView(details, detailsParams); card.addView(edit, new LinearLayout.LayoutParams(-2, dp(40)));
-                cards.addView(card);
-            }
-        }
-        bindClick(R.id.btnEditAddress, () -> { editingAddress = true; editingSecondaryAddress = false; showScreen(R.layout.activity_address_form); });
-        bindClick(R.id.btnAddAddress, () -> { editingAddress = false; editingSecondaryAddress = false; showScreen(R.layout.activity_address_form); });
+        bindClick(R.id.btnAddressesBack, this::goBack);
+        if (requireSignedIn()) accountScreens.addresses();
     }
-
     private void bindAddressForm() {
-        android.content.SharedPreferences address = getSharedPreferences("shipping_address", MODE_PRIVATE);
-        TextView title = findViewById(R.id.txtAddressFormTitle);
-        title.setText(editingAddress ? "Chỉnh sửa địa chỉ" : "Thêm địa chỉ mới");
-        EditText recipient = findViewById(R.id.edtAddressRecipient);
-        EditText phone = findViewById(R.id.edtAddressPhone);
-        EditText province = findViewById(R.id.edtAddressProvince);
-        EditText district = findViewById(R.id.edtAddressDistrict);
-        EditText ward = findViewById(R.id.edtAddressWard);
-        EditText street = findViewById(R.id.edtAddressStreet);
-        if (editingAddress) {
-            String suffix = editingSecondaryAddress ? "_secondary" : "";
-            recipient.setText(address.getString("recipient" + suffix, "Nguyễn Minh Anh"));
-            phone.setText(address.getString("phone" + suffix, "0901 234 567"));
-            province.setText(address.getString("province" + suffix, "TP. Hồ Chí Minh"));
-            district.setText(address.getString("district" + suffix, "Quận 3"));
-            ward.setText(address.getString("ward" + suffix, "Phường 6"));
-            street.setText(address.getString("street" + suffix, "12 Nguyễn Thị Minh Khai"));
-            ((RadioGroup) findViewById(R.id.rgAddressType)).check(address.getBoolean("work" + suffix, false) ? R.id.radioAddressWork : R.id.radioAddressHome);
-            ((CheckBox) findViewById(R.id.checkAddressDefault)).setChecked(address.getBoolean("default" + suffix, !editingSecondaryAddress));
-        }
-        bindClick(R.id.btnAddressFormBack, () -> showScreen(R.layout.activity_addresses));
-        bindClick(R.id.btnSaveAddress, () -> {
-            if (recipient.getText().toString().trim().isEmpty()) { recipient.setError("Nhập tên người nhận"); return; }
-            if (phone.getText().toString().trim().isEmpty()) { phone.setError("Nhập số điện thoại"); return; }
-            if (province.getText().toString().trim().isEmpty() || district.getText().toString().trim().isEmpty()
-                    || ward.getText().toString().trim().isEmpty() || street.getText().toString().trim().isEmpty()) {
-                Toast.makeText(this, "Vui lòng điền đầy đủ địa chỉ.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String formatted = recipient.getText().toString().trim() + " · " + phone.getText().toString().trim() + "\n"
-                    + street.getText().toString().trim() + ", " + ward.getText().toString().trim() + "\n"
-                    + district.getText().toString().trim() + ", " + province.getText().toString().trim();
-            String suffix = (editingAddress && editingSecondaryAddress) || !editingAddress ? "_secondary" : "";
-            boolean isDefault = ((CheckBox) findViewById(R.id.checkAddressDefault)).isChecked();
-            android.content.SharedPreferences.Editor editor = address.edit()
-                    .putString("recipient" + suffix, recipient.getText().toString().trim())
-                    .putString("phone" + suffix, phone.getText().toString().trim())
-                    .putString("province" + suffix, province.getText().toString().trim())
-                    .putString("district" + suffix, district.getText().toString().trim())
-                    .putString("ward" + suffix, ward.getText().toString().trim())
-                    .putString("street" + suffix, street.getText().toString().trim())
-                    .putString("formatted" + suffix, formatted)
-                    .putBoolean("work" + suffix, ((RadioGroup) findViewById(R.id.rgAddressType)).getCheckedRadioButtonId() == R.id.radioAddressWork)
-                    .putBoolean("default" + suffix, isDefault);
-            if (isDefault && !suffix.isEmpty()) editor.putBoolean("default", false);
-            if (isDefault && suffix.isEmpty()) editor.putBoolean("default_secondary", false);
-            editor.apply();
-            showScreen(R.layout.activity_addresses);
-        });
+        bindClick(R.id.btnAddressFormBack, this::goBack);
+        if (requireSignedIn()) accountScreens.addressForm();
     }
 
     private void bindEditProfile() {
+        final Set<Integer> editedFields=new HashSet<>();
+        for(int id:new int[]{R.id.edtProfileName,R.id.edtProfileBirthDate,R.id.edtProfileRegion,R.id.edtProfileAddress,R.id.edtProfileBio}){
+            EditText field=findViewById(id);field.setText("");
+            field.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int count,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){editedFields.add(id);}public void afterTextChanged(android.text.Editable s){}});
+        }
+        java.util.function.BiConsumer<Integer,String> populate=(id,value)->{if(!editedFields.contains(id))setEditTextValue(id,value);};
         setSpinnerOptions(R.id.spinnerProfileGender, new String[]{"Nữ", "Nam", "Khác", "Không muốn tiết lộ"});
-        android.content.SharedPreferences contacts = getSharedPreferences("account_contact", MODE_PRIVATE);
-        TextView emailValue = findViewById(R.id.txtProfileEmail);
-        TextView phoneValue = findViewById(R.id.txtProfilePhone);
-        TextView emailStatus = findViewById(R.id.txtProfileEmailStatus);
-        TextView phoneStatus = findViewById(R.id.txtProfilePhoneStatus);
-        if (emailValue != null) emailValue.setText(contacts.getString("email", "thudinh.31241026994@st.ueh.edu.vn"));
-        if (phoneValue != null) phoneValue.setText(contacts.getString("phone", "0901 234 567"));
+        FirebaseUser account = authRepository.getCurrentUser();
+        setTextIfPresent(R.id.txtProfileEmail, account == null || account.getEmail() == null ? "Chưa có email" : account.getEmail());
+        setTextIfPresent(R.id.txtProfilePhone, account == null || account.getPhoneNumber() == null ? "Chưa có số điện thoại" : account.getPhoneNumber());
+        setTextIfPresent(R.id.txtProfileEmailStatus, account != null && account.isEmailVerified() ? "✓ Email đã xác minh" : "Email chưa xác minh");
+        setTextIfPresent(R.id.txtProfilePhoneStatus, account != null && account.getPhoneNumber() != null ? "✓ Số điện thoại đã xác minh" : "Số điện thoại chưa xác minh");
         if (requireSignedIn()) FirebaseFirestore.getInstance().collection("users").document(currentUid()).get()
                 .addOnSuccessListener(user -> {
-                    if (!user.exists() || currentScreen != R.layout.activity_edit_profile) return;
-                    setEditTextValue(R.id.edtProfileName, user.getString("name"));
-                    setEditTextValue(R.id.edtProfileBirthDate, user.getString("birthDate"));
-                    setEditTextValue(R.id.edtProfileRegion, user.getString("region"));
-                    setEditTextValue(R.id.edtProfileAddress, user.getString("address"));
-                    setEditTextValue(R.id.edtProfileBio, user.getString("bio"));
+                    if (isDestroyed() || !user.exists() || currentScreen != R.layout.activity_edit_profile) return;
+                    populate.accept(R.id.edtProfileName, user.getString("name"));
+                    populate.accept(R.id.edtProfileBirthDate, user.getString("birthDate"));
+                    populate.accept(R.id.edtProfileRegion, user.getString("region"));
+                    populate.accept(R.id.edtProfileAddress, user.getString("address"));
+                    populate.accept(R.id.edtProfileBio, user.getString("bio"));
                     String gender = user.getString("gender");
                     Spinner genderSpinner = findViewById(R.id.spinnerProfileGender);
-                    if (gender != null && genderSpinner != null && genderSpinner.getAdapter() != null)
+                    if (restoredForm==null && gender != null && genderSpinner != null && genderSpinner.getAdapter() != null)
                         for (int i = 0; i < genderSpinner.getAdapter().getCount(); i++) if (gender.equals(genderSpinner.getAdapter().getItem(i))) genderSpinner.setSelection(i);
                     loadAvatarIntoTextView(user.getString("photoUrl"), findViewById(R.id.txtEditProfileAvatar));
                 });
@@ -1203,8 +1536,6 @@ public class MainActivity extends AppCompatActivity {
             TextView avatar = findViewById(R.id.txtEditProfileAvatar);
             if (avatar != null) { avatar.setText(""); avatar.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), selectedProfilePhoto)); }
         }
-        if (emailStatus != null && contacts.contains("email")) emailStatus.setText("✓  Email đã xác minh");
-        if (phoneStatus != null && contacts.getBoolean("phone_verified", true)) phoneStatus.setText("✓  Số điện thoại đã xác minh");
         bindClick(R.id.btnEditProfileBack, () -> showScreen(R.layout.activity_profile));
         bindClick(R.id.btnEditProfileSave, this::saveProfileToFirebase);
         bindClick(R.id.btnEditProfileVerify, () -> showScreen(R.layout.activity_account_verification));
@@ -1244,7 +1575,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveProfileToFirebase() {
-        if (!requireSignedIn()) return;
+        if (profileBusy || !requireSignedIn()) return;
         EditText name = findViewById(R.id.edtProfileName);
         EditText birthDate = findViewById(R.id.edtProfileBirthDate);
         EditText region = findViewById(R.id.edtProfileRegion);
@@ -1254,6 +1585,12 @@ public class MainActivity extends AppCompatActivity {
             if (name != null) name.setError("Vui lòng nhập họ tên");
             return;
         }
+        if(name.length()>100){name.setError("Họ tên tối đa 100 ký tự");return;}
+        if(bio!=null && bio.length()>2000){bio.setError("Giới thiệu tối đa 2000 ký tự");return;}
+        if(birthDate!=null && !birthDate.getText().toString().trim().isEmpty())try{
+            java.time.LocalDate date=java.time.LocalDate.parse(birthDate.getText().toString().trim(),java.time.format.DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(java.time.format.ResolverStyle.STRICT));
+            if(date.isAfter(java.time.LocalDate.now())||date.getYear()<1900)throw new java.time.DateTimeException("out of range");
+        }catch(java.time.DateTimeException invalid){birthDate.setError("Ngày sinh hợp lệ theo dd/mm/yyyy, từ 1900 đến hiện tại");return;}
         Map<String, Object> profile = new HashMap<>();
         profile.put("name", name.getText().toString().trim());
         profile.put("gender", spinnerText(R.id.spinnerProfileGender, ""));
@@ -1261,12 +1598,13 @@ public class MainActivity extends AppCompatActivity {
         profile.put("region", region == null ? "" : region.getText().toString().trim());
         profile.put("address", address == null ? "" : address.getText().toString().trim());
         profile.put("bio", bio == null ? "" : bio.getText().toString().trim());
+        profileBusy=true;findViewById(R.id.btnEditProfileSave).setEnabled(false);
         memberOneRepository.saveUserProfile(currentUid(), profile, selectedProfilePhotoUri, selectedProfilePhoto)
                 .addOnSuccessListener(unused -> {
                     Toast.makeText(this, "Đã lưu hồ sơ.", Toast.LENGTH_SHORT).show();
                     selectedProfilePhotoUri = null; selectedProfilePhoto = null;
                     showScreen(R.layout.activity_profile);
-                }).addOnFailureListener(this::showFirebaseError);
+                }).addOnFailureListener(this::showFirebaseError).addOnCompleteListener(done->{profileBusy=false;View button=findViewById(R.id.btnEditProfileSave);if(button!=null)button.setEnabled(true);});
     }
 
     private void setEditTextValue(int viewId, String value) {
@@ -1276,7 +1614,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadAvatarIntoTextView(String url, TextView target) {
         if (url == null || url.isEmpty() || target == null) return;
-        FirebaseStorage.getInstance().getReferenceFromUrl(url)
+        com.google.firebase.storage.StorageReference image = storageImageReference(url);
+        if (image == null) return;
+        image
                 .getBytes(5 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
@@ -1285,16 +1625,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindPaymentInfo() {
-        setSpinnerOptions(R.id.spinnerPayoutBank, new String[]{"Vietcombank", "Techcombank", "MB Bank", "BIDV", "ACB"});
-        bindClick(R.id.btnPaymentInfoBack, () -> showScreen(R.layout.activity_profile));
-        bindClick(R.id.btnSavePayoutInfo, () -> {
-            CheckBox consent = findViewById(R.id.checkPayoutConsent);
-            if (consent != null && !consent.isChecked()) {
-                Toast.makeText(this, "Vui lòng xác nhận thông tin tài khoản.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            showScreen(R.layout.activity_profile);
-        });
+        bindClick(R.id.btnPaymentInfoBack, this::goBack);
+        if (requireSignedIn()) accountScreens.payout();
     }
 
     private void bindSettings() {
@@ -1303,15 +1635,12 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.settingNotifications, () -> showScreen(R.layout.activity_notifications));
         bindClick(R.id.settingPrivacy, () -> showScreen(R.layout.activity_privacy_security));
         bindClick(R.id.settingLanguage, () -> showScreen(R.layout.activity_language));
-        bindClick(R.id.settingLogout, () -> showScreen(R.layout.activity_login));
+        bindClick(R.id.settingLogout, () -> { authRepository.signOut(); showScreen(R.layout.activity_login); });
     }
 
     private void bindPrivacySecurity() {
-        bindClick(R.id.btnPrivacySecurityBack, () -> showScreen(R.layout.activity_settings));
-        bindClick(R.id.btnPrivacyIdentityVerification, () -> {
-            String status = getSharedPreferences("account_verification", MODE_PRIVATE).getString("status", "none");
-            showScreen("none".equals(status) ? R.layout.activity_account_verification : R.layout.activity_verification_status);
-        });
+        bindClick(R.id.btnPrivacySecurityBack, this::goBack);
+        if (requireSignedIn()) accountScreens.privacy();
     }
 
     private void bindLanguage() {
@@ -1334,25 +1663,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindSupportContact() {
-        bindClick(R.id.btnSupportContactBack, () -> showScreen(R.layout.activity_support));
+        bindClick(R.id.btnSupportContactBack, this::goBack);
+        if (requireSignedIn()) accountScreens.support();
     }
 
     private void bindRequestStatus() {
-        bindClick(R.id.btnBack, () -> showScreen(R.layout.activity_product_detail));
-        if (!currentFreeRequestId.isEmpty()) addScreenListener(memberTwoRepository.listenFreeRequest(currentFreeRequestId, (request, error) -> {
-            if (error != null) { showFirebaseError(error); return; }
-            TextView status = findViewById(R.id.txtRequestStatus);
-            if (status != null && request != null && request.exists()) {
-                String state = textValue(request.getData(), "status", "PENDING");
-                status.setText("PENDING".equals(state) ? "Đang chờ người tặng xác nhận"
-                        : "ACCEPTED".equals(state) ? "Người tặng đã chấp nhận yêu cầu"
-                        : "REJECTED".equals(state) ? "Người tặng chưa thể nhận yêu cầu này"
-                        : "UNAVAILABLE".equals(state) ? "Sản phẩm đã có người nhận" : "Yêu cầu đã được cập nhật");
-            }
-        }));
-        bindClick(R.id.btnChatWithDonor, () -> {
-            startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_request_status);
-        });
+        transactionScreens.bind(R.layout.activity_request_status);
     }
 
     private void bindSellSuccess() {
@@ -1361,94 +1677,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void renderTransactionHistory(int filterId) {
-        LinearLayout list = findViewById(R.id.transactionHistoryList);
-        if (list == null) return;
-        list.removeAllViews();
-        String[][] transactions = {
-                {"🧥", "TXN-F2H-2026-09-28 · 28/09/2026", "Vintage Denim Jacket", "145.000đ", "ĐANG GIỮ", "buy"},
-                {"👚", "TXN-F2H-2026-09-24 · 24/09/2026", "Áo sơ mi linen trắng", "25.000đ", "SHIPPING ONLY", "free"},
-                {"👖", "TXN-F2H-2026-09-21 · 21/09/2026", "Quần jeans ống rộng", "110.000đ", "RELEASED", "sell"}
-        };
-        for (String[] transaction : transactions) {
-            if (filterId == R.id.filterHistoryBuy && !"buy".equals(transaction[5])) continue;
-            if (filterId == R.id.filterHistorySell && !"sell".equals(transaction[5])) continue;
-            if (filterId == R.id.filterHistoryFree && !"free".equals(transaction[5])) continue;
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.HORIZONTAL);
-            card.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            card.setBackgroundResource(R.drawable.bg_white_card_rounded);
-            card.setPadding(dp(9), dp(8), dp(9), dp(8));
-            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(-1, -2);
-            cardParams.bottomMargin = dp(8);
-            card.setLayoutParams(cardParams);
-            TextView photo = new TextView(this);
-            photo.setText(transaction[0]); photo.setTextSize(27); photo.setGravity(17); photo.setBackgroundColor(0xFFE8E6E0);
-            card.addView(photo, new LinearLayout.LayoutParams(dp(58), dp(62)));
-            LinearLayout info = new LinearLayout(this);
-            info.setOrientation(LinearLayout.VERTICAL);
-            info.setPadding(dp(8), 0, dp(4), 0);
-            card.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
-            TextView id = new TextView(this);
-            id.setText(transaction[1]); id.setTextSize(6); id.setTextColor(0xFF89958E); info.addView(id);
-            TextView name = new TextView(this);
-            name.setText(transaction[2]); name.setTextSize(9); name.setMaxLines(1); name.setTextColor(0xFF26332D); name.setTypeface(null, android.graphics.Typeface.BOLD); name.setPadding(0, dp(3), 0, 0); info.addView(name);
-            TextView status = new TextView(this);
-            status.setText("sell".equals(transaction[5]) ? "Hoàn thành" : ("buy".equals(transaction[5]) ? "Đang giữ" : "Hoàn thành"));
-            status.setTextSize(7); status.setTextColor(0xFF348363); status.setPadding(0, dp(4), 0, 0); info.addView(status);
-            LinearLayout amountAndStatus = new LinearLayout(this);
-            amountAndStatus.setGravity(android.view.Gravity.TOP | android.view.Gravity.END);
-            amountAndStatus.setOrientation(LinearLayout.VERTICAL);
-            TextView amount = new TextView(this);
-            amount.setText(transaction[3]); amount.setTextSize(8); amount.setTextColor(0xFFE97859); amount.setTypeface(null, android.graphics.Typeface.BOLD); amount.setGravity(android.view.Gravity.END); amountAndStatus.addView(amount);
-            TextView stage = new TextView(this);
-            stage.setText(transaction[4]); stage.setTextSize(5); stage.setTextColor(0xFF348363); stage.setGravity(android.view.Gravity.END); stage.setPadding(0, dp(3), 0, 0); amountAndStatus.addView(stage);
-            card.addView(amountAndStatus, new LinearLayout.LayoutParams(dp(64), -2));
-            list.addView(card);
-        }
+        transactionScreens.bind(R.layout.activity_transaction_history);
     }
 
     private void bindOrderDetail() {
-        bindClick(R.id.btnOrderDetailBack, () -> showScreen(R.layout.activity_orders));
-        if (!currentOrderId.isEmpty()) addScreenListener(memberTwoRepository.listenOrder(currentOrderId, (snapshot, error) -> {
-            if (error != null || snapshot == null || !snapshot.exists()) return;
-            activeOrder = snapshot;
-            populateOrderDetail();
-        }));
-        populateOrderDetail();
-        bindClick(R.id.btnChatOrderSeller, () -> {
-            if (activeOrder == null) return;
-            Map<String, Object> data = activeOrder.getData();
-            String peer = currentUid().equals(textValue(data, "buyerId", "")) ? textValue(data, "sellerId", "") : textValue(data, "buyerId", "");
-            startChatWithPeer(peer, textValue(data, "postId", ""), R.layout.activity_order_detail);
-        });
-        bindClick(R.id.btnTrackShipping, () -> { if (activeOrder != null) showScreen(R.layout.activity_delivery); });
-        bindClick(R.id.btnReportOrder, () -> showScreen(R.layout.activity_report_issue));
-        bindClick(R.id.btnCancelOrder, () -> showScreen(R.layout.activity_cancel_order));
-        bindClick(R.id.btnConfirmReceived, () -> {
-            if (currentOrderId.isEmpty() || !requireSignedIn()) return;
-            memberTwoRepository.updateOrderStatus(currentOrderId, "COMPLETED")
-                    .addOnSuccessListener(result -> Toast.makeText(this, "Đã xác nhận nhận hàng.", Toast.LENGTH_SHORT).show())
-                    .addOnFailureListener(this::showFirebaseError);
-        });
+        transactionScreens.bind(R.layout.activity_order_detail);
     }
 
     private void populateOrderDetail() {
-        if (activeOrder == null) return;
-        Map<String, Object> data = activeOrder.getData();
-        setTextIfPresent(R.id.txtOrderDetailTitle, "Đơn hàng #" + activeOrder.getId());
-        Map<String, Object> postSnapshot = data.get("postSnapshot") instanceof Map ? (Map<String, Object>) data.get("postSnapshot") : new HashMap<>();
-        String status = textValue(data, "orderStatus", textValue(data, "status", ""));
-        setTextIfPresent(R.id.txtOrderHeroStatus, orderStatusLabel(status));
-        setTextIfPresent(R.id.txtOrderStatusSummary, orderStatusLabel(status));
-        setTextIfPresent(R.id.txtOrderDetailProductName, textValue(postSnapshot, "title", "Sản phẩm"));
-        setTextIfPresent(R.id.txtOrderDetailType, "FREE".equalsIgnoreCase(textValue(data, "orderType", "PAID")) ? "Tặng miễn phí" : "Đang bán");
-        setTextIfPresent(R.id.txtOrderProductPrice, String.format(java.util.Locale.getDefault(), "%,d đ", numberValue(data.get("price"))));
-        setTextIfPresent(R.id.txtOrderTotal, String.format(java.util.Locale.getDefault(), "%,d đ", numberValue(data.get("price")) + numberValue(data.get("shippingFee"))));
-        String buyerId = textValue(data, "buyerId", ""), sellerId = textValue(data, "sellerId", "");
-        String peerId = currentUid().equals(buyerId) ? sellerId : buyerId;
-        if (!peerId.isEmpty()) FirebaseFirestore.getInstance().collection("users").document(peerId).get().addOnSuccessListener(user -> {
-            setTextIfPresent(R.id.txtOrderDetailSeller, textValue(user.getData(), "name", "Thành viên"));
-        });
+        transactionScreens.bind(R.layout.activity_order_detail);
     }
 
     private void setTextIfPresent(int id, String value) {
@@ -1474,8 +1711,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Vui lòng chọn lý do báo cáo.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            Toast.makeText(this, "Đã gửi báo cáo tranh chấp (demo).", Toast.LENGTH_SHORT).show();
-            showScreen(R.layout.activity_order_detail);
+            transactionScreens.submitDispute(new ArrayList<>(reportEvidenceItems));
         });
     }
 
@@ -1534,10 +1770,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindOrderChat() {
+        setTextIfPresent(R.id.tvChatStatus,"Tin nhắn được đồng bộ từ backend");
+        View attach=findViewById(R.id.btnAttach);if(attach!=null)attach.setVisibility(View.GONE);
+        bindClick(R.id.btnMenu,()->new android.app.AlertDialog.Builder(this).setItems(new String[]{"Xem hồ sơ thành viên","Thông báo"},(dialog,which)->{if(which==1)showScreen(R.layout.activity_notifications);else if(!currentPeerId.isEmpty()){viewedSellerId=currentPeerId;showScreen(R.layout.activity_seller_profile);}}).show());
         bindClick(R.id.btnBack, () -> showScreen(chatReturnScreen));
         TextView chatName = findViewById(R.id.tvChatName);
-        if (chatName != null && !currentPeerId.isEmpty()) FirebaseFirestore.getInstance().collection("users").document(currentPeerId).get()
-                .addOnSuccessListener(user -> chatName.setText(textValue(user.getData(), "name", "Cuộc trò chuyện")));
+        if (chatName != null && !currentPeerId.isEmpty()) FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(java.util.Collections.singletonMap("sellerId",currentPeerId))
+                .addOnSuccessListener(result -> {if(chatName.isAttachedToWindow() && result.getData() instanceof Map)chatName.setText(textValue((Map<String,Object>)result.getData(),"name","Cuộc trò chuyện"));})
+                .addOnFailureListener(error->{if(chatName.isAttachedToWindow())chatName.setText("Không tải được người trò chuyện");});
+        Button cartButton=findViewById(R.id.btnAddToCart),buyButton=findViewById(R.id.btnBuyNow);
+        cartButton.setEnabled(false);buyButton.setEnabled(false);
+        setTextIfPresent(R.id.tvPinnedProductName,currentPostId.isEmpty()?"Chưa có sản phẩm liên quan":"Đang tải sản phẩm…");setTextIfPresent(R.id.tvPinnedProductPrice,"");
+        final String chatPostId=currentPostId;
+        if(!chatPostId.isEmpty())FirebaseFirestore.getInstance().collection("posts").document(chatPostId).get().addOnSuccessListener(post->{
+            if(isDestroyed() || currentScreen!=R.layout.activity_chat || !chatPostId.equals(currentPostId))return;
+            if(!post.exists()){setTextIfPresent(R.id.tvPinnedProductName,"Sản phẩm không còn tồn tại");return;}
+            currentProductData=post.getData();currentProductName=textValue(currentProductData,"title","Sản phẩm");currentSellerId=textValue(currentProductData,"ownerId","");currentProductIsFree="FREE".equals(textValue(currentProductData,"type","SALE"));
+            setTextIfPresent(R.id.tvPinnedProductName,currentProductName);setTextIfPresent(R.id.tvPinnedProductPrice,currentProductIsFree?"Miễn phí":String.format(java.util.Locale.getDefault(),"%,d đ",numberValue(post.get("price"))));
+            boolean available="ACTIVE".equals(post.getString("status"))&&!currentUid().equals(currentSellerId);cartButton.setEnabled(available&&!currentProductIsFree);buyButton.setEnabled(available);buyButton.setText(currentProductIsFree?"Yêu cầu nhận":"Mua ngay");
+        }).addOnFailureListener(error->{if(currentScreen==R.layout.activity_chat)setTextIfPresent(R.id.tvPinnedProductName,"Không tải được sản phẩm. Quay lại để thử lại.");});
+        bindClick(R.id.btnAddToCart,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;cartButton.setEnabled(false);memberTwoRepository.addCartItem(currentUid(),currentPostId,cartDataForCurrentProduct()).addOnSuccessListener(done->Toast.makeText(this,"Đã thêm vào giỏ hàng.",Toast.LENGTH_SHORT).show()).addOnFailureListener(this::showFirebaseError).addOnCompleteListener(done->{if(cartButton.isAttachedToWindow())cartButton.setEnabled(true);});});
+        bindClick(R.id.btnBuyNow,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;checkoutReturnScreen=R.layout.activity_chat;showScreen(currentProductIsFree?R.layout.activity_requestfree:R.layout.activity_checkout);});
         LinearLayout messages = findViewById(R.id.chatMessagesContainer);
         if (messages != null && !currentChatId.isEmpty()) {
             messages.removeAllViews();
@@ -1561,26 +1814,25 @@ public class MainActivity extends AppCompatActivity {
             memberTwoRepository.markChatRead(currentChatId).addOnFailureListener(this::showFirebaseError);
         }
         bindClick(R.id.btnSendMessage, () -> {
+            if(messageBusy)return;
             EditText messageInput = findViewById(R.id.edtMessageInput);
-            if (messageInput == null || messageInput.getText().toString().trim().isEmpty() || currentChatId.isEmpty()) return;
+            if(messageInput==null)return;
+            if(messageInput.getText().toString().trim().isEmpty()){messageInput.setError("Nhập nội dung tin nhắn");return;}
+            if(currentChatId.isEmpty()){messageInput.setError("Chưa chọn cuộc trò chuyện");return;}
             String text = messageInput.getText().toString().trim();
+            messageBusy=true;findViewById(R.id.btnSendMessage).setEnabled(false);
             memberTwoRepository.sendMessage(currentChatId, text)
-                    .addOnSuccessListener(result -> messageInput.setText("")).addOnFailureListener(this::showFirebaseError);
+                    .addOnSuccessListener(result -> {if(text.equals(messageInput.getText().toString().trim()))messageInput.setText("");}).addOnFailureListener(this::showFirebaseError)
+                    .addOnCompleteListener(done->{messageBusy=false;View send=findViewById(R.id.btnSendMessage);if(send!=null)send.setEnabled(true);});
         });
     }
 
     private void bindDelivery() {
-        bindClick(R.id.btnDeliveryBack, () -> showScreen(R.layout.activity_order_detail));
-        bindClick(R.id.btnOpenDeliveryMap, () -> showScreen(R.layout.activity_delivery_map));
-        if (!currentOrderId.isEmpty()) addScreenListener(memberTwoRepository.listenShipment(currentOrderId, (shipment, error) -> {
-            if (error != null || shipment == null || !shipment.exists()) return;
-            String shipmentStatus = textValue(shipment.getData(), "status", "Đang chuẩn bị");
-            setTextIfPresent(R.id.txtDeliveryHeadline, shipmentStatus);
-        }));
+        transactionScreens.bind(R.layout.activity_delivery);
     }
 
     private void bindDeliveryMap() {
-        bindClick(R.id.btnMapBack, () -> showScreen(R.layout.activity_delivery));
+        transactionScreens.bind(R.layout.activity_delivery_map);
     }
 
     private void openCart() {
@@ -1589,63 +1841,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindCart() {
-        bindClick(R.id.btnBack, () -> showScreen(cartReturnScreen));
-        CheckBox shop = findViewById(R.id.cbShop);
-        CheckBox item1 = findViewById(R.id.cbItem1);
-        CheckBox item2 = findViewById(R.id.cbItem2);
-        CheckBox item3 = findViewById(R.id.cbItem3);
-        if (item3 != null) setCartItemVisibility(item3, false);
-        if (requireSignedIn()) addScreenListener(memberTwoRepository.listenCart(currentUid(), (snapshot, error) -> {
-            if (error != null) { showFirebaseError(error); return; }
-            activeCart.clear(); if (snapshot != null) activeCart.addAll(snapshot.getDocuments());
-            for (DocumentSnapshot item : activeCart) if (Boolean.TRUE.equals(item.get("selected"))) selectedCartPostIds.add(item.getId());
-            renderCartItems();
-        }));
-        android.widget.CompoundButton.OnCheckedChangeListener itemListener = (button, checked) -> {
-            if (updatingCartSelection) return;
-            String postId = cartPostIdFor(button.getId());
-            if (!postId.isEmpty()) { if (checked) selectedCartPostIds.add(postId); else selectedCartPostIds.remove(postId); }
-            updatingCartSelection = true;
-            boolean firstVisible = isCartItemVisible(item1);
-            boolean secondVisible = isCartItemVisible(item2);
-            boolean any = firstVisible || secondVisible;
-            shop.setChecked(any && (!firstVisible || item1.isChecked()) && (!secondVisible || item2.isChecked()));
-            updatingCartSelection = false;
-            updateCartSummary();
-        };
-        item1.setOnCheckedChangeListener(itemListener);
-        item2.setOnCheckedChangeListener(itemListener);
-        shop.setOnCheckedChangeListener((button, checked) -> {
-            if (updatingCartSelection) return;
-            updatingCartSelection = true;
-            for (DocumentSnapshot cartItem : activeCart) { if (checked) selectedCartPostIds.add(cartItem.getId()); else selectedCartPostIds.remove(cartItem.getId()); }
-            if (isCartItemVisible(item1)) item1.setChecked(checked);
-            if (isCartItemVisible(item2)) item2.setChecked(checked);
-            updatingCartSelection = false;
-            updateCartSummary();
-        });
-        bindClick(R.id.btnDelete1, () -> removeCartItem(R.id.cbItem1));
-        bindClick(R.id.btnDelete2, () -> removeCartItem(R.id.cbItem2));
-        bindClick(R.id.btnCheckout, () -> {
-            if (selectedCartItemCount() == 0) {
-                Toast.makeText(this, "Chọn ít nhất một sản phẩm để thanh toán.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (selectedCartPostIds.size() != 1) {
-                Toast.makeText(this, "Vui lòng chọn từng sản phẩm để tạo đơn riêng.", Toast.LENGTH_SHORT).show(); return;
-            }
-            String postId = selectedCartPostIds.iterator().next();
-            for (DocumentSnapshot item : activeCart) if (item.getId().equals(postId)) {
-                currentPostId = postId;
-                currentProductName = textValue(item.getData(), "title", "Sản phẩm");
-                currentProductData = item.getData() == null ? new HashMap<>() : new HashMap<>(item.getData());
-                break;
-            }
-            checkoutReturnScreen = R.layout.activity_cart;
-            showScreen(R.layout.activity_checkout);
-        });
-        bindClick(R.id.btnExplore, () -> showScreen(R.layout.activity_explore));
-        updateCartSummary();
+        transactionScreens.bind(R.layout.activity_cart);
     }
 
     private String cartPostIdFor(int checkboxId) {
@@ -1751,100 +1947,52 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindNotifications() {
-        bindClick(R.id.btnNotificationsBack, () -> showScreen(R.layout.activity_home));
-        int[] filterIds = {R.id.filterNotifAll, R.id.filterNotifOrders, R.id.filterNotifMessages,
-                R.id.filterNotifRequests, R.id.filterNotifPayments};
-        String[] filters = {"all", "orders", "messages", "requests", "payments"};
-        for (int i = 0; i < filterIds.length; i++) {
-            final String filter = filters[i]; // Khai báo final
-            final int filterId = filterIds[i];
-            bindClick(filterId, () -> {
-                notificationFilter = filter;
-                applyNotificationFilter(filterIds, filters);
-            });
-        }
-        int[] rowIds = {R.id.notifRowFreeRequest, R.id.notifRowMessage, R.id.notifRowShipping,
-                R.id.notifRowPayment, R.id.notifRowRequestDone, R.id.notifRowDispute};
-        int[] unreadIds = {R.id.notifUnread1, R.id.notifUnread2, R.id.notifUnread3};
-        for (int i = 0; i < rowIds.length; i++) {
-            final int rowId = rowIds[i]; // Khai báo final
-            final int unreadId = i < unreadIds.length ? unreadIds[i] : View.NO_ID;
-            View row = findViewById(rowId);
-            boolean read = getSharedPreferences("notifications_demo", MODE_PRIVATE).getBoolean("read_" + rowId, false);
-            if (read && unreadId != View.NO_ID) findViewById(unreadId).setVisibility(View.GONE);
-            if (read) row.setBackgroundColor(0xFFFFFFFF);
-            bindClick(rowId, () -> {
-                getSharedPreferences("notifications_demo", MODE_PRIVATE).edit().putBoolean("read_" + rowId, true).apply();
-                if (unreadId != View.NO_ID) findViewById(unreadId).setVisibility(View.GONE);
-                row.setBackgroundColor(0xFFFFFFFF);
-                if (rowId == R.id.notifRowFreeRequest || rowId == R.id.notifRowRequestDone)
-                    showScreen(R.layout.activity_transactions);
-                else if (rowId == R.id.notifRowMessage) {
-                    chatReturnScreen = R.layout.activity_messages;
-                    showScreen(R.layout.activity_messages);
-                } else if (rowId == R.id.notifRowPayment)
-                    showScreen(R.layout.activity_payment_info);
-                else showScreen(R.layout.activity_order_detail);
-            });
-        }
-        applyNotificationFilter(filterIds, filters);
-        bindClick(R.id.btnNotificationsMore, () -> new android.app.AlertDialog.Builder(this)
-                .setItems(new String[]{"Đánh dấu tất cả đã đọc", hideReadNotifications ? "Hiện tất cả thông báo" : "Ẩn thông báo đã đọc"}, (dialog, which) -> {
-                    android.content.SharedPreferences prefs = getSharedPreferences("notifications_demo", MODE_PRIVATE);
-                    if (which == 0) {
-                        android.content.SharedPreferences.Editor editor = prefs.edit();
-                        for (int id : rowIds) editor.putBoolean("read_" + id, true);
-                        editor.apply();
-                        for (int id : unreadIds) findViewById(id).setVisibility(View.GONE);
-                        for (int id : rowIds) findViewById(id).setBackgroundColor(0xFFFFFFFF);
-                        applyNotificationFilter(filterIds, filters);
-                    } else {
-                        hideReadNotifications = !hideReadNotifications;
-                        applyNotificationFilter(filterIds, filters);
-                    }
-                }).show());
+        bindClick(R.id.btnNotificationsBack, this::goBack);
+        if (!requireSignedIn()) return;
+        new NotificationInbox(this, new NotificationInbox.Host() {
+            public String uid() { return currentUid(); }
+            public void listen(ListenerRegistration registration) { addScreenListener(registration); }
+            public String filter() { return notificationFilter; }
+            public void filter(String value) { notificationFilter = value; }
+            public boolean hideRead() { return hideReadNotifications; }
+            public void hideRead(boolean value) { hideReadNotifications = value; }
+            public void open(DocumentSnapshot notification) { openNotification(notification); }
+        }).bind();
     }
 
-    private void applyNotificationFilter(int[] filterIds, String[] filters) {
-        for (int i = 0; i < filterIds.length; i++) {
-            TextView chip = findViewById(filterIds[i]);
-            boolean active = filters[i].equals(notificationFilter);
-            chip.setBackgroundResource(active ? R.drawable.bg_chip_selected : R.drawable.bg_chip_idle);
-            chip.setTextColor(active ? 0xFFFFFFFF : 0xFF173B32);
-        }
-        int[] rowIds = {R.id.notifRowFreeRequest, R.id.notifRowMessage, R.id.notifRowShipping,
-                R.id.notifRowPayment, R.id.notifRowRequestDone, R.id.notifRowDispute};
-        for (int id : rowIds) {
-            View row = findViewById(id);
-            String category = String.valueOf(row.getTag());
-            boolean read = getSharedPreferences("notifications_demo", MODE_PRIVATE).getBoolean("read_" + id, false);
-            boolean categoryMatch = "all".equals(notificationFilter) || notificationFilter.equals(category);
-            row.setVisibility(categoryMatch && !(hideReadNotifications && read) ? View.VISIBLE : View.GONE);
+    private void openNotification(DocumentSnapshot notification) {
+        String orderId = notification.getString("orderId");
+        String chatId = notification.getString("chatId");
+        if (orderId != null && !orderId.isEmpty()) {
+            currentOrderId = orderId;
+            showScreen(R.layout.activity_order_detail);
+        } else if (chatId != null && !chatId.isEmpty()) {
+            final View inbox = findViewById(R.id.notificationList);
+            FirebaseFirestore.getInstance().collection("chats").document(chatId).get()
+                    .addOnSuccessListener(chat -> {
+                        if (inbox != findViewById(R.id.notificationList)) return;
+                        Object members = chat.get("members");
+                        if (!(members instanceof List)) members = chat.get("participantIds");
+                        if (!(members instanceof List) || !((List<?>) members).contains(currentUid())) {
+                            Toast.makeText(this, "Cuộc trò chuyện không còn khả dụng.", Toast.LENGTH_SHORT).show(); return;
+                        }
+                        currentChatId = chatId; currentPeerId = "";
+                        for (Object member : (List<?>) members) if (member instanceof String && !currentUid().equals(member)) currentPeerId = (String) member;
+                        currentPostId = textValue(chat.getData(), "postId", "");
+                        chatReturnScreen = R.layout.activity_notifications;
+                        showScreen(R.layout.activity_chat);
+                    }).addOnFailureListener(this::showFirebaseError);
+        } else if (notification.getString("requestId") != null) {
+            currentFreeRequestId = notification.getString("requestId");
+            showScreen(R.layout.activity_transactions);
+        } else {
+            new android.app.AlertDialog.Builder(this).setTitle(textValue(notification.getData(), "title", "Thông báo"))
+                    .setMessage(textValue(notification.getData(), "body", "")).setPositiveButton("Đóng", null).show();
         }
     }
 
     private void bindCheckout() {
-        bindClick(R.id.btnCheckoutBack, () -> showScreen(checkoutReturnScreen));
-        bindClick(R.id.btnPlaceOrder, () -> {
-            if (currentPostId.isEmpty() || !requireSignedIn()) {
-                Toast.makeText(this, "Không tìm thấy bài đăng để tạo đơn.", Toast.LENGTH_SHORT).show(); return;
-            }
-            memberTwoRepository.createPaidOrder(currentPostId, UUID.randomUUID().toString())
-                    .addOnSuccessListener(result -> {
-                        Object raw = result.getData();
-                        if (!(raw instanceof Map) || !(((Map<?, ?>) raw).get("orderId") instanceof String)) {
-                            Toast.makeText(this, "Không nhận được mã đơn hàng.", Toast.LENGTH_LONG).show(); return;
-                        }
-                        currentOrderId = (String) ((Map<?, ?>) raw).get("orderId");
-                        if (checkoutReturnScreen == R.layout.activity_cart) {
-                            memberTwoRepository.removeCartItem(currentUid(), currentPostId)
-                                    .addOnFailureListener(this::showFirebaseError);
-                        }
-                        FirebaseFirestore.getInstance().collection("orders").document(currentOrderId).get()
-                                .addOnSuccessListener(order -> { activeOrder = order; showScreen(R.layout.activity_order_detail); })
-                                .addOnFailureListener(this::showFirebaseError);
-                    }).addOnFailureListener(this::showFirebaseError);
-        });
+        transactionScreens.bind(R.layout.activity_checkout);
     }
 
     private void showExploreFilterSheet() {
@@ -2039,24 +2187,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void saveListingToFirebase(boolean asDraft) {
-        if (!requireSignedIn()) return;
+        if (!requireSignedIn() || savingListing) return;
         if (listingDraft.get("title") == null || listingDraft.get("type") == null || listingDraft.get("price") == null) {
             Toast.makeText(this, "Vui lòng hoàn tất thông tin sản phẩm.", Toast.LENGTH_SHORT).show(); return;
         }
         String uid = currentUid();
         if (uid == null) return;
-        String postId = editingListing && !editingPostId.isEmpty() ? editingPostId : memberOneRepository.newPostId();
+        if (editingPostId.isEmpty()) editingPostId = memberOneRepository.newPostId();
+        String postId = editingPostId;
         boolean wasEditing = editingListing;
         Map<String, Object> data = new HashMap<>(listingDraft);
         data.remove("conditionLabel");
-        data.put("status", editingListing ? String.valueOf(listingDraft.getOrDefault("status", "ACTIVE")) : (asDraft ? "DRAFT" : "ACTIVE"));
+        String previousStatus = String.valueOf(listingDraft.getOrDefault("status", "DRAFT"));
+        data.put("status", editingListing && !previousStatus.equals("DRAFT") && !previousStatus.equals("PENDING_REVIEW")
+                ? previousStatus : (asDraft ? "DRAFT" : "ACTIVE"));
         if (!listingDraft.containsKey("createdAt")) data.put("createdAt", FieldValue.serverTimestamp());
+        savingListing = true;
+        setListingSaveEnabled(false);
         memberOneRepository.saveListing(uid, postId, data, new ArrayList<>(selectedListingPhotos), editingListing)
                 .addOnSuccessListener(unused -> {
+                    savingListing = false;
                     currentPostId = postId; editingListing = false; editingPostId = "";
                     Toast.makeText(this, wasEditing ? "Đã cập nhật tin đăng." : (asDraft ? "Đã lưu bản nháp." : "Đăng tin thành công."), Toast.LENGTH_SHORT).show();
+                    navigateRoot(R.layout.activity_profile);
                     showScreen(asDraft ? R.layout.activity_my_listings : R.layout.activity_sell_success);
-                }).addOnFailureListener(this::showFirebaseError);
+                }).addOnFailureListener(error -> { savingListing = false; setListingSaveEnabled(true); showFirebaseError(error); });
+    }
+
+    private void setListingSaveEnabled(boolean enabled) {
+        for (int id : new int[]{R.id.btnSaveSellDraft, R.id.btnPublishListing}) {
+            View button = findViewById(id); if (button != null) button.setEnabled(enabled);
+        }
     }
 
     private void setSpinnerOptions(int viewId, String[] options) {
@@ -2069,21 +2230,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindFreeRequest() {
-        TextView productName = findViewById(R.id.txtFreeRequestProductName);
-        if (productName != null && !currentProductName.isEmpty()) productName.setText(currentProductName);
-        bindClick(R.id.btnBack, () -> showScreen(R.layout.activity_product_detail));
-        bindClick(R.id.btnSubmitRequest, () -> {
-            if (currentPostId.isEmpty() || !requireSignedIn()) return;
-            memberTwoRepository.createFreeRequest(currentPostId, "")
-                    .addOnSuccessListener(result -> {
-                        Object raw = result.getData();
-                        if (!(raw instanceof Map) || !(((Map<?, ?>) raw).get("requestId") instanceof String)) {
-                            Toast.makeText(this, "Không nhận được mã yêu cầu.", Toast.LENGTH_LONG).show(); return;
-                        }
-                        currentFreeRequestId = (String) ((Map<?, ?>) raw).get("requestId");
-                        showScreen(R.layout.activity_request_status);
-                    }).addOnFailureListener(this::showFirebaseError);
-        });
+        transactionScreens.bind(R.layout.activity_requestfree);
     }
 
     private void bindMessages() {
@@ -2095,6 +2242,8 @@ public class MainActivity extends AppCompatActivity {
         if (requireSignedIn()) addScreenListener(memberTwoRepository.listenChats(currentUid(), (snapshot, error) -> {
             if (error != null) { showFirebaseError(error); return; }
             activeChats.clear(); if (snapshot != null) activeChats.addAll(snapshot.getDocuments());
+            long unreadTotal=0;for(DocumentSnapshot chat:activeChats){Object counts=chat.get("unreadCounts");if(counts instanceof Map)unreadTotal+=numberValue(((Map<?,?>)counts).get(currentUid()));}
+            TextView badge=findViewById(R.id.txtMessageUnreadCount);if(badge!=null){badge.setText(String.valueOf(unreadTotal));badge.setVisibility(unreadTotal>0?View.VISIBLE:View.GONE);}
             if (list == null) return;
             for (int i = list.getChildCount() - 1; i >= 0; i--) {
                 Object tag = list.getChildAt(i).getTag();
@@ -2116,6 +2265,7 @@ public class MainActivity extends AppCompatActivity {
                 final String peerId = peerIdTemp;
 
                 String previewText = textValue(chat.getData(), "lastMessage", "Bắt đầu cuộc trò chuyện");
+                Object unreadMap=chat.get("unreadCounts");long unread=unreadMap instanceof Map?numberValue(((Map<?,?>)unreadMap).get(currentUid())):0;
                 String searchTag = (peerId + " " + previewText).toLowerCase(java.util.Locale.ROOT);
 
                 LinearLayout row = new LinearLayout(this);
@@ -2146,7 +2296,7 @@ public class MainActivity extends AppCompatActivity {
                 name.setTypeface(null, android.graphics.Typeface.BOLD);
 
                 TextView preview = new TextView(this);
-                preview.setText(previewText);
+                preview.setText((unread>0?"["+unread+" chưa đọc] ":"")+previewText);
                 preview.setTextColor(0xFF75857F);
                 preview.setTextSize(12);
                 preview.setMaxLines(1);
@@ -2159,14 +2309,19 @@ public class MainActivity extends AppCompatActivity {
                 row.setOnClickListener(v -> {
                     currentChatId = chatId;
                     currentPeerId = peerId;
+                    currentPostId = textValue(chat.getData(), "postId", "");
                     chatReturnScreen = R.layout.activity_messages;
                     showScreen(R.layout.activity_chat);
                 });
 
                 list.addView(row);
 
-                FirebaseFirestore.getInstance().collection("users").document(peerId).get()
-                        .addOnSuccessListener(user -> name.setText(textValue(user.getData(), "name", "Thành viên")));
+                FirebaseFunctions.getInstance().getHttpsCallable("getChatContext").call(java.util.Collections.singletonMap("chatId", chatId))
+                        .addOnSuccessListener(response -> {
+                            if(!name.isAttachedToWindow() || !(response.getData() instanceof Map)) return;
+                            Map<String,Object> profile=(Map<String,Object>)response.getData();name.setText(textValue(profile,"name","Thành viên"));loadAvatarIntoTextView(textValue(profile,"photoUrl",""),avatar);
+                            row.setTag("firebase_chat|"+(name.getText()+" "+previewText).toLowerCase(java.util.Locale.ROOT));row.setTag(R.id.tvTabBuying,textValue(profile,"role","other"));applyMessageFilters();
+                        }).addOnFailureListener(failure -> { if(name.isAttachedToWindow())name.setText("Không tải được tên thành viên"); });
             }
             applyMessageFilters();
         }));
@@ -2223,50 +2378,15 @@ public class MainActivity extends AppCompatActivity {
             if (!(value instanceof String) || !((String) value).startsWith("firebase_chat|")) continue;
             String tag = (String) value;
             boolean searchMatch = messageSearchQuery.isEmpty() || tag.contains(messageSearchQuery);
-            row.setVisibility(searchMatch ? View.VISIBLE : View.GONE);
+            boolean roleMatch="all".equals(messageFilter)||messageFilter.equals(row.getTag(R.id.tvTabBuying));
+            row.setVisibility(searchMatch && roleMatch ? View.VISIBLE : View.GONE);
         }
     }
 
     private void bindProfile() {
-        android.content.SharedPreferences verification = getSharedPreferences("account_verification", MODE_PRIVATE);
-        String status = verification.getString("status", "none");
-        TextView title = findViewById(R.id.txtVerificationCardTitle);
-        TextView subtitle = findViewById(R.id.txtVerificationCardSubtitle);
-        TextView profileLocation = findViewById(R.id.txtProfileLocation);
-        TextView profileAvatar = findViewById(R.id.imgProfileAvatar);
-        if (requireSignedIn()) FirebaseFirestore.getInstance().collection("users").document(currentUid()).get()
-                .addOnSuccessListener(user -> {
-                    if (!user.exists() || currentScreen != R.layout.activity_profile) return;
-                    TextView name = findViewById(R.id.txtProfileName);
-                    if (name != null && user.getString("name") != null) name.setText(user.getString("name"));
-                    loadAvatarIntoTextView(user.getString("photoUrl"), findViewById(R.id.imgProfileAvatar));
-                });
-        if (profileAvatar != null && selectedProfilePhoto != null) {
-            profileAvatar.setText("");
-            profileAvatar.setBackground(new android.graphics.drawable.BitmapDrawable(getResources(), selectedProfilePhoto));
-        }
-        if ("pending".equals(status)) {
-            title.setText("Đang chờ duyệt");
-            subtitle.setText("Hồ sơ đã gửi · đang được xem xét");
-            profileLocation.setText("Hồ sơ đang chờ duyệt · Quận 3");
-        } else if ("approved".equals(status)) {
-            title.setText("Thành viên đáng tin cậy");
-            subtitle.setText("Tài khoản đã được xác minh");
-            profileLocation.setText("✓  Hồ sơ đã xác minh · Quận 3");
-        } else {
-            title.setText("Cần xác minh");
-            subtitle.setText("Xác minh danh tính để tăng độ tin cậy");
-            profileLocation.setText("Chưa xác minh · Quận 3");
-        }
-        View verificationCard = findViewById(R.id.verificationCard);
-        if (verificationCard != null) verificationCard.setOnClickListener(v -> {
-            if ("none".equals(status)) showScreen(R.layout.activity_account_verification);
-            else showScreen(R.layout.activity_verification_status);
-        });
-        bindClick(R.id.btnOpenVerification, () -> {
-            if ("none".equals(status)) showScreen(R.layout.activity_account_verification);
-            else showScreen(R.layout.activity_verification_status);
-        });
+        bindClick(R.id.verificationCard, () -> showScreen(R.layout.activity_verification_status));
+        bindClick(R.id.btnOpenVerification, () -> showScreen(R.layout.activity_verification_status));
+        bindProfileBackend();
         bindClick(R.id.btnEditProfile, () -> showScreen(R.layout.activity_edit_profile));
         bindClick(R.id.btnMyListings, () -> showScreen(R.layout.activity_my_listings));
         bindClick(R.id.btnMyOrders, () -> showScreen(R.layout.activity_transactions));
@@ -2285,39 +2405,76 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void bindProfileBackend() {
+        if (!requireSignedIn()) return;
+        final View root = findViewById(R.id.profileRoot);
+        final String uid = currentUid();
+        addScreenListener(FirebaseFirestore.getInstance().collection("users").document(uid)
+                .addSnapshotListener((user, error) -> {
+                    if (root != findViewById(R.id.profileRoot)) return;
+                    if (error != null || user == null || !user.exists()) {
+                        ((TextView) findViewById(R.id.txtProfileName)).setText("Chưa tải được hồ sơ");
+                        return;
+                    }
+                    ((TextView) findViewById(R.id.txtProfileName)).setText(textValue(user.getData(), "name", "Thành viên"));
+                    ((TextView) findViewById(R.id.txtProfileLocation)).setText(textValue(user.getData(), "region", "Chưa cập nhật khu vực"));
+                    loadAvatarIntoTextView(user.getString("photoUrl"), findViewById(R.id.imgProfileAvatar));
+                    boolean verified = "VERIFIED".equals(user.getString("verificationStatus"));
+                    boolean pending = "PENDING".equals(user.getString("verificationStatus"));
+                    ((TextView) findViewById(R.id.txtVerificationCardTitle)).setText(verified ? "Đã xác minh" : pending ? "Đang chờ duyệt" : "Cần xác minh");
+                    ((TextView) findViewById(R.id.txtVerificationCardSubtitle)).setText(verified
+                            ? "Tài khoản đã được xác minh" : pending ? "Hồ sơ đã được backend tiếp nhận" : "Chưa được backend xác nhận danh tính");
+                }));
+        addScreenListener(memberOneRepository.listenMyListings(uid, (snapshot, error) -> {
+            if (root != findViewById(R.id.profileRoot)) return;
+            TextView count = findViewById(R.id.txtProfilePostCount);
+            TextView menu = findViewById(R.id.btnMyListings);
+            if (error != null || snapshot == null) {
+                count.setText("—\nTin đăng");
+                menu.setText("Tin đăng của tôi  ›\nChưa tải được · Nhấn để thử lại");
+                return;
+            }
+            int active = 0;
+            for (DocumentSnapshot post : snapshot.getDocuments())
+                if ("ACTIVE".equals(post.getString("status"))) active++;
+            count.setText(snapshot.size() + "\nTin đăng");
+            menu.setText("Tin đăng của tôi  ›\n" + active + " đang hoạt động");
+        }));
+        final Map<String, DocumentSnapshot> buyer = new HashMap<>(), seller = new HashMap<>();
+        final boolean[] loaded = {false, false}, failed = {false, false};
+        java.util.function.BiConsumer<Integer, QuerySnapshot> update = (side, snapshot) -> {
+            if (root != findViewById(R.id.profileRoot)) return;
+            loaded[side] = true;
+            failed[side] = snapshot == null;
+            Map<String, DocumentSnapshot> target = side == 0 ? buyer : seller;
+            target.clear();
+            if (snapshot != null) for (DocumentSnapshot order : snapshot.getDocuments()) target.put(order.getId(), order);
+            if (!loaded[0] || !loaded[1]) return;
+            TextView completedView = findViewById(R.id.txtProfileCompletedCount);
+            TextView menu = findViewById(R.id.btnMyCart);
+            if (failed[0] || failed[1]) {
+                completedView.setText("—\nHoàn thành");
+                menu.setText("Đơn hàng của tôi  ›\nChưa tải được · Nhấn để thử lại");
+                return;
+            }
+            Map<String, DocumentSnapshot> all = new HashMap<>(buyer);
+            all.putAll(seller);
+            int completed = 0, shipping = 0;
+            for (DocumentSnapshot order : all.values()) {
+                if ("COMPLETED".equals(order.getString("orderStatus"))) completed++;
+                if ("SHIPPING".equals(order.getString("orderStatus"))) shipping++;
+            }
+            completedView.setText(completed + "\nHoàn thành");
+            menu.setText("Đơn hàng của tôi  ›\n" + all.size() + " đơn · " + shipping + " đang giao");
+        };
+        addScreenListener(memberTwoRepository.listenOrdersAsBuyer(uid, (snapshot, error) -> update.accept(0, error == null ? snapshot : null)));
+        addScreenListener(memberTwoRepository.listenOrdersAsSeller(uid, (snapshot, error) -> update.accept(1, error == null ? snapshot : null)));
+    }
+
     private void bindAccountVerification() {
-        Spinner documentType = findViewById(R.id.spinnerIdentityDocument);
-        String[] documentTypes = {"CCCD gắn chip", "CCCD mã vạch", "Hộ chiếu"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, documentTypes);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        documentType.setAdapter(adapter);
-        bindClick(R.id.btnVerificationBack, () -> showScreen(R.layout.activity_profile));
+        bindClick(R.id.btnVerificationBack, this::goBack);
         bindClick(R.id.btnVerificationLater, () -> showScreen(R.layout.activity_profile));
-        bindClick(R.id.btnIdentityFront, () -> showIdentityPicker("front"));
-        bindClick(R.id.btnIdentityBack, () -> showIdentityPicker("back"));
-        bindClick(R.id.btnIdentitySelfie, () -> showIdentityPicker("selfie"));
-        bindClick(R.id.btnSubmitVerification, () -> {
-            EditText name = findViewById(R.id.edtLegalName);
-            EditText birthDate = findViewById(R.id.edtLegalBirthDate);
-            EditText identityNumber = findViewById(R.id.edtIdentityNumber);
-            CheckBox accurate = findViewById(R.id.checkIdentityAccurate);
-            CheckBox privacy = findViewById(R.id.checkIdentityPrivacy);
-            if (name.getText().toString().trim().isEmpty() || birthDate.getText().toString().trim().isEmpty()
-                    || identityNumber.getText().toString().trim().isEmpty()) {
-                Toast.makeText(this, "Vui lòng điền đủ thông tin trên giấy tờ.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (!accurate.isChecked() || !privacy.isChecked()) {
-                Toast.makeText(this, "Vui lòng xác nhận thông tin và đồng ý xử lý dữ liệu.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            getSharedPreferences("account_verification", MODE_PRIVATE).edit()
-                    .putString("status", "pending")
-                    .putString("legal_name", name.getText().toString().trim())
-                    .putString("document_type", documentType.getSelectedItem().toString())
-                    .apply();
-            showScreen(R.layout.activity_verification_status);
-        });
+        if (requireSignedIn()) accountScreens.verificationForm();
     }
 
     private void showIdentityPicker(String slot) {
@@ -2332,41 +2489,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showIdentityPhotoSelected(Uri uri, Bitmap bitmap) {
-        int id = "front".equals(identityPhotoSlot) ? R.id.btnIdentityFront
-                : "back".equals(identityPhotoSlot) ? R.id.btnIdentityBack : R.id.btnIdentitySelfie;
-        Button button = findViewById(id);
-        if (button != null) {
-            String label = "front".equals(identityPhotoSlot) ? "Ảnh mặt trước CCCD"
-                    : "back".equals(identityPhotoSlot) ? "Ảnh mặt sau CCCD" : "Ảnh chân dung cầm giấy tờ";
-            button.setText("✓\nĐã chọn " + label);
-            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFDDECE1));
-            try {
-                android.graphics.drawable.Drawable preview = bitmap != null
-                        ? new android.graphics.drawable.BitmapDrawable(getResources(), bitmap)
-                        : android.graphics.drawable.Drawable.createFromStream(getContentResolver().openInputStream(uri), null);
-                if (preview != null) {
-                    int size = dp(38);
-                    preview.setBounds(0, 0, size, size);
-                    button.setCompoundDrawables(null, preview, null, null);
-                }
-            } catch (Exception ignored) {
-                // Selection still succeeds when the provider does not expose a preview stream.
-            }
-        }
+        accountScreens.selectPhoto(identityPhotoSlot, uri, bitmap);
     }
 
     private void bindVerificationStatus() {
-        android.content.SharedPreferences verification = getSharedPreferences("account_verification", MODE_PRIVATE);
-        boolean approved = "approved".equals(verification.getString("status", "pending"));
-        ((TextView) findViewById(R.id.txtVerificationStatusTitle)).setText(approved ? "Tài khoản đã được xác minh" : "Hồ sơ đang được xem xét");
-        ((TextView) findViewById(R.id.txtVerificationStatusDescription)).setText(approved
-                ? "Danh tính của bạn đã được xác minh. Thẻ thành viên đáng tin cậy đã được cập nhật."
-                : "Chúng tôi sẽ thông báo kết quả trong mục thông báo. Thời gian xử lý dự kiến: 1–2 ngày làm việc.");
-        ((TextView) findViewById(R.id.txtVerificationStatusValue)).setText(approved ? "Đã duyệt" : "Đang chờ duyệt");
-        ((TextView) findViewById(R.id.txtVerificationLegalName)).setText(verification.getString("legal_name", "Nguyễn Minh Anh"));
-        ((TextView) findViewById(R.id.txtVerificationDocumentType)).setText(verification.getString("document_type", "CCCD gắn chip"));
-        bindClick(R.id.btnVerificationStatusBack, () -> showScreen(R.layout.activity_profile));
-        bindClick(R.id.btnVerificationStatusProfile, () -> showScreen(R.layout.activity_profile));
+        bindClick(R.id.btnVerificationStatusBack, this::goBack);
+        if (requireSignedIn()) accountScreens.verificationStatus();
     }
 
     private void openProduct(String name, String emoji, String price) {
@@ -2385,6 +2513,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void openProduct(DocumentSnapshot post) {
         if (post == null || !post.exists()) return;
+        ScreenEntry origin = captureScreen();
         productReturnScreen = currentScreen;
         currentPostId = post.getId();
         currentProductData = post.getData() == null ? new HashMap<>() : new HashMap<>(post.getData());
@@ -2395,7 +2524,10 @@ public class MainActivity extends AppCompatActivity {
         currentProductIsFree = "FREE".equalsIgnoreCase(type);
         long price = numberValue(currentProductData.get("price"));
         currentProductPrice = currentProductIsFree ? "0 đ" : String.format(java.util.Locale.getDefault(), "%,d đ", price);
+        backStack.push(origin);
+        restoringScreen = true;
         showScreen(R.layout.activity_product_detail);
+        restoringScreen = false;
     }
 
     private void startChatWithPeer(String peerId, String postId, int returnScreen) {
@@ -2472,12 +2604,14 @@ public class MainActivity extends AppCompatActivity {
         if (size != null) size.setText(textValue(currentProductData, "size", "Chưa cung cấp"));
         if (location != null) location.setText(textValue(currentProductData, "location", "Chưa cung cấp"));
         TextView descView = findViewById(R.id.txtProductDescription);
-        if (descView != null && currentProductData.containsKey("description")) descView.setText(String.valueOf(currentProductData.get("description")));
+        if (descView != null) descView.setText(textValue(currentProductData,"description","Chưa có mô tả."));
         if (seller != null && !currentSellerId.isEmpty()) {
-            FirebaseFirestore.getInstance().collection("users").document(currentSellerId).get()
-                    .addOnSuccessListener(user -> {
-                        if (user.exists() && seller.isAttachedToWindow()) seller.setText(textValue(user.getData(), "name", "Người bán"));
-                    });
+            Map<String, Object> args = new HashMap<>(); args.put("sellerId", currentSellerId);
+            FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(args)
+                    .addOnSuccessListener(result -> {
+                        if (seller.isAttachedToWindow() && result.getData() instanceof Map)
+                            seller.setText(textValue((Map<String, Object>) result.getData(), "name", "Người bán"));
+                    }).addOnFailureListener(error -> { if (seller.isAttachedToWindow()) seller.setText("Không tải được người đăng"); });
         }
         bindClick(R.id.btnProductBack, () -> showScreen(productReturnScreen));
         bindClick(R.id.btnProductLike, () -> {
@@ -2490,7 +2624,7 @@ public class MainActivity extends AppCompatActivity {
                         like.setText(save ? "♥" : "♡");
                     }).addOnFailureListener(this::showFirebaseError);
         });
-        bindClick(R.id.btnProductShare, () -> Toast.makeText(this, "Đã sao chép liên kết sản phẩm.", Toast.LENGTH_SHORT).show());
+        bindClick(R.id.btnProductShare, this::shareCurrentProduct);
         bindClick(R.id.btnProductChat, () -> startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_product_detail));
         bindClick(R.id.btnAddToCart, () -> {
             if (currentPostId.isEmpty() || !requireSignedIn()) return;
@@ -2507,7 +2641,11 @@ public class MainActivity extends AppCompatActivity {
             if (currentPostId.isEmpty() || !requireSignedIn()) return;
             showScreen(R.layout.activity_requestfree);
         });
-        bindClick(R.id.btnViewSellerProfile, () -> Toast.makeText(this, "Hồ sơ người đăng.", Toast.LENGTH_SHORT).show());
+        bindClick(R.id.btnViewSellerProfile, () -> {
+            if (currentSellerId.isEmpty() || !requireSignedIn()) return;
+            viewedSellerId = currentSellerId;
+            showScreen(R.layout.activity_seller_profile);
+        });
         bindClick(R.id.btnProductReadMore, () -> {
             TextView descText = findViewById(R.id.txtProductDescription);
             TextView toggle = findViewById(R.id.btnProductReadMore);
@@ -2560,6 +2698,94 @@ public class MainActivity extends AppCompatActivity {
         if (lower.contains("giày") || lower.contains("sneaker")) return "Giày dép";
         if (lower.contains("túi")) return "Túi xách";
         return "Áo khoác";
+    }
+
+    private void shareCurrentProduct() {
+        if (!MarketplaceLinks.validPostId(currentPostId)) {
+            Toast.makeText(this, "Sản phẩm chưa có liên kết chia sẻ.", Toast.LENGTH_SHORT).show(); return;
+        }
+        String link = MarketplaceLinks.productLink(currentPostId);
+        new android.app.AlertDialog.Builder(this).setTitle("Chia sẻ sản phẩm")
+                .setItems(new String[]{"Chia sẻ qua ứng dụng", "Sao chép liên kết"}, (dialog, which) -> {
+                    if (which == 0) {
+                        Intent share = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                                .putExtra(Intent.EXTRA_SUBJECT, currentProductName)
+                                .putExtra(Intent.EXTRA_TEXT, currentProductName + "\n" + link);
+                        startActivity(Intent.createChooser(share, "Chia sẻ sản phẩm"));
+                    } else {
+                        android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Liên kết sản phẩm", link));
+                        Toast.makeText(this, "Đã sao chép liên kết sản phẩm.", Toast.LENGTH_SHORT).show();
+                    }
+                }).show();
+    }
+
+    private void bindSellerProfile() {
+        if (viewedSellerId.isEmpty() || !requireSignedIn()) return;
+        final String sellerId = viewedSellerId;
+        bindClick(R.id.btnRetrySeller, () -> showScreen(R.layout.activity_seller_profile));
+        Map<String, Object> args = new HashMap<>(); args.put("sellerId", sellerId);
+        FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(args)
+                .addOnSuccessListener(result -> {
+                    if (currentScreen != R.layout.activity_seller_profile || !sellerId.equals(viewedSellerId)) return;
+                    if (!(result.getData() instanceof Map)) return;
+                    Map<String, Object> profile = (Map<String, Object>) result.getData();
+                    setTextIfPresent(R.id.txtSellerName, textValue(profile, "name", "Thành viên"));
+                    setTextIfPresent(R.id.txtSellerRegion, textValue(profile, "region", "").isEmpty() ? "Chưa cập nhật khu vực" : textValue(profile, "region", ""));
+                    setTextIfPresent(R.id.txtSellerBio, textValue(profile, "bio", "").isEmpty() ? "Chưa có giới thiệu." : textValue(profile, "bio", ""));
+                    loadAvatarIntoTextView(textValue(profile, "photoUrl", ""), findViewById(R.id.txtSellerAvatar));
+                    addScreenListener(FirebaseFirestore.getInstance().collection("posts")
+                            .whereEqualTo("ownerId", sellerId).whereEqualTo("status", "ACTIVE")
+                            .addSnapshotListener((snapshot, error) -> {
+                                if (currentScreen != R.layout.activity_seller_profile || !sellerId.equals(viewedSellerId)) return;
+                                if (error != null) { sellerProfileError(error); return; }
+                                GridLayout grid = findViewById(R.id.sellerProductGrid); grid.removeAllViews();
+                                if (snapshot != null) for (DocumentSnapshot post : snapshot.getDocuments()) grid.addView(createProductCard(post, false));
+                                setTextIfPresent(R.id.txtSellerState, grid.getChildCount() == 0 ? "Chưa có bài đăng đang hoạt động." : grid.getChildCount() + " bài đăng");
+                            }));
+                }).addOnFailureListener(error -> {
+                    if (currentScreen == R.layout.activity_seller_profile && sellerId.equals(viewedSellerId)) sellerProfileError(error);
+                });
+    }
+
+    private void sellerProfileError(Exception error) {
+        setTextIfPresent(R.id.txtSellerState, "Không tải được hồ sơ. Vui lòng thử lại.");
+        View retry = findViewById(R.id.btnRetrySeller); if (retry != null) retry.setVisibility(View.VISIBLE);
+        showFirebaseError(error);
+    }
+
+    private void openIncomingProduct(Intent intent) {
+        Uri uri = intent == null ? null : intent.getData();
+        if (uri == null || !"fashion2hand".equals(uri.getScheme()) || !"post".equals(uri.getHost())) return;
+        if (uri.getPathSegments().size() != 1 || !MarketplaceLinks.validPostId(uri.getLastPathSegment())) {
+            Toast.makeText(this, "Liên kết sản phẩm không hợp lệ.", Toast.LENGTH_SHORT).show(); return;
+        }
+        pendingProductLink = uri.getLastPathSegment();
+        openPendingProduct();
+    }
+
+    private void openPendingProduct() {
+        if (pendingProductLink.isEmpty() || currentScreen == R.layout.activity_splash || currentScreen == R.layout.activity_login) return;
+        String id = pendingProductLink; pendingProductLink = "";
+        FirebaseFirestore.getInstance().collection("posts").document(id).get()
+                .addOnSuccessListener(post -> {
+                    if (!post.exists()) Toast.makeText(this, "Bài đăng không còn tồn tại.", Toast.LENGTH_LONG).show();
+                    else openProduct(post);
+                }).addOnFailureListener(error -> Toast.makeText(this, "Bài đăng không còn công khai hoặc không thể tải.", Toast.LENGTH_LONG).show());
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent); setIntent(intent); openIncomingProduct(intent);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (currentScreen == R.layout.activity_otp_verification && "email_change".equals(otpFlow)) checkChangedEmail(false);
+    }
+
+    @Override protected void onDestroy() {
+        clearScreenListeners();
+        super.onDestroy();
     }
 
     private void bindClick(int id, Runnable action) {

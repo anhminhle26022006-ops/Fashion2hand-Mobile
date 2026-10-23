@@ -28,7 +28,8 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 | `users/{uid}/notifications/{id}` | Loại, tiêu đề/nội dung, loại và ID đối tượng liên quan, trạng thái đã đọc và timestamp. |
 | `reports/{reportId}` | Người báo cáo, loại/ID đối tượng, mã lý do, mô tả, trạng thái và thông tin xử lý của admin. |
 | `disputes/{disputeId}` | Đơn, người mở, lý do, đường dẫn ảnh bằng chứng trong Storage, trạng thái và quyết định REFUND_FULL hoặc RELEASE_PAYOUT. Admin quyết định. |
-| `verificationRequests/{id}` | Người dùng, trạng thái/mô tả xác minh mô phỏng, người duyệt và timestamp. Không lưu giấy tờ tùy thân thật. |
+| `verificationRequests/{id}` | Hồ sơ xác minh thủ công: userId, họ tên/ngày sinh/loại/số giấy tờ, fingerprint chống gửi trùng, evidencePaths/evidenceBucket, PENDING/APPROVED/REJECTED, ghi chú và người duyệt. Ảnh riêng tư trong Storage; test Emulator dùng giấy tờ/ảnh kiểm thử. Không tích hợp VNeID. |
+| `privateAccounts/{uid}` | Ngân hàng, chủ tài khoản, số tài khoản, consentAt, updatedAt; chỉ callable của chủ tài khoản đọc/ghi, client không được đọc collection trực tiếp. Luôn verified=false khi chưa có API ngân hàng. |
 | `webhookEvents/{provider_eventId}` | Nhà cung cấp, hash payload, trạng thái xử lý và timestamp; dùng chống xử lý callback trùng. |
 | `shippingTariffs/{version}` | Nhà vận chuyển MOCK_CARRIER, phí tối thiểu 15.000 VND, 3.000 VND/km, tiền tệ, phiên bản/trạng thái. Server chụp biểu phí vào đơn. |
 
@@ -36,7 +37,7 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 
 - Giữ bài đăng chưa thanh toán 15 phút. Sau khi thanh toán thành công, người bán có 48 giờ phản hồi; hết hạn thì hủy đơn, mở lại bài đăng và ghi nhận hoàn tiền mô phỏng.
 - Người mua chỉ được hủy trước khi người bán chuyển đơn sang `PREPARING`.
-- Phí vận chuyển hiện mô phỏng bằng `shippingTariffs/active.minimumFeeVnd` (mặc định 15.000 VND); chưa tính quãng đường hay gọi hãng vận chuyển. Người nhận trả phí ship với món FREE.
+- Phí vận chuyển hiện mô phỏng bằng `shippingTariffs/active.minFee` (mặc định 15.000 VND); chưa tính quãng đường hay gọi hãng vận chuyển. Người nhận trả phí ship với món FREE.
 - Sau khi giao thành công, người mua có 3 ngày mở khiếu nại. Admin chọn hoàn toàn phần hoặc giải ngân mô phỏng; phiên bản này không hoàn một phần và không chuyển tiền thật.
 - Lưu lịch sử trạng thái, thông báo, giỏ hàng và nhiều địa chỉ. Chat gắn với bài đăng, có thể gắn thêm đơn hàng.
 - Firestore không tự bảo đảm unique hay ràng buộc nhiều document. Dùng document ID xác định và transaction/server code để bảo đảm một đánh giá mỗi đơn, một địa chỉ mặc định, và chỉ một người nhận món FREE. Luồng thành viên 2 được xử lý qua Cloud Functions; client chỉ đọc dữ liệu liên quan đến chính họ.

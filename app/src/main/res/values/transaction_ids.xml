@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="btnTransactionBack" type="id" />
+    <item name="txtTransactionTitle" type="id" />
+    <item name="transactionContent" type="id" />
+    <item name="transactionScroll" type="id" />
+    <item name="freeRequestList" type="id" />
+    <item name="btnAcceptFreeRequest" type="id" />
+    <item name="btnRejectFreeRequest" type="id" />
+    <item name="btnCancelFreeRequest" type="id" />
+    <item name="addressChoice" type="id" />
+    <item name="btnNewCheckoutAddress" type="id" />
+    <item name="txtCheckoutQuote" type="id" />
+    <item name="edtFreeRequestNote" type="id" />
+    <item name="btnSubmitFreeRequest" type="id" />
+    <item name="btnSimulatePaid" type="id" />
+    <item name="btnSimulatePaymentFailed" type="id" />
+    <item name="btnSellerConfirm" type="id" />
+    <item name="btnSellerReady" type="id" />
+    <item name="btnSellerReject" type="id" />
+    <item name="btnCreateShipment" type="id" />
+    <item name="btnSimulateDelivered" type="id" />
+    <item name="btnSimulateReturned" type="id" />
+    <item name="btnSimulateLocation" type="id" />
+    <item name="btnOpenTrackingMap" type="id" />
+    <item name="txtLivePaymentState" type="id" />
+    <item name="txtLiveShipmentState" type="id" />
+    <item name="liveOrderTimeline" type="id" />
+    <item name="liveShipmentEvents" type="id" />
+    <item name="liveMoneyEvents" type="id" />
+    <item name="txtDisputeState" type="id" />
+    <item name="edtSimulatedLat" type="id" />
+    <item name="edtSimulatedLng" type="id" />
+    <item name="btnSaveSimulatedLocation" type="id" />
+</resources>
