@@ -4,8 +4,9 @@ plugins {
 }
 
 android {
+    buildFeatures { buildConfig = true }
     namespace = "vn.edu.ueh.thudinh.fashion2hand"
-    compileSdk = 37
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "vn.edu.ueh.thudinh.fashion2hand"
@@ -14,7 +15,10 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "vn.edu.ueh.thudinh.fashion2hand.EmulatorTestRunner"
+        buildConfigField("boolean", "USE_FIREBASE_EMULATORS",
+            providers.gradleProperty("useFirebaseEmulators").orElse("false").get())
+        buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"${providers.gradleProperty("firebaseEmulatorHost").orElse("10.0.2.2").get()}\"")
     }
 
     buildTypes {
@@ -54,6 +58,7 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     implementation("androidx.fragment:fragment:1.8.5")
     implementation("androidx.lifecycle:lifecycle-viewmodel:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-livedata:2.8.7")
 
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)

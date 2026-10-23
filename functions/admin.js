@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const orderItems = require("./order-items");
 
 module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }) => {
   const collections = new Set(["users", "posts", "orders", "reports", "disputes", "verificationRequests", "moneyTransactions", "categories", "adminAudit"]);
@@ -145,7 +146,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
               const paymentRef = order.get("paymentId") ? db.doc(`payments/${order.get("paymentId")}`) : null;
               const payment = paymentRef ? await tx.get(paymentRef) : null;
               const held = await tx.get(db.doc(`moneyTransactions/received_${order.id}`));
-              const postRef = db.doc(`posts/${order.get("postId")}`), post = await tx.get(postRef);
+              const posts = await orderItems.readOrderPosts(tx, order, db);
               if (!free && (!payment?.exists || payment.get("status") !== "PAID" || !held.exists || held.get("status") !== "HOLDING")) fail("failed-precondition", "Không có khoản tiền đang giữ để xử lý.");
               // These ledger operations are deliberately restricted to the current simulation.
               if (!free && payment.get("provider") !== "SIMULATED" && payment.get("provider") !== "MOCK") fail("failed-precondition", "Chưa hỗ trợ đối soát nhà cung cấp thật.");
@@ -159,7 +160,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
                 tx.set(db.doc(`${refund ? "refunds" : "payouts"}/${order.id}`), { orderId: order.id, paymentId: paymentRef.id, amount: refund ? amount : order.get("price"), status: "COMPLETED", mode: "SIMULATED", reason: note, createdAt: stamp() });
                 tx.set(db.doc(`moneyTransactions/${refund ? "refund" : "payout"}_${order.id}`), { orderId: order.id, paymentId: paymentRef.id, amount: refund ? amount : order.get("price"), type: refund ? "REFUND" : "SELLER_PAYOUT", status: "COMPLETED", mode: "SIMULATED", createdAt: stamp() });
               }
-              if (post.exists) tx.update(postRef, { status: refund ? "HIDDEN" : free ? "GIVEN" : "SOLD", reservedForOrderId: FieldValue.delete(), updatedAt: stamp() });
+              orderItems.writeOrderPosts(tx, posts, { status: refund ? "HIDDEN" : free ? "GIVEN" : "SOLD", reservedForOrderId: FieldValue.delete(), updatedAt: stamp() });
               writeOrderEvent(tx, orderRef, order.get("orderStatus"), next, uid, `Admin: ${note}`);
             }
           } else if (action === "category") {

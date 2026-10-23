@@ -1,5 +1,6 @@
 {
   "indexes": [
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"orderStatus","order":"ASCENDING"},{"fieldPath":"inspectionDeadline","order":"ASCENDING"}]},
     {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
     {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"type","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
     {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"categoryId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},

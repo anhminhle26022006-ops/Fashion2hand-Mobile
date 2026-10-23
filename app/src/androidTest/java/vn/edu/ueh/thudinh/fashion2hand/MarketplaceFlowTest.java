@@ -157,7 +157,21 @@ public class MarketplaceFlowTest {
             waitFor(scenario, R.id.btnManagePublishedListings); click(scenario, R.id.btnManagePublishedListings);
             waitText(scenario, edited);
             scenario.onActivity(a -> assertTrue(text(a.findViewById(android.R.id.content), "Xem").performClick()));
-            waitFor(scenario, R.id.btnProductLike); click(scenario, R.id.btnProductLike);
+            waitFor(scenario, R.id.btnProductLike);
+            scenario.onActivity(a -> {
+                TextView badge=a.findViewById(R.id.txtProductTypeBadge);
+                android.graphics.drawable.GradientDrawable background=(android.graphics.drawable.GradientDrawable)badge.getBackground();
+                assertNotNull(background.getColor());
+                assertTrue("Product badge contrast",androidx.core.graphics.ColorUtils.calculateContrast(badge.getCurrentTextColor(),background.getColor().getDefaultColor())>=4.5);
+                android.widget.Button chat=a.findViewById(R.id.btnProductChat);
+                assertEquals("Chat",chat.getText().toString());
+                assertTrue("Chat label contrast",androidx.core.graphics.ColorUtils.calculateContrast(chat.getCurrentTextColor(),chat.getBackgroundTintList().getDefaultColor())>=4.5);
+            });
+            Bitmap screenshot=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+            java.io.File directory=new java.io.File(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),"design-qa");
+            assertTrue(directory.exists()||directory.mkdirs());
+            try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(directory,"product-contrast.png"))){screenshot.compress(Bitmap.CompressFormat.PNG,100,out);}screenshot.recycle();
+            click(scenario, R.id.btnProductLike);
             waitText(scenario, "♥");
             click(scenario, R.id.btnViewSellerProfile); waitText(scenario, "Marketplace test"); waitText(scenario, edited);
             scenario.onActivity(a -> assertTrue(((View) text(a.findViewById(android.R.id.content), edited).getParent()).performClick()));

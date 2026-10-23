@@ -9,11 +9,15 @@ const logger = require("firebase-functions/logger");
 
 initializeApp();
 const db = getFirestore();
+const orderItems = require("./order-items");
+const readOrderPosts = (tx, order) => orderItems.readOrderPosts(tx, order, db);
+const writeOrderPosts = orderItems.writeOrderPosts;
 const { getAuth } = require("firebase-admin/auth");
 const paymentWebhookToken = defineSecret("PAYMENT_WEBHOOK_TOKEN");
 const shipmentWebhookToken = defineSecret("SHIPMENT_WEBHOOK_TOKEN");
 
 const fail = (code, message) => { throw new HttpsError(code, message); };
+const settleDelivery = require("./escrow")({ db, FieldValue, fail, writeOrderEvent });
 // Check the current server profile on every callable, including tokens issued before a lock.
 function onCall(handler) {
   return firebaseOnCall(async request => {
@@ -62,7 +66,7 @@ function shipmentLocation(value) {
 exports.getTransactionCapabilities = onCall(async request => {
   uidOf(request);
   return { simulatedPayments: simulationEnabled("PAYMENTS"), simulatedShipping: simulationEnabled("SHIPPING"),
-    checkoutItemsPerOrder: 1, shippingFee: await shippingFeeVnd(), liveProvidersConnected: false };
+    checkoutItemsPerOrder: 20, checkoutGrouping: "SELLER", shippingFee: await shippingFeeVnd(), liveProvidersConnected: false };
 });
 
 exports.getCheckoutQuote = onCall(async request => {
@@ -93,6 +97,7 @@ exports.refreshOrder = onCall(async request => {
   const ref = db.doc(`orders/${orderId}`);
   await db.runTransaction(async tx => {
     const order = await tx.get(ref);
+    const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || ![order.get("buyerId"), order.get("sellerId")].includes(uid)) fail("permission-denied", "Không thể xem đơn hàng này.");
     const now = new Date();
     const unpaid = order.get("orderStatus") === "PENDING_PAYMENT" && order.get("paymentDeadline")?.toDate() <= now;
@@ -103,7 +108,7 @@ exports.refreshOrder = onCall(async request => {
     const payment = paymentRef ? await tx.get(paymentRef) : null;
     const next = unconfirmed ? "REFUNDED" : "CANCELLED";
     tx.update(ref, { orderStatus: next, paymentStatus: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
-    if (post.exists && post.get("reservedForOrderId") === orderId) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+    if (post.exists && post.get("reservedForOrderId") === orderId) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     if (payment?.exists) tx.update(paymentRef, { status: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
     if (unconfirmed && payment?.exists) {
       tx.update(db.doc(`moneyTransactions/received_${orderId}`), { status: "REFUNDED", refundedAt: FieldValue.serverTimestamp() });
@@ -112,6 +117,7 @@ exports.refreshOrder = onCall(async request => {
     }
     writeOrderEvent(tx, ref, order.get("orderStatus"), next, "SYSTEM", unpaid ? "Quá hạn thanh toán 15 phút" : "Người bán quá hạn phản hồi 48 giờ");
   });
+  await settleDelivery(orderId);
   return { ok: true };
 });
 
@@ -155,6 +161,8 @@ exports.createDispute = onCall(async request => {
     }
     if (!order.exists || ![order.get("buyerId"), order.get("sellerId")].includes(uid)
         || !["SHIPPING", "DELIVERED"].includes(order.get("orderStatus"))) fail("failed-precondition", "Đơn hàng không còn cho phép báo cáo.");
+    if (order.get("inspectionDeadline")?.toMillis() <= Date.now())
+      fail("failed-precondition", "Đã hết thời hạn mở tranh chấp 3 ngày sau khi giao.");
     tx.create(disputeRef, { orderId, buyerId: order.get("buyerId"), sellerId: order.get("sellerId"), reporterId: uid,
       reason, description, evidencePaths: evidence, evidenceBucket: bucket.name, uploadKey, status: "OPEN", createdAt: FieldValue.serverTimestamp() });
     tx.update(orderRef, { disputeId: disputeRef.id, disputeStatus: "OPEN", updatedAt: FieldValue.serverTimestamp() });
@@ -261,7 +269,7 @@ exports.createChat = onCall(async (request) => {
     if (!otherUser.exists || otherUser.get("accountStatus") === "LOCKED") fail("not-found", "Không tìm thấy thành viên này.");
   if (postId) {
     const post = await db.collection("posts").doc(postId).get();
-    if (!post.exists || postOwnerId(post) !== otherUserId) fail("failed-precondition", "Bài đăng không thuộc người nhận.");
+    if (!post.exists || ![uid, otherUserId].includes(postOwnerId(post))) fail("failed-precondition", "Bài đăng không thuộc thành viên cuộc trò chuyện.");
   }
   const members = [uid, otherUserId].sort();
   const chatId = crypto.createHash("sha256").update(`${members.join(":")}:${postId}`).digest("hex");
@@ -285,7 +293,11 @@ exports.sendMessage = onCall(async (request) => {
   const chatId = cleanDocumentId(request.data.chatId, "Cuộc trò chuyện");
   const text = cleanText(request.data.text, 4000, "Tin nhắn");
   const chatRef = db.collection("chats").doc(chatId);
-  const messageRef = chatRef.collection("messages").doc();
+  const clientMessageId = request.data.clientMessageId
+    ? cleanDocumentId(request.data.clientMessageId, "Mã tin nhắn") : null;
+  const messageRef = clientMessageId
+    ? chatRef.collection("messages").doc(crypto.createHash("sha256").update(`${uid}:${clientMessageId}`).digest("hex"))
+    : chatRef.collection("messages").doc();
   let recipientId;
   await db.runTransaction(async (tx) => {
     const chat = await tx.get(chatRef);
@@ -294,13 +306,22 @@ exports.sendMessage = onCall(async (request) => {
       fail("permission-denied", "Bạn không thuộc cuộc trò chuyện này.");
     }
     recipientId = participants.find((id) => id !== uid);
+    const existing = await tx.get(messageRef);
+    if (existing.exists) {
+      if (existing.get("senderId") !== uid || existing.get("text") !== text)
+        fail("already-exists", "Mã tin nhắn đã được dùng cho nội dung khác.");
+      return;
+    }
     tx.create(messageRef, { senderId: uid, text, createdAt: FieldValue.serverTimestamp(), read: false });
     tx.update(chatRef, {
       lastMessage: text, lastMessageAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
       [`unreadCounts.${recipientId}`]: FieldValue.increment(1)
     });
+    tx.create(db.collection("users").doc(recipientId).collection("notifications").doc(`message_${messageRef.id}`), {
+      type: "MESSAGE", title: "Tin nhắn mới", body: text.slice(0, 120), chatId,
+      read: false, createdAt: FieldValue.serverTimestamp()
+    });
   });
-  await notify(recipientId, { type: "MESSAGE", title: "Tin nhắn mới", body: text.slice(0, 120), chatId });
   return { messageId: messageRef.id };
 });
 
@@ -318,13 +339,14 @@ exports.markChatRead = onCall(async (request) => {
       const unread = await tx.get(chatRef.collection("messages").where("read", "==", false)
         .where("senderId", "!=", uid).limit(450));
       if (unread.empty) {
-        tx.update(chatRef, { [`unreadCounts.${uid}`]: 0, updatedAt: FieldValue.serverTimestamp() });
+        if (Number((currentChat.get("unreadCounts") || {})[uid] || 0) !== 0)
+          tx.update(chatRef, { [`unreadCounts.${uid}`]: 0 });
         return;
       }
       const unreadCounts = currentChat.get("unreadCounts") || {};
       count = unread.size;
       unread.docs.forEach((message) => tx.update(message.ref, { read: true, readAt: FieldValue.serverTimestamp() }));
-      tx.update(chatRef, { [`unreadCounts.${uid}`]: Math.max(0, Number(unreadCounts[uid] || 0) - count), updatedAt: FieldValue.serverTimestamp() });
+      tx.update(chatRef, { [`unreadCounts.${uid}`]: Math.max(0, Number(unreadCounts[uid] || 0) - count) });
     });
     marked += count;
     if (count < 450) break;
@@ -508,6 +530,7 @@ exports.simulatePaymentResult = onCall(async (request) => {
   let buyerId; let sellerId; let alreadyApplied = false;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
+    const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("buyerId") !== uid) fail("permission-denied", "Đơn hàng không thể thanh toán.");
     if (order.get("paymentStatus") === status) { alreadyApplied = true; return; }
     if (order.get("orderStatus") !== "PENDING_PAYMENT") fail("permission-denied", "Đơn hàng không thể thanh toán.");
@@ -515,7 +538,9 @@ exports.simulatePaymentResult = onCall(async (request) => {
     const paymentRef = db.collection("payments").doc(order.get("paymentId"));
     const postRef = db.collection("posts").doc(order.get("postId"));
     const [payment, post] = await Promise.all([tx.get(paymentRef), tx.get(postRef)]);
-    if (!payment.exists || !post.exists || post.get("reservedForOrderId") !== orderId) fail("failed-precondition", "Thông tin đơn hàng không hợp lệ.");
+    if (!payment.exists || !post.exists || post.get("reservedForOrderId") !== orderId
+        || orderPosts.some(entry => !entry.snapshot.exists || entry.snapshot.get("reservedForOrderId") !== orderId))
+      fail("failed-precondition", "Thông tin đơn hàng không hợp lệ.");
     buyerId = order.get("buyerId"); sellerId = order.get("sellerId");
     const orderStatus = status === "PAID" ? "CONFIRMED" : "PAYMENT_FAILED";
     tx.update(paymentRef, { status, provider: "SIMULATED", providerReference: `SIM-${orderId}`, updatedAt: FieldValue.serverTimestamp() });
@@ -523,9 +548,9 @@ exports.simulatePaymentResult = onCall(async (request) => {
     writeOrderEvent(tx, orderRef, "PENDING_PAYMENT", orderStatus, "SIMULATED_PAYMENT", "Thanh toán mô phỏng.");
     if (status === "PAID") {
       tx.create(db.collection("moneyTransactions").doc(`received_${orderId}`), { orderId, paymentId: paymentRef.id, type: "PAYMENT_RECEIVED", amount: payment.get("amount"), mode: "SIMULATED", status: "HOLDING", idempotencyKey: `received_${orderId}`, createdAt: FieldValue.serverTimestamp() });
-      tx.update(postRef, { status: "SOLD", updatedAt: FieldValue.serverTimestamp() });
+      writeOrderPosts(tx, orderPosts, { status: "SOLD", updatedAt: FieldValue.serverTimestamp() });
     } else {
-      tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     }
   });
   if (!alreadyApplied) await Promise.all([buyerId, sellerId].map((targetUid) => notify(targetUid, { type: "PAYMENT_UPDATED", title: "Cập nhật thanh toán", body: `Thanh toán đơn ${orderId}: ${status}`, orderId })));
@@ -539,6 +564,7 @@ exports.cancelOrder = onCall(async (request) => {
   let sellerId; let postId; let paymentId;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
+    const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("buyerId") !== uid || !["PENDING_PAYMENT", "CONFIRMED"].includes(order.get("orderStatus"))) {
       fail("failed-precondition", "Đơn hàng không thể hủy.");
     }
@@ -555,7 +581,7 @@ exports.cancelOrder = onCall(async (request) => {
     const paymentStatus = order.get("orderType") === "FREE" ? "NOT_REQUIRED" : (paid ? "REFUNDED" : "CANCELLED");
     tx.update(orderRef, { orderStatus: "CANCELLED", paymentStatus, updatedAt: FieldValue.serverTimestamp() });
     if (freeRequest && freeRequest.exists && freeRequest.get("status") === "ACCEPTED") tx.update(requestRef, { status: "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
-    if (post.exists && post.get("reservedForOrderId") === orderId) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+    if (post.exists && post.get("reservedForOrderId") === orderId) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     if (paymentRef && payment && payment.exists) tx.update(paymentRef, { status: paid ? "REFUNDED" : "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
     if (paid && payment && payment.exists) {
       const amount = payment.get("amount");
@@ -576,6 +602,7 @@ exports.rejectOrder = onCall(async (request) => {
   let buyerId;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
+    const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("sellerId") !== uid || !["PENDING_PAYMENT", "CONFIRMED"].includes(order.get("orderStatus"))) {
       fail("failed-precondition", "Đơn hàng không thể bị từ chối.");
     }
@@ -594,7 +621,7 @@ exports.rejectOrder = onCall(async (request) => {
       tx.update(freeRequestRef, { status: "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
     }
     if (post.exists && post.get("reservedForOrderId") === orderId) {
-      tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     }
     if (paymentRef && payment && payment.exists) {
       tx.update(paymentRef, { status: paid ? "REFUNDED" : "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
@@ -649,6 +676,7 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
   let buyerId; let sellerId;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
+    const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("sellerId") !== uid || order.get("shippingStatus") !== "IN_TRANSIT") fail("permission-denied", "Chỉ người bán mới có thể giả lập cập nhật vận chuyển.");
     const postRef = db.collection("posts").doc(order.get("postId"));
     const paymentRef = order.get("paymentId") ? db.collection("payments").doc(order.get("paymentId")) : null;
@@ -658,11 +686,13 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
     if (!shipment.exists) fail("not-found", "Không tìm thấy vận đơn.");
     buyerId = order.get("buyerId"); sellerId = order.get("sellerId");
     const nextOrderStatus = status === "IN_TRANSIT" ? "SHIPPING" : status === "DELIVERED" ? "DELIVERED" : (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED");
-    tx.update(orderRef, { shippingStatus: status, orderStatus: nextOrderStatus, ...(status === "RETURNED" && order.get("orderType") === "PAID" ? { paymentStatus: "REFUNDED" } : {}), updatedAt: FieldValue.serverTimestamp() });
+    tx.update(orderRef, { shippingStatus: status, orderStatus: nextOrderStatus,
+      ...(status === "DELIVERED" ? { deliveredAt: FieldValue.serverTimestamp(), inspectionDeadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) } : {}),
+      ...(status === "RETURNED" && order.get("orderType") === "PAID" ? { paymentStatus: "REFUNDED" } : {}), updatedAt: FieldValue.serverTimestamp() });
     tx.update(shipmentRef, { status, ...(location ? { location: { ...location, source: "SIMULATED" } } : {}), updatedAt: FieldValue.serverTimestamp(), events: FieldValue.arrayUnion({ status, description, ...(location ? { location } : {}), createdAt: new Date().toISOString() }) });
     writeOrderEvent(tx, orderRef, order.get("orderStatus"), nextOrderStatus, "SIMULATED_CARRIER", description || status);
     if (status === "RETURNED") {
-      if (post.exists) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      if (post.exists) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
       if (paymentRef && payment && payment.exists) {
         tx.update(paymentRef, { status: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });
         const amount = order.get("price") + order.get("shippingFee");
@@ -680,6 +710,7 @@ exports.updateOrderStatus = onCall(async (request) => {
   const uid = uidOf(request);
   const orderId = cleanDocumentId(request.data.orderId, "Đơn hàng");
   const nextStatus = cleanText(request.data.status, 32, "Trạng thái");
+  if (nextStatus === "COMPLETED") return { ok: true, settled: await settleDelivery(orderId, uid) };
   const orderRef = db.collection("orders").doc(orderId);
   let buyerId; let sellerId; let postId;
   await db.runTransaction(async (tx) => {
@@ -689,25 +720,11 @@ exports.updateOrderStatus = onCall(async (request) => {
     const current = order.get("orderStatus");
     if (nextStatus === "COMPLETED" && ["OPEN", "WAITING_EVIDENCE"].includes(order.get("disputeStatus")))
       fail("failed-precondition", "Đơn có tranh chấp đang mở, chưa thể hoàn tất hoặc giải ngân.");
-    const postRef = db.collection("posts").doc(postId);
-    const post = nextStatus === "COMPLETED" && order.get("orderType") === "FREE" ? await tx.get(postRef) : null;
     const sellerSteps = { CONFIRMED: "PREPARING", PREPARING: "READY_TO_SHIP" };
-    const buyerSteps = { DELIVERED: "COMPLETED" };
-    const allowed = (uid === sellerId && sellerSteps[current] === nextStatus)
-      || (uid === buyerId && buyerSteps[current] === nextStatus);
+    const allowed = uid === sellerId && sellerSteps[current] === nextStatus;
     if (!allowed) fail("permission-denied", "Chuyển trạng thái đơn hàng không hợp lệ.");
-    const patch = { orderStatus: nextStatus, updatedAt: FieldValue.serverTimestamp() };
-    if (nextStatus === "COMPLETED") patch.shippingStatus = "DELIVERED";
     writeOrderEvent(tx, orderRef, current, nextStatus, uid);
-    tx.update(orderRef, patch);
-    if (nextStatus === "COMPLETED" && order.get("orderType") === "FREE") {
-      if (post && post.exists) tx.update(postRef, { status: "GIVEN", updatedAt: FieldValue.serverTimestamp() });
-    }
-    if (nextStatus === "COMPLETED" && order.get("orderType") === "PAID") {
-      tx.update(db.collection("moneyTransactions").doc(`received_${orderId}`), { status: "RELEASED", releasedAt: FieldValue.serverTimestamp() });
-      const moneyRef = db.collection("moneyTransactions").doc(`payout_${orderId}`);
-      tx.set(moneyRef, { orderId, paymentId: order.get("paymentId"), type: "SELLER_PAYOUT", amount: order.get("price"), mode: "SIMULATED", idempotencyKey: `payout_${orderId}`, createdAt: FieldValue.serverTimestamp() }, { merge: true });
-    }
+    tx.update(orderRef, { orderStatus: nextStatus, updatedAt: FieldValue.serverTimestamp() });
   });
   const recipient = uid === buyerId ? sellerId : buyerId;
   await notify(recipient, { type: "ORDER_UPDATED", title: "Đơn hàng được cập nhật", body: `Đơn ${orderId}: ${nextStatus}`, orderId });
@@ -717,20 +734,35 @@ exports.updateOrderStatus = onCall(async (request) => {
 exports.updateShipmentFromCarrier = onRequest({ secrets: [shipmentWebhookToken] }, async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method not allowed");
   if (!validShipmentWebhook(req)) return res.status(401).send("Unauthorized");
-  const { orderId, trackingCode, status, description } = req.body || {};
-  if (!orderId || !trackingCode || !["IN_TRANSIT", "DELIVERED", "RETURNED"].includes(status)) return res.status(400).send("Invalid event");
+  const { eventId, orderId, trackingCode, status, description } = req.body || {};
+  if (typeof eventId !== "string" || !eventId.trim() || eventId.length > 128
+      || typeof orderId !== "string" || !orderId.trim() || orderId.length > 128
+      || typeof trackingCode !== "string" || !trackingCode || trackingCode.length > 100
+      || !["IN_TRANSIT", "DELIVERED", "RETURNED"].includes(status)) return res.status(400).send("Invalid event");
   const normalizedOrderId = String(orderId);
   if (normalizedOrderId.includes("/")) return res.status(400).send("Invalid orderId");
   const orderRef = db.collection("orders").doc(normalizedOrderId);
   const shipmentRef = db.collection("shipments").doc(normalizedOrderId);
+  const eventRef = db.doc(`webhookEvents/shipment_${crypto.createHash("sha256").update(eventId.trim()).digest("hex")}`);
   let buyerId; let duplicateUpdate = false;
   try {
     await db.runTransaction(async (tx) => {
-      const [order, shipment] = await Promise.all([tx.get(orderRef), tx.get(shipmentRef)]);
+      duplicateUpdate = false;
+      const [order, shipment, event] = await Promise.all([tx.get(orderRef), tx.get(shipmentRef), tx.get(eventRef)]);
+      const orderPosts = await readOrderPosts(tx, order);
+      if (event.exists) {
+        if (event.get("orderId") !== normalizedOrderId || event.get("status") !== status || event.get("trackingCode") !== trackingCode)
+          throw new Error("Event identifier already used");
+        duplicateUpdate = true; return;
+      }
       if (!order.exists || !shipment.exists || shipment.get("trackingCode") !== trackingCode) throw new Error("Shipment not found");
       buyerId = order.get("buyerId");
       const currentStatus = order.get("shippingStatus");
-      if (currentStatus === status) { duplicateUpdate = true; return; }
+      if (currentStatus === status) {
+        tx.create(eventRef, { orderId: normalizedOrderId, trackingCode, status, duplicate: true, createdAt: FieldValue.serverTimestamp() });
+        duplicateUpdate = true; return;
+      }
+      if (currentStatus !== "IN_TRANSIT" || order.get("orderStatus") !== "SHIPPING") throw new Error("Shipment is already finalized");
       if (status === "DELIVERED" && currentStatus !== "IN_TRANSIT") throw new Error("Invalid shipment transition");
       if (status === "RETURNED" && currentStatus !== "IN_TRANSIT") throw new Error("Invalid shipment transition");
       const postRef = status === "RETURNED" ? db.collection("posts").doc(order.get("postId")) : null;
@@ -739,12 +771,17 @@ exports.updateShipmentFromCarrier = onRequest({ secrets: [shipmentWebhookToken] 
       const payment = paymentRef ? await tx.get(paymentRef) : null;
       const orderStatus = status === "DELIVERED" ? "DELIVERED" : (status === "RETURNED" ? (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED") : "SHIPPING");
       const orderPatch = { shippingStatus: status, orderStatus, updatedAt: FieldValue.serverTimestamp() };
+      if (status === "DELIVERED") {
+        orderPatch.deliveredAt = FieldValue.serverTimestamp();
+        orderPatch.inspectionDeadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      }
       if (status === "RETURNED") orderPatch.paymentStatus = order.get("orderType") === "PAID" ? "REFUNDED" : "NOT_REQUIRED";
       tx.update(orderRef, orderPatch);
       tx.update(shipmentRef, { status, updatedAt: FieldValue.serverTimestamp(), events: FieldValue.arrayUnion({ status, description: String(description || ""), createdAt: new Date().toISOString() }) });
       writeOrderEvent(tx, orderRef, order.get("orderStatus"), orderPatch.orderStatus, "MOCK_CARRIER", String(description || status));
+      tx.create(eventRef, { orderId: normalizedOrderId, trackingCode, status, createdAt: FieldValue.serverTimestamp() });
       if (status === "RETURNED") {
-        if (post.exists) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        if (post.exists) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
         if (paymentRef && payment.exists) {
           tx.update(paymentRef, { status: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });
           const refundAmount = order.get("price") + order.get("shippingFee");
@@ -781,6 +818,7 @@ exports.updatePaymentFromProvider = onRequest({ secrets: [paymentWebhookToken] }
       const event = await tx.get(eventRef);
       if (event.exists) { duplicateEvent = true; return; }
       const order = await tx.get(orderRef);
+    const orderPosts = await readOrderPosts(tx, order);
       if (!order.exists || !order.get("paymentId")) throw new Error("Order not found");
       buyerId = order.get("buyerId"); sellerId = order.get("sellerId"); postId = order.get("postId");
       const paymentRef = db.collection("payments").doc(order.get("paymentId"));
@@ -817,8 +855,8 @@ exports.updatePaymentFromProvider = onRequest({ secrets: [paymentWebhookToken] }
         tx.create(db.collection("moneyTransactions").doc(`refund_${orderId}`), { orderId, paymentId: paymentRef.id, type: "REFUND", amount: payment.get("amount"), mode: "SIMULATED", idempotencyKey: `refund_${orderId}`, createdAt: FieldValue.serverTimestamp() });
       }
       if (post.exists && post.get("reservedForOrderId") === String(orderId)) {
-        if (status === "PAID") tx.update(postRef, { status: "SOLD", updatedAt: FieldValue.serverTimestamp() });
-        else if (status === "FAILED" || status === "REFUNDED") tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        if (status === "PAID") writeOrderPosts(tx, orderPosts, { status: "SOLD", updatedAt: FieldValue.serverTimestamp() });
+        else if (status === "FAILED" || status === "REFUNDED") writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
       }
       tx.create(eventRef, { provider: payment.get("provider"), eventId: normalizedEventId, payloadHash: crypto.createHash("sha256").update(JSON.stringify(req.body)).digest("hex"), status: "PROCESSED", createdAt: FieldValue.serverTimestamp() });
     });
@@ -832,17 +870,21 @@ exports.updatePaymentFromProvider = onRequest({ secrets: [paymentWebhookToken] }
 
 exports.expireUnpaidAndUnconfirmedOrders = onSchedule("every 15 minutes", async () => {
   const now = new Date();
+  const delivered = await db.collection("orders").where("orderStatus", "==", "DELIVERED")
+    .where("inspectionDeadline", "<=", now).limit(200).get();
+  for (const order of delivered.docs) await settleDelivery(order.id);
   const unpaid = await db.collection("orders").where("orderStatus", "==", "PENDING_PAYMENT")
     .where("paymentDeadline", "<=", now).limit(200).get();
   for (const orderDoc of unpaid.docs) {
     await db.runTransaction(async (tx) => {
       const order = await tx.get(orderDoc.ref);
+      const orderPosts = await readOrderPosts(tx, order);
       if (!order.exists || order.get("orderStatus") !== "PENDING_PAYMENT") return;
       const postRef = db.collection("posts").doc(order.get("postId"));
       const post = await tx.get(postRef);
       tx.update(orderDoc.ref, { orderStatus: "CANCELLED", paymentStatus: "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
       writeOrderEvent(tx, orderDoc.ref, "PENDING_PAYMENT", "CANCELLED", "SYSTEM", "Quá hạn thanh toán 15 phút.");
-      if (post.exists && post.get("reservedForOrderId") === orderDoc.id) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      if (post.exists && post.get("reservedForOrderId") === orderDoc.id) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
       if (order.get("paymentId")) tx.update(db.collection("payments").doc(order.get("paymentId")), { status: "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
     });
     await notify(orderDoc.get("buyerId"), { type: "ORDER_EXPIRED", title: "Đơn hàng đã hết hạn", body: `Đơn ${orderDoc.id} đã được mở lại vì chưa thanh toán.`, orderId: orderDoc.id });
@@ -852,6 +894,7 @@ exports.expireUnpaidAndUnconfirmedOrders = onSchedule("every 15 minutes", async 
   for (const orderDoc of unpaidSellers.docs) {
     await db.runTransaction(async (tx) => {
       const order = await tx.get(orderDoc.ref);
+      const orderPosts = await readOrderPosts(tx, order);
       if (!order.exists || order.get("orderStatus") !== "CONFIRMED") return;
       const postRef = db.collection("posts").doc(order.get("postId"));
       const post = await tx.get(postRef);
@@ -861,7 +904,7 @@ exports.expireUnpaidAndUnconfirmedOrders = onSchedule("every 15 minutes", async 
       if (order.get("paymentId")) tx.update(db.collection("payments").doc(order.get("paymentId")), { status: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });
       tx.set(db.collection("moneyTransactions").doc(`refund_${orderDoc.id}`), { orderId: orderDoc.id, paymentId: order.get("paymentId"), type: "REFUND", amount: order.get("price") + order.get("shippingFee"), mode: "SIMULATED", idempotencyKey: `refund_${orderDoc.id}`, createdAt: FieldValue.serverTimestamp() });
       tx.update(db.collection("moneyTransactions").doc(`received_${orderDoc.id}`), { status: "REFUNDED", refundedAt: FieldValue.serverTimestamp() });
-      if (post.exists && post.get("reservedForOrderId") === orderDoc.id) tx.update(postRef, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+      if (post.exists && post.get("reservedForOrderId") === orderDoc.id) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     });
     await Promise.all([orderDoc.get("buyerId"), orderDoc.get("sellerId")].map((uid) => notify(uid, { type: "ORDER_TIMEOUT", title: "Đơn hàng đã hết hạn phản hồi", body: `Đơn ${orderDoc.id} đã được hoàn tiền mô phỏng.`, orderId: orderDoc.id })));
   }
@@ -874,5 +917,7 @@ exports.markNotificationRead = onCall(async (request) => {
   return { ok: true };
 });
 
+Object.assign(exports, require("./cart-checkout")({ db, onCall, uidOf, cleanDocumentId, cleanText, fail, FieldValue,
+  shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent }));
 Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }));
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));

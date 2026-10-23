@@ -45,6 +45,10 @@ public final class MemberTwoRepository {
         return call("sendMessage", payload("chatId", chatId, "text", text));
     }
 
+    public Task<HttpsCallableResult> sendMessage(String chatId, String text, String clientMessageId) {
+        return call("sendMessage", payload("chatId", chatId, "text", text, "clientMessageId", clientMessageId));
+    }
+
     public Task<HttpsCallableResult> markChatRead(String chatId) {
         return call("markChatRead", payload("chatId", chatId));
     }
@@ -81,6 +85,12 @@ public final class MemberTwoRepository {
     }
 
     public Task<HttpsCallableResult> quote(String postId) { return call("getCheckoutQuote", payload("postId", postId)); }
+    public Task<HttpsCallableResult> quoteCart(java.util.List<String> postIds) {
+        return call("getCartCheckoutQuote", payload("postIds", postIds));
+    }
+    public Task<HttpsCallableResult> checkoutCart(java.util.List<String> postIds, String key, String addressId, long total) {
+        return call("createCartOrders", payload("postIds", postIds, "idempotencyKey", key, "addressId", addressId, "expectedTotal", total));
+    }
     public Task<HttpsCallableResult> capabilities() { return call("getTransactionCapabilities", payload()); }
     public Task<HttpsCallableResult> refreshOrder(String orderId) { return call("refreshOrder", payload("orderId", orderId)); }
 
@@ -125,11 +135,31 @@ public final class MemberTwoRepository {
     }
 
     public Task<Void> addCartItem(String uid, String postId, Map<String, Object> item) {
-        Map<String, Object> data = new HashMap<>(item);
-        data.put("postId", postId);
-        data.put("addedAt", FieldValue.serverTimestamp());
-        return firestore.collection("users").document(uid).collection("cartItems").document(postId).set(data);
+        return firestore.runTransaction(transaction -> {
+            DocumentSnapshot post = transaction.get(firestore.collection("posts").document(postId));
+            String seller = post.getString("ownerId");
+            if (seller == null) seller = post.getString("userId");
+            String type = post.getString("type");
+            if (type == null) type = post.getString("listingType");
+            if (!post.exists() || !"ACTIVE".equals(post.getString("status")) || uid.equals(seller)
+                    || !("SALE".equals(type) || "FOR_SALE".equals(type)) || !(post.get("price") instanceof Number)
+                    || ((Number) post.get("price")).longValue() <= 0)
+                throw new com.google.firebase.firestore.FirebaseFirestoreException("Món đồ không thể thêm vào giỏ.",
+                        com.google.firebase.firestore.FirebaseFirestoreException.Code.FAILED_PRECONDITION);
+            Map<String, Object> data = new HashMap<>();
+            data.put("postId", postId); data.put("title", post.getString("title"));
+            data.put("sellerId", seller); data.put("price", post.get("price"));
+            data.put("type", "SALE"); data.put("quantity", 1); data.put("selected", true);
+            data.put("addedAt", FieldValue.serverTimestamp());
+            transaction.set(firestore.collection("users").document(uid).collection("cartItems").document(postId), data);
+            return null;
+        });
     }
+
+    public ListenerRegistration listenPost(String postId, EventListener<DocumentSnapshot> listener) {
+        return firestore.collection("posts").document(postId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
+    }
+    public Task<DocumentSnapshot> getPost(String postId) { return firestore.collection("posts").document(postId).get(); }
 
     public Task<Void> removeCartItem(String uid, String postId) {
         return firestore.collection("users").document(uid).collection("cartItems").document(postId).delete();

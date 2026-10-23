@@ -58,7 +58,7 @@ public class TransactionFlowTest {
     }
     private void click(ActivityScenario<MainActivity> scenario, int id) throws Exception {
         waitUntil(scenario, a -> a.findViewById(id) != null && a.findViewById(id).isEnabled(), "Enabled " + id);
-        scenario.onActivity(a -> assertTrue(a.findViewById(id).performClick()));
+        scenario.onActivity(a -> { View view=a.findViewById(id); if(view instanceof RadioButton){view.performClick();assertTrue(((RadioButton)view).isChecked());}else assertTrue(view.performClick()); });
     }
     private View text(View view, String value) {
         if (view instanceof TextView && ((TextView) view).getText().toString().contains(value)) return view;
@@ -134,7 +134,11 @@ public class TransactionFlowTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             openOrderFromProfile(scenario, title, false); click(scenario, R.id.btnConfirmReceived); status(id, "COMPLETED");
             waitText(scenario, "Đã giải ngân"); click(scenario, R.id.btnTransactionBack); click(scenario, R.id.btnTransactionHistory);
-            waitText(scenario, title); waitText(scenario, "Giải ngân người bán"); waitText(scenario, id);
+            waitText(scenario, title); waitText(scenario, "Đã giải ngân");
+            screenshot("history-paid");
+            click(scenario, R.id.filterHistorySell); waitText(scenario, "Chưa có giao dịch phù hợp bộ lọc.");
+            click(scenario, R.id.filterHistoryBuy); waitText(scenario,title); scenario.recreate(); waitText(scenario,title);
+            scenario.onActivity(a -> assertEquals(R.id.filterHistoryBuy,((RadioGroup)a.findViewById(R.id.historyFilters)).getCheckedRadioButtonId()));
         }
     }
 
@@ -149,6 +153,8 @@ public class TransactionFlowTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             waitFor(scenario, R.id.navProfile); click(scenario, R.id.navProfile); click(scenario, R.id.btnMyOrders); click(scenario, R.id.tabGive);
             waitText(scenario, "3 yêu cầu");
+            scenario.onActivity(a -> { assertEquals("3",((TextView)a.findViewById(R.id.statPendingRequests)).getText().toString()); assertTrue(a.findViewById(R.id.transactionRoleTabs) instanceof RadioGroup); });
+            screenshot("transaction-overview"); click(scenario,R.id.transactionRequestRow);
             scenario.onActivity(a -> {
                 View root = a.findViewById(R.id.freeRequestList); View card = root.findViewWithTag("request|" + second); assertNotNull(card);
                 assertTrue(card.findViewById(R.id.btnAcceptFreeRequest).performClick());
@@ -175,5 +181,43 @@ public class TransactionFlowTest {
             DocumentSnapshot dispute = await(db.collection("disputes").document(id).get()); assertTrue(dispute.exists());
             assertEquals(1, ((List<?>) dispute.get("evidencePaths")).size()); assertEquals(buyer.uid, dispute.getString("reporterId"));
         }
+    }
+    @Test public void selectedCartItemsCreateOneSellerOrderAfterRecreation() throws Exception {
+        User seller = user("Multi UI Seller");
+        String first = post("Multi First " + System.nanoTime(), false), second = post("Multi Second " + System.nanoTime(), false);
+        User buyer = user("Multi UI Buyer");
+        await(repo.addCartItem(buyer.uid, first, Collections.emptyMap()));
+        await(repo.addCartItem(buyer.uid, second, Collections.emptyMap()));
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            waitFor(scenario, R.id.btnCartHome); click(scenario, R.id.btnCartHome);
+            for (String id : new String[]{first, second}) {
+                waitUntil(scenario, a -> {
+                    View card = a.findViewById(android.R.id.content).findViewWithTag("cart|" + id);
+                    View choose = card == null ? null : text(card, "Chọn món này"); return choose != null && choose.isEnabled();
+                }, "Cart item loaded " + id);
+                scenario.onActivity(a -> ((CheckBox) text(a.findViewById(android.R.id.content).findViewWithTag("cart|" + id), "Chọn món này")).setChecked(true));
+            }
+            click(scenario, R.id.btnCheckout); waitFor(scenario, R.id.btnPlaceOrder); waitText(scenario, "240.000");
+            scenario.recreate(); waitFor(scenario, R.id.btnPlaceOrder); waitText(scenario, "240.000"); click(scenario, R.id.btnPlaceOrder);
+            waitFor(scenario, R.id.btnSimulatePaid); String id = orderId(scenario);
+            DocumentSnapshot order = await(db.document("orders/" + id).get(Source.SERVER));
+            assertEquals(2, ((List<?>) order.get("items")).size()); assertEquals(240000L, order.getLong("price").longValue());
+            for (String postId : new String[]{first, second}) {
+                assertEquals(id, await(db.document("posts/" + postId).get(Source.SERVER)).getString("reservedForOrderId"));
+                assertFalse(await(db.document("users/" + buyer.uid + "/cartItems/" + postId).get(Source.SERVER)).exists());
+            }
+            click(scenario, R.id.btnSimulatePaid); status(id, "CONFIRMED");
+            for (String postId : new String[]{first, second}) assertEquals("SOLD", await(db.document("posts/" + postId).get(Source.SERVER)).getString("status"));
+            await(repo.cancelOrder(id)); status(id, "CANCELLED");
+            for (String postId : new String[]{first, second}) assertEquals("ACTIVE", await(db.document("posts/" + postId).get(Source.SERVER)).getString("status"));
+        }
+    }
+    private void screenshot(String name) throws Exception {
+        android.graphics.Bitmap image = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        assertNotNull(image);
+        java.io.File directory = new java.io.File(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext().getExternalFilesDir(null),"design-qa");
+        assertTrue(directory.exists() || directory.mkdirs());
+        try(java.io.FileOutputStream output = new java.io.FileOutputStream(new java.io.File(directory,name+".png"))){assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,output));}
+        image.recycle();
     }
 }

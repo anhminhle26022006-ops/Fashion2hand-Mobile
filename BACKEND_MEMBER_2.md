@@ -28,4 +28,14 @@ Webhook phải gửi `Authorization: Bearer <secret>`. Thanh toán yêu cầu JS
 
 ## Lưu ý tích hợp
 
-Các màn hình app hiện chưa gọi `MemberTwoRepository` và còn dùng sản phẩm/đơn demo; cần kết nối giao diện với `postId`, `sellerId`, `orderId` thật và thống nhất schema bài đăng/người dùng với luồng thành viên 1. Repository đã có callable/listener. Cổng thanh toán thật và API hãng vận chuyển cần thông tin merchant/API trước khi tích hợp; hiện webhook là hợp đồng server tổng quát, còn payment/carrier và hoàn tiền/giải ngân vẫn chưa thực sự kết nối nhà cung cấp.
+Các màn giao dịch đang gọi `MemberTwoRepository` qua `TransactionScreens`; chat có `ChatViewModel`, `ChatRepository`, LiveData và `MessageAdapter`. Xem `MINH_ANH_IMPLEMENTATION.md` để phân biệt phần đã kiểm thử, phần kế thừa và phần còn thiếu.
+
+## Cập nhật 24/10/2026
+
+- Chọn cloud hoặc Emulator bằng build property; mặc định dùng cấu hình Firebase cloud, Emulator chỉ bật trong debug khi yêu cầu rõ ràng.
+- `getCartCheckoutQuote/createCartOrders`: tối đa 20 món, gộp theo seller, báo giá từ server, giữ tồn kho và xóa đúng món khỏi giỏ trong cùng transaction. Đơn mới có `items`, `itemCount`, `schemaVersion=2`; `postId` và `postSnapshot` vẫn có để đọc tương thích đơn cũ.
+- Thanh toán, hủy, từ chối, hết hạn, hoàn hàng, webhook và quyết định tranh chấp Admin cập nhật tất cả món thuộc đơn. `price` là tổng giá các món; phí giao tính một lần mỗi người bán.
+- Tin nhắn có mã chống gửi trùng; thông báo và unread được ghi nguyên tử; người bán cũng mở được chat theo bài đăng. Đọc tin nhắn không làm đổi thứ tự danh sách chat.
+- Giao thành công ghi `deliveredAt/inspectionDeadline`. Backend xác nhận điều kiện thanh toán, sự kiện giao, tranh chấp và payout trước khi ghi giải ngân mô phỏng. Sau 3 ngày, scheduler hoặc `refreshOrder` đối soát đơn đủ điều kiện. Đơn cũ thiếu deadline không bị tự suy đoán ngày giao.
+- Webhook vận chuyển cần thêm `eventId` duy nhất: `{ eventId, orderId, trackingCode, status, description }`. Ghi `webhookEvents`, chặn replay khác payload và chặn chuyển ngược vận đơn đã kết thúc.
+- Đã deploy cloud ngày 24/10/2026 sau khi người dùng đăng nhập lại: 39/39 Functions ACTIVE, rules/indexes/Storage rules đã phát hành. Xem `CLOUD_DEPLOYMENT.md`. Không bật billing tự động; mock vẫn chỉ hoạt động trên Emulator.

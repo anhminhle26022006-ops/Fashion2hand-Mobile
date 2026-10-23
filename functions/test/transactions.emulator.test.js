@@ -59,7 +59,7 @@ async function upload(path, user, contentType = "image/png") {
 test("checkout is one item, server-priced, address-bound and idempotent", async () => {
   const seller = await account("seller"); const buyer = await account("buyer"); const postId = await listing(seller);
   const capabilities = await ok("getTransactionCapabilities", {}, buyer);
-  assert.equal(capabilities.simulatedPayments, true); assert.equal(capabilities.simulatedShipping, true); assert.equal(capabilities.checkoutItemsPerOrder, 1);
+  assert.equal(capabilities.simulatedPayments, true); assert.equal(capabilities.simulatedShipping, true); assert.equal(capabilities.checkoutItemsPerOrder, 20);
   const quote = await ok("getCheckoutQuote", { postId }, buyer); assert.equal(quote.price, 120000); assert.equal(quote.total, 120000 + quote.shippingFee);
   await denied("createPaidOrder", { postId, idempotencyKey: "missing-address" }, buyer);
   await denied("createPaidOrder", { postId, addressId: "home", idempotencyKey: "bad-price", expectedPrice: 1 }, buyer);
@@ -168,4 +168,114 @@ test("server deadlines expire pending orders and refund unconfirmed orders on Em
   await ok("refreshOrder", { orderId: unconfirmed.orderId }, seller);
   assert.equal((await db.doc(`orders/${unconfirmed.orderId}`).get()).get("paymentStatus"), "REFUNDED");
   assert.equal((await db.doc(`moneyTransactions/received_${unconfirmed.orderId}`).get()).get("status"), "REFUNDED");
+});
+
+test("settlement verifies delivery/payment, is idempotent and honors the three-day inspection deadline", async () => {
+  const seller = await account("settlement-seller"), buyer = await account("settlement-buyer");
+  const first = await shipping(seller, buyer);
+  await denied("updateOrderStatus", { orderId: first.orderId, status: "COMPLETED" }, buyer);
+  await ok("simulateShipmentUpdate", { orderId: first.orderId, status: "DELIVERED" }, seller);
+  const delivered = await db.doc(`orders/${first.orderId}`).get();
+  assert.ok(delivered.get("inspectionDeadline").toMillis() - delivered.get("deliveredAt").toMillis() >= 3 * 86400000 - 10000);
+  await ok("refreshOrder", { orderId: first.orderId }, seller);
+  assert.equal((await db.doc(`orders/${first.orderId}`).get()).get("orderStatus"), "DELIVERED");
+  await denied("updateOrderStatus", { orderId: first.orderId, status: "COMPLETED" }, seller);
+  await db.doc(`orders/${first.orderId}`).update({ inspectionDeadline: Timestamp.fromMillis(Date.now() - 1000) });
+  await Promise.all([ok("refreshOrder", { orderId: first.orderId }, buyer), ok("refreshOrder", { orderId: first.orderId }, seller)]);
+  assert.equal((await db.doc(`orders/${first.orderId}`).get()).get("orderStatus"), "COMPLETED");
+  const payout = await db.doc(`moneyTransactions/payout_${first.orderId}`).get();
+  assert.equal(payout.get("status"), "PAYOUT_COMPLETED_SIMULATED");
+  await ok("updateOrderStatus", { orderId: first.orderId, status: "COMPLETED" }, buyer);
+  assert.ok(payout.get("createdAt").isEqual((await db.doc(`moneyTransactions/payout_${first.orderId}`).get()).get("createdAt")));
+
+  const blocked = await shipping(seller, buyer);
+  await ok("simulateShipmentUpdate", { orderId: blocked.orderId, status: "DELIVERED" }, seller);
+  await db.doc(`disputes/${blocked.orderId}`).set({ orderId: blocked.orderId, status: "OPEN" });
+  await db.doc(`orders/${blocked.orderId}`).update({ inspectionDeadline: Timestamp.fromMillis(Date.now() - 1000) });
+  await ok("refreshOrder", { orderId: blocked.orderId }, buyer);
+  assert.equal((await db.doc(`orders/${blocked.orderId}`).get()).get("orderStatus"), "DELIVERED");
+  assert.equal((await db.doc(`moneyTransactions/payout_${blocked.orderId}`).get()).exists, false);
+  await denied("updateOrderStatus", { orderId: blocked.orderId, status: "COMPLETED" }, buyer);
+
+  const unverified = await shipping(seller, buyer);
+  await ok("simulateShipmentUpdate", { orderId: unverified.orderId, status: "DELIVERED" }, seller);
+  const order = await db.doc(`orders/${unverified.orderId}`).get();
+  await db.doc(`payments/${order.get("paymentId")}`).update({ status: "FAILED" });
+  await denied("updateOrderStatus", { orderId: unverified.orderId, status: "COMPLETED" }, buyer);
+  assert.equal((await db.doc(`moneyTransactions/payout_${unverified.orderId}`).get()).exists, false);
+});
+async function cart(buyer, postIds) {
+  const batch = db.batch(); for (const postId of postIds) batch.set(db.doc(`users/${buyer.uid}/cartItems/${postId}`), { postId, addedAt: Timestamp.now() }); await batch.commit();
+}
+async function grouped(seller, buyer, count = 2) {
+  const postIds = []; for (let i=0;i<count;i++) postIds.push(await listing(seller)); await cart(buyer,postIds);
+  const quote = await ok('getCartCheckoutQuote',{postIds},buyer);
+  const result = await ok('createCartOrders',{postIds,addressId:'home',idempotencyKey:`group-${postIds[0]}`,expectedTotal:quote.total},buyer);
+  return {postIds,orderId:result.orderIds[0]};
+}
+test('cart checkout groups by seller, snapshots every item, prices on server and atomically deduplicates', async () => {
+  const seller = await account('group-seller'), secondSeller = await account('second-seller'), buyer = await account('group-buyer');
+  const postIds = [await listing(seller),await listing(seller),await listing(secondSeller)], untouched = await listing(seller);
+  await cart(buyer,[...postIds,untouched]); const quote = await ok('getCartCheckoutQuote',{postIds},buyer);
+  assert.equal(quote.groups.length,2); assert.equal(quote.price,360000); assert.equal(quote.groups.find(g=>g.sellerId===seller.uid).items.length,2);
+  const data = {postIds,addressId:'home',idempotencyKey:`multi-${postIds[0]}`,expectedTotal:quote.total};
+  await denied('createCartOrders',{...data,expectedTotal:1},buyer);
+  const [first,retry] = await Promise.all([ok('createCartOrders',data,buyer),ok('createCartOrders',data,buyer)]);
+  assert.deepEqual(first.orderIds,retry.orderIds); assert.equal(first.orderIds.length,2);
+  let itemCount=0;
+  for (const id of first.orderIds) {
+    const order = await db.doc(`orders/${id}`).get(); const items = order.get('items'); itemCount+=items.length;
+    assert.equal(order.get('price'),items.reduce((sum,item)=>sum+item.price,0));
+    assert.equal(order.get('shippingAddress.recipient'),'group-buyer');
+    for (const item of items) { assert.equal(item.quantity,1); assert.ok(item.title); assert.equal((await db.doc(`posts/${item.postId}`).get()).get('reservedForOrderId'),id); assert.equal((await db.doc(`users/${buyer.uid}/cartItems/${item.postId}`).get()).exists,false); }
+  }
+  assert.equal(itemCount,3); assert.equal((await db.doc(`users/${buyer.uid}/cartItems/${untouched}`).get()).exists,true);
+  await denied('createCartOrders',{...data,postIds:[untouched]},buyer);
+});
+test('concurrent multi-item buyers cannot reserve the same unique garment or create partial orders', async () => {
+  const seller=await account('race-seller'), one=await account('race-one'), two=await account('race-two');
+  const shared=await listing(seller), extraOne=await listing(seller), extraTwo=await listing(seller);
+  await cart(one,[shared,extraOne]); await cart(two,[shared,extraTwo]);
+  const q1=await ok('getCartCheckoutQuote',{postIds:[shared,extraOne]},one), q2=await ok('getCartCheckoutQuote',{postIds:[shared,extraTwo]},two);
+  const results=await Promise.all([call('createCartOrders',{postIds:[shared,extraOne],addressId:'home',idempotencyKey:'race-one',expectedTotal:q1.total},one),call('createCartOrders',{postIds:[shared,extraTwo],addressId:'home',idempotencyKey:'race-two',expectedTotal:q2.total},two)]);
+  assert.equal(results.filter(result=>result.status===200).length,1);
+  const loser=results[0].status===200?extraTwo:extraOne;
+  assert.equal((await db.doc(`posts/${loser}`).get()).get('status'),'ACTIVE');
+  assert.equal((await db.collection('orders').where('buyerId','==',results[0].status===200?two.uid:one.uid).get()).size,0);
+});
+test('every item is released on cancellation, failure, rejection, return and deadline; payout uses combined subtotal', async () => {
+  const seller=await account('multi-life-seller'), buyer=await account('multi-life-buyer');
+  for (const operation of ['cancelOrder','rejectOrder','FAILED','RETURNED','EXPIRED','SETTLE']) {
+    const {postIds,orderId}=await grouped(seller,buyer);
+    if (operation==='EXPIRED') { await db.doc(`orders/${orderId}`).update({paymentDeadline:Timestamp.fromMillis(Date.now()-1000)}); await ok('refreshOrder',{orderId},buyer); }
+    else if (operation==='FAILED') await ok('simulatePaymentResult',{orderId,status:'FAILED'},buyer);
+    else {
+      await ok('simulatePaymentResult',{orderId,status:'PAID'},buyer);
+      for (const postId of postIds) assert.equal((await db.doc(`posts/${postId}`).get()).get('status'),'SOLD');
+      if (['cancelOrder','rejectOrder'].includes(operation)) await ok(operation,{orderId},operation==='cancelOrder'?buyer:seller);
+      else {
+        for (const status of ['PREPARING','READY_TO_SHIP']) await ok('updateOrderStatus',{orderId,status},seller);
+        await ok('createShipment',{orderId},seller);
+        await ok('simulateShipmentUpdate',{orderId,status:operation==='RETURNED'?'RETURNED':'DELIVERED'},seller);
+        if (operation==='SETTLE') { await ok('updateOrderStatus',{orderId,status:'COMPLETED'},buyer); assert.equal((await db.doc(`moneyTransactions/payout_${orderId}`).get()).get('amount'),240000); }
+      }
+    }
+    for (const postId of postIds) assert.equal((await db.doc(`posts/${postId}`).get()).get('status'),operation==='SETTLE'?'SOLD':'ACTIVE',operation);
+  }
+});
+test('admin dispute resolution updates every item in a grouped order', async () => {
+  const admin=await account('multi-admin'), seller=await account('multi-admin-seller'), buyer=await account('multi-admin-buyer');
+  await require('firebase-admin/auth').getAuth(app).setCustomUserClaims(admin.uid,{admin:true});
+  await db.doc(`users/${admin.uid}`).update({role:'ADMIN'});
+  for (const resolution of ['REFUND','RELEASE']) {
+    const {postIds,orderId}=await grouped(seller,buyer);
+    await ok('simulatePaymentResult',{orderId,status:'PAID'},buyer);
+    for (const status of ['PREPARING','READY_TO_SHIP']) await ok('updateOrderStatus',{orderId,status},seller);
+    await ok('createShipment',{orderId},seller);
+    await ok('createDispute',{orderId,reason:'DAMAGED',description:'Món đồ bị hư hỏng, cần quản trị kiểm tra.',uploadKey:'multi-case',evidencePaths:[]},buyer);
+    const data={action:'disputeResolve',id:orderId,value:{resolution},note:'Đã xem xét các món trong đơn.',requestId:`multi-resolution-${orderId}`};
+    await ok('adminMutate',data,admin); await ok('adminMutate',data,admin);
+    for (const postId of postIds) assert.equal((await db.doc(`posts/${postId}`).get()).get('status'),resolution==='REFUND'?'HIDDEN':'SOLD');
+    assert.equal((await db.doc(`moneyTransactions/${resolution==='REFUND'?'refund':'payout'}_${orderId}`).get()).get('amount'),resolution==='REFUND'?240000+(await db.doc(`orders/${orderId}`).get()).get('shippingFee'):240000);
+  }
 });

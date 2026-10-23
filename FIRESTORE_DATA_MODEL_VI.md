@@ -41,3 +41,14 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 - Sau khi giao thành công, người mua có 3 ngày mở khiếu nại. Admin chọn hoàn toàn phần hoặc giải ngân mô phỏng; phiên bản này không hoàn một phần và không chuyển tiền thật.
 - Lưu lịch sử trạng thái, thông báo, giỏ hàng và nhiều địa chỉ. Chat gắn với bài đăng, có thể gắn thêm đơn hàng.
 - Firestore không tự bảo đảm unique hay ràng buộc nhiều document. Dùng document ID xác định và transaction/server code để bảo đảm một đánh giá mỗi đơn, một địa chỉ mặc định, và chỉ một người nhận món FREE. Luồng thành viên 2 được xử lý qua Cloud Functions; client chỉ đọc dữ liệu liên quan đến chính họ.
+
+## Mở rộng đơn nhiều món — MINH-ANH, 24/10/2026
+
+Được chủ dự án cho phép trong phiên triển khai. Không migration/xóa đơn cũ.
+
+- `orders.items`: danh sách snapshot `{postId, quantity: 1, price, title, category, size, condition, location}`; tối đa 20 món, chỉ một seller trong mỗi đơn.
+- `schemaVersion: 2`, `itemCount`, `subtotal`, `totalAmount`; `price` tiếp tục là tổng giá món để các phép hoàn tiền/giải ngân cũ tương thích.
+- `postId` giữ ID món đầu tiên, `postSnapshot.title` dùng nhãn tổng hợp. Backend dùng `order-items.js` để đọc mọi món; nếu thiếu `items`, dùng `postId` của đơn cũ.
+- `orderRequests/cart_{hash}` lưu `buyerId, postIds, addressId, orderIds, createdAt` để chống tạo trùng toàn bộ lượt checkout. Client không có quyền ghi collection này.
+- Mỗi bài đăng giữ `reservedForOrderId` của đơn theo seller. Mỗi đơn có một payment và một shipment; phí giao tính theo đơn.
+- `deliveredAt`, `inspectionDeadline` chỉ backend ghi khi có sự kiện giao. Sau 3 ngày và không có tranh chấp đang mở, có thể tự hoàn tất/giải ngân mô phỏng.
