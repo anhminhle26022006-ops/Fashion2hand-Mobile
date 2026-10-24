@@ -37,6 +37,7 @@ final class TransactionScreens {
     }
     private final AppCompatActivity a;
     private final Host host;
+    private final FreeRequestFlow freeRequests;
     private final MemberTwoRepository repo = MemberTwoRepository.getInstance();
     private final vn.edu.ueh.thudinh.fashion2hand.service.PaymentService payments =
             new vn.edu.ueh.thudinh.fashion2hand.service.MockPaymentService(repo);
@@ -85,16 +86,16 @@ final class TransactionScreens {
         else if(dialogType.equals("reject") && screen==R.layout.activity_order_detail)rejectOrder();
     }
 
-    TransactionScreens(AppCompatActivity activity, Host host) { this.a = activity; this.host = host; }
+    TransactionScreens(AppCompatActivity activity, Host host) { this.a = activity; this.host = host; this.freeRequests = new FreeRequestFlow(activity, host); }
 
     boolean owns(int layout) {
-        return layout == R.layout.activity_transactions || layout == R.layout.activity_request_status
+        return layout == R.layout.activity_free_requests || layout == R.layout.activity_free_request_people || layout == R.layout.activity_transactions || layout == R.layout.activity_request_status
                 || layout == R.layout.activity_requestfree || layout == R.layout.activity_cart
                 || layout == R.layout.activity_checkout || layout == R.layout.activity_order_detail
                 || layout == R.layout.activity_delivery || layout == R.layout.activity_delivery_map
                 || layout == R.layout.activity_transaction_history || layout == R.layout.activity_cancel_order;
     }
-    void invalidate() { generation++; busy = false; }
+    void invalidate() { generation++; busy = false; freeRequests.invalidate(); }
     private boolean valid(long token) { return !a.isDestroyed() && token == generation; }
     private int dp(int value) { return (int) (value * a.getResources().getDisplayMetrics().density + .5f); }
     private static String text(Map<String, Object> data, String key) { Object value = data.get(key); return value == null ? "" : String.valueOf(value); }
@@ -126,8 +127,8 @@ final class TransactionScreens {
 
     void prepare(int layout) {
         screen = layout; generation++; busy = false; buttons.clear();
-        if (layout == R.layout.activity_transactions || layout == R.layout.activity_transaction_history) {
-            a.setContentView(layout);
+        if (layout == R.layout.activity_transactions || layout == R.layout.activity_transaction_history || layout == R.layout.activity_free_requests || layout == R.layout.activity_free_request_people || layout == R.layout.activity_request_status) {
+            a.setContentView(layout == R.layout.activity_request_status ? R.layout.activity_free_request_detail : layout);
             content = a.findViewById(R.id.transactionContent);
             a.findViewById(R.id.btnTransactionBack).setOnClickListener(view -> host.back());
             View history = a.findViewById(R.id.btnTransactionHistory);
@@ -185,7 +186,7 @@ final class TransactionScreens {
     void bind(int layout) {
         if (!host.signedIn()) return;
         if (layout == R.layout.activity_transactions) bindOverview();
-        else if (layout == R.layout.activity_request_status) bindRequestDetail();
+        else if (layout == R.layout.activity_request_status || layout == R.layout.activity_free_requests || layout == R.layout.activity_free_request_people) freeRequests.bind(layout, content, ownerView);
         else if (layout == R.layout.activity_checkout || layout == R.layout.activity_requestfree) bindCheckout(layout == R.layout.activity_requestfree);
         else if (layout == R.layout.activity_cart) bindCart();
         else if (layout == R.layout.activity_order_detail) bindOrder();
@@ -195,16 +196,6 @@ final class TransactionScreens {
             heading("Hủy đơn hàng"); info(content, "Chỉ người mua được hủy trước khi người bán chuẩn bị. Đơn đã thanh toán sẽ ghi hoàn tiền mô phỏng.");
             button(content, R.id.btnCancelOrder, "Xác nhận hủy đơn", () -> execute(repo.cancelOrder(host.orderId()), value -> host.back()));
         }
-    }
-
-    private void bindRequestDetail() {
-        heading("Yêu cầu nhận đồ"); long token = generation;
-        host.listen(repo.listenFreeRequest(host.requestId(), (snapshot, error) -> {
-            if (!valid(token)) return;
-            reset(); if (error != null) { failure("Không tải được yêu cầu.", () -> host.open(screen)); return; }
-            if (snapshot == null || !snapshot.exists()) { info(content, "Yêu cầu không còn tồn tại."); return; }
-            requestCard(content, snapshot, true);
-        }));
     }
 
     private void setLabel(int id, String value) { ((TextView) a.findViewById(id)).setText(value); }
@@ -232,7 +223,7 @@ final class TransactionScreens {
         TextView state = a.findViewById(R.id.transactionOverviewState);
         state.setOnClickListener(view -> { if (!errors[0].isEmpty() || !errors[1].isEmpty()) host.open(screen); });
         a.findViewById(R.id.transactionRequestRow).setOnClickListener(view -> {
-            requestList.setVisibility(requestList.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
+            host.open(R.layout.activity_free_requests);
         });
         a.findViewById(R.id.transactionPurchaseRow).setOnClickListener(view -> host.orders(owner));
         a.findViewById(R.id.transactionIssueRow).setOnClickListener(view -> {
@@ -261,7 +252,7 @@ final class TransactionScreens {
             setLabel(R.id.txtRequestPreviewStatus,request==null?"Các yêu cầu sẽ xuất hiện tại đây":label(request.getString("status")) + " · " + requests.size() + " yêu cầu");
             buttons.clear(); requestList.removeAllViews();
             if (requests.isEmpty()) info(requestList,loaded[0]?"Chưa có yêu cầu nhận đồ.":"Đang tải yêu cầu…");
-            else for (DocumentSnapshot doc : requests) requestCard(requestList,doc,false);
+
             setLabel(R.id.txtPurchaseCount,String.valueOf(orders.size()));
             DocumentSnapshot latest = orders.isEmpty()?null:orders.get(0);
             setLabel(R.id.txtPurchasePreview,latest==null?"Chưa có đơn hàng":title(latest.getData()));
@@ -287,29 +278,6 @@ final class TransactionScreens {
         host.listen(owner?repo.listenOrdersAsSeller(host.uid(),orderListener):repo.listenOrdersAsBuyer(host.uid(),orderListener));
         render.run();
     }
-    private void requestCard(LinearLayout parent, DocumentSnapshot request, boolean detail) {
-        Map<String, Object> data = request.getData(); if (data == null) return;
-        LinearLayout card = card(parent); card.setTag("request|" + request.getId());
-        section(card, title(data)); info(card, "Mã yêu cầu: " + FreeRequestUi.code(request.getId()));
-        info(card, ("PENDING".equals(text(data,"status"))?"Đã gửi yêu cầu · Chờ người tặng phản hồi":label(text(data, "status"))) + " · " + date(data.get("createdAt")));
-        info(card, text(data, "note"));
-        boolean owner = host.uid().equals(text(data, "ownerId"));
-        TextView person=info(card, owner ? "Người yêu cầu: Thành viên" : "Người tặng: Thành viên");
-        String personId=text(data,owner?"requesterId":"ownerId");long personToken=generation;
-        com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile")
-            .call(Collections.singletonMap("sellerId",personId)).addOnSuccessListener(result->{
-                if(valid(personToken)&&person.isAttachedToWindow())person.setText((owner?"Người yêu cầu: ":"Người tặng: ")+text(map(result.getData()),"name"));
-            }).addOnFailureListener(ignored->{if(valid(personToken)&&person.isAttachedToWindow())person.setText(owner?"Người yêu cầu: Thành viên":"Người tặng: Thành viên");});
-        if ("PENDING".equals(text(data, "status"))) {
-            if (owner) {
-                button(card, R.id.btnAcceptFreeRequest, "Chấp nhận yêu cầu", () -> execute(repo.respondFreeRequest(request.getId(), true), result -> host.openOrder(text(map(result), "orderId"))));
-                button(card, R.id.btnRejectFreeRequest, "Từ chối yêu cầu", () -> execute(repo.respondFreeRequest(request.getId(), false), result -> { if (detail) host.open(screen); }));
-            } else button(card, R.id.btnCancelFreeRequest, "Hủy yêu cầu", () -> execute(repo.cancelFreeRequest(request.getId()), result -> { if (detail) host.open(screen); }));
-        }
-        if (!text(data, "orderId").isEmpty()) button(card, 0, "Xem đơn hàng", () -> host.openOrder(text(data, "orderId")));
-        if (!detail) button(card, 0, "Chi tiết yêu cầu", () -> host.openRequest(request.getId()));
-    }
-
     private void bindCart() {
         heading("Giỏ hàng"); info(content, "Chọn các món để đặt hàng. Backend tự tách đơn theo người bán, mỗi món có số lượng 1.");
         Set<String> selected = new HashSet<>();
@@ -789,13 +757,13 @@ final class TransactionScreens {
 
     Bundle save() {
         if(activeDialog!=null && activeDialog.isShowing() && dialogForm!=null)dialogDraft=UiFormState.capture(dialogForm);
-        Bundle state = new Bundle(); state.putString("context", checkoutContext); state.putString("key", checkoutKey); state.putString("address", addressId); state.putString("note", freeNote);
+        Bundle state = new Bundle(); freeRequests.save(state); state.putString("context", checkoutContext); state.putString("key", checkoutKey); state.putString("address", addressId); state.putString("note", freeNote);
         state.putString("dialogType",dialogType);state.putBundle("dialogDraft",dialogDraft);state.putString("newAddressKey",newAddressKey);
         state.putStringArrayList("cartCheckoutIds", cartCheckoutIds);
         state.putInt("historyFilter", historyFilter); state.putBoolean("owner", ownerView); state.putString("disputeOrder", disputeOrder); state.putString("uploadKey", uploadKey); state.putStringArrayList("evidence", uploadedEvidence); return state;
     }
     void restore(Bundle state) {
-        if (state == null) return; checkoutContext = state.getString("context", ""); checkoutKey = state.getString("key", ""); addressId = state.getString("address", ""); freeNote = state.getString("note", "");
+        if (state == null) return; freeRequests.restore(state); checkoutContext = state.getString("context", ""); checkoutKey = state.getString("key", ""); addressId = state.getString("address", ""); freeNote = state.getString("note", "");
         dialogType=state.getString("dialogType","");dialogDraft=state.getBundle("dialogDraft");newAddressKey=state.getString("newAddressKey","");
         ArrayList<String> cartIds = state.getStringArrayList("cartCheckoutIds"); cartCheckoutIds = cartIds == null ? new ArrayList<>() : cartIds;
         historyFilter = state.getInt("historyFilter",0); ownerView = state.getBoolean("owner"); disputeOrder = state.getString("disputeOrder", ""); uploadKey = state.getString("uploadKey", "");
