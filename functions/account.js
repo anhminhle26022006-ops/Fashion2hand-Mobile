@@ -1,3 +1,4 @@
+const { canonicalAddress } = require("./address-catalog");
 const crypto = require("node:crypto");
 
 /** Owner account operations shared by the profile, checkout and Admin screens. */
@@ -39,8 +40,12 @@ module.exports = ({ onCall, db, getStorage, FieldValue, uidOf, cleanText, cleanD
     saveAddress: onCall(async request => {
       const uid = uidOf(request), id = cleanDocumentId(request.data.id, "Mã địa chỉ");
       const source = request.data.address || {}, address = {};
-      for (const [field, max] of [["recipient", 100], ["phone", 24], ["province", 100], ["district", 100], ["ward", 100], ["street", 300]])
+      for (const [field, max] of [["recipient", 100], ["phone", 24], ["street", 300]])
         address[field] = cleanText(source[field], max, field);
+      if (source.provinceCode || source.wardCode || source.addressVersion) Object.assign(address, canonicalAddress(source, fail));
+      else { // Existing clients can still save legacy addresses during the app rollout.
+        for (const key of ["province", "district", "ward"]) address[key] = cleanText(source[key], 100, key);
+      }
       if (!/^\+?[0-9 ()-]{9,20}$/.test(address.phone)) fail("invalid-argument", "Số điện thoại không hợp lệ.");
       if (typeof source.isDefault !== "boolean") fail("invalid-argument", "Chọn trạng thái mặc định.");
       address.label = source.label === "WORK" ? "WORK" : "HOME";

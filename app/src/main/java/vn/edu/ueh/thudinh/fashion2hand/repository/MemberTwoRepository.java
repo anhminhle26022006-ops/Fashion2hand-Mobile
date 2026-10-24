@@ -196,6 +196,11 @@ public final class MemberTwoRepository {
         return firestore.collection("freeRequests").document(requestId).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);
     }
 
+    public ListenerRegistration listenMyFreeRequest(String uid, String postId, EventListener<QuerySnapshot> listener) {
+        return firestore.collection("freeRequests").whereEqualTo("requesterId",uid).whereEqualTo("postId",postId)
+                .addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE,listener);
+    }
+
     public ListenerRegistration listenChats(String uid, EventListener<QuerySnapshot> listener) {
         return firestore.collection("chats").whereArrayContains("participantIds", uid)
                 .orderBy("updatedAt", Query.Direction.DESCENDING).addSnapshotListener(com.google.firebase.firestore.MetadataChanges.INCLUDE, listener);

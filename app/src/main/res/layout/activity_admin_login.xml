@@ -68,7 +68,15 @@
             android:id="@+id/edtAdminPassword"
             style="@style/AdminInput"
             android:hint="Nhập mật khẩu"
+            android:saveEnabled="false"
             android:inputType="textPassword" />
+
+        <CheckBox
+            android:id="@+id/checkShowAdminPassword"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Hiện mật khẩu"
+            android:textColor="@color/f2h_text_muted" />
 
         <TextView
             android:id="@+id/btnAdminLogin"

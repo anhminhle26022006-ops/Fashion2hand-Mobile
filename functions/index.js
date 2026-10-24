@@ -32,6 +32,18 @@ function uidOf(request) {
   if (!request.auth) fail("unauthenticated", "Vui lòng đăng nhập.");
   return request.auth.uid;
 }
+async function requireVerifiedAccount(request) {
+  const uid = uidOf(request);
+  const user = await getAuth().getUser(uid);
+  if (!user.disabled && user.customClaims?.admin === true) {
+    const profile = await db.doc(`users/${uid}`).get();
+    if (profile.exists && profile.get("role") === "ADMIN" && profile.get("accountStatus") === "ACTIVE") return uid;
+  }
+  // Phone verification is optional while paid SMS is disabled.
+  if (!user.email || !user.emailVerified || user.disabled)
+    fail("failed-precondition", "Bạn cần xác minh email trước khi đăng bài, mua hàng hoặc xin đồ.");
+  return uid;
+}
 function cleanText(value, max, label, required = true) {
   const result = typeof value === "string" ? value.trim() : "";
   if (required && !result) fail("invalid-argument", `${label} không được để trống.`);
@@ -50,7 +62,9 @@ function simulationEnabled(kind) {
 function validatedAddress(address) {
   if (!address || !address.exists) fail("failed-precondition", "Vui lòng chọn địa chỉ nhận hàng đã lưu.");
   const value = addressSnapshot(address);
-  if (!value.recipient.trim() || !value.province.trim() || !value.district.trim() || !value.ward.trim()
+  if (value.addressVersion || value.provinceCode || value.wardCode)
+    Object.assign(value, require("./address-catalog").canonicalAddress(value, fail));
+  if (!value.recipient.trim() || !value.province.trim() || !value.ward.trim()
       || !value.street.trim() || !/^\+?[0-9 ()-]{9,20}$/.test(value.phone))
     fail("failed-precondition", "Địa chỉ nhận hàng chưa đầy đủ hoặc số điện thoại không hợp lệ.");
   return value;
@@ -218,6 +232,8 @@ function addressSnapshot(address) {
     phone: String(data.phone || ""),
     province: String(data.province || ""),
     district: String(data.district || ""),
+    provinceCode: String(data.provinceCode || ""), wardCode: String(data.wardCode || ""),
+    addressVersion: String(data.addressVersion || ""),
     ward: String(data.ward || ""),
     street: String(data.street || data.addressLine || ""),
     label: String(data.label || data.type || "")
@@ -355,6 +371,7 @@ exports.markChatRead = onCall(async (request) => {
 });
 
 exports.createFreeRequest = onCall(async (request) => {
+  await requireVerifiedAccount(request);
   const uid = uidOf(request);
   const postId = cleanDocumentId(request.data.postId, "Bài đăng");
   const addressId = request.data.addressId ? cleanDocumentId(request.data.addressId, "Địa chỉ nhận") : "";
@@ -463,6 +480,7 @@ exports.cancelFreeRequest = onCall(async (request) => {
 });
 
 exports.createPaidOrder = onCall(async (request) => {
+  await requireVerifiedAccount(request);
   const uid = uidOf(request);
   const postId = cleanDocumentId(request.data.postId, "Bài đăng");
   const idempotencyKey = cleanText(request.data.idempotencyKey, 128, "Mã yêu cầu");
@@ -918,6 +936,6 @@ exports.markNotificationRead = onCall(async (request) => {
 });
 
 Object.assign(exports, require("./cart-checkout")({ db, onCall, uidOf, cleanDocumentId, cleanText, fail, FieldValue,
-  shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent }));
+  shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent, requireVerifiedAccount }));
 Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }));
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));

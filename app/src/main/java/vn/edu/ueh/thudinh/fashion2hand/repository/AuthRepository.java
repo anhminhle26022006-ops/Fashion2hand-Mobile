@@ -24,6 +24,25 @@ public class AuthRepository {
         return firebaseAuth.getCurrentUser();
     }
 
+    /** Admin exemption requires a refreshed signed claim AND the server-owned active profile. */
+    public Task<Boolean> isActiveAdmin() {
+        FirebaseUser user = getCurrentUser();
+        if (user == null) return com.google.android.gms.tasks.Tasks.forResult(false);
+        String uid = user.getUid();
+        return user.getIdToken(true).continueWithTask(token -> {
+            if (!token.isSuccessful()) throw token.getException();
+            if (!Boolean.TRUE.equals(token.getResult().getClaims().get("admin")))
+                return com.google.android.gms.tasks.Tasks.forResult(false);
+            return com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(uid)
+                    .get(com.google.firebase.firestore.Source.SERVER).continueWith(profile -> {
+                        if (!profile.isSuccessful()) throw profile.getException();
+                        return uid.equals(getCurrentUid()) && profile.getResult().exists()
+                                && "ADMIN".equals(profile.getResult().getString("role"))
+                                && "ACTIVE".equals(profile.getResult().getString("accountStatus"));
+                    });
+        });
+    }
+
     public Task<com.google.firebase.auth.AuthResult> signInWithEmail(String email, String password) {
         return firebaseAuth.signInWithEmailAndPassword(email, password);
     }
@@ -39,6 +58,12 @@ public class AuthRepository {
     public void sendPhoneCode(Activity activity, String phone,
                               PhoneAuthProvider.ForceResendingToken resendToken,
                               PhoneAuthProvider.OnVerificationStateChangedCallbacks callbacks) {
+        if (!vn.edu.ueh.thudinh.fashion2hand.BuildConfig.DEBUG
+                || !vn.edu.ueh.thudinh.fashion2hand.BuildConfig.USE_FIREBASE_EMULATORS) {
+            callbacks.onVerificationFailed(new com.google.firebase.FirebaseException(
+                    "SMS thật đang tạm tắt. Bạn chỉ cần xác minh email."));
+            return;
+        }
         PhoneAuthOptions.Builder options = PhoneAuthOptions.newBuilder(firebaseAuth)
                 .setPhoneNumber(phone).setTimeout(60L, TimeUnit.SECONDS)
                 .setActivity(activity).setCallbacks(callbacks);
@@ -47,6 +72,10 @@ public class AuthRepository {
     }
 
     public Task<Void> verifyPhone(PhoneAuthCredential credential) {
+        if (!vn.edu.ueh.thudinh.fashion2hand.BuildConfig.DEBUG
+                || !vn.edu.ueh.thudinh.fashion2hand.BuildConfig.USE_FIREBASE_EMULATORS)
+            return com.google.android.gms.tasks.Tasks.forException(new IllegalStateException(
+                    "Xác minh SĐT chỉ được phép trong Firebase Emulator."));
         FirebaseUser user = getCurrentUser();
         if (user == null) return com.google.android.gms.tasks.Tasks.forException(
                 new IllegalStateException("Vui lòng đăng nhập lại."));
@@ -88,5 +117,12 @@ public class AuthRepository {
     // Đăng xuất
     public void signOut() {
         firebaseAuth.signOut();
+        android.content.Context context=com.google.firebase.FirebaseApp.getInstance().getApplicationContext();
+        androidx.credentials.CredentialManager.create(context).clearCredentialStateAsync(
+            new androidx.credentials.ClearCredentialStateRequest(),null,androidx.core.content.ContextCompat.getMainExecutor(context),
+            new androidx.credentials.CredentialManagerCallback<Void,androidx.credentials.exceptions.ClearCredentialException>() {
+                @Override public void onResult(Void result) { }
+                @Override public void onError(androidx.credentials.exceptions.ClearCredentialException error) { }
+            });
     }
 }

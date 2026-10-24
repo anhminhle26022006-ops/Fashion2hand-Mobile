@@ -9,6 +9,7 @@ for (const obsolete of ["notifications_demo", "shipping_address", 'getSharedPref
   if (main.includes(obsolete)) throw new Error(`Obsolete local business state: ${obsolete}`);
 
 const groups = [
+  ["contact_required", "Firebase Authentication; syncAccountContact", "Người dùng thường cần email đã xác minh; Admin đang hoạt động được miễn. SĐT tùy chọn, SMS thật tắt. Không yêu cầu duyệt CCCD hoặc duyệt bài."],
   ["login register forgot_password otp_verification new_password password_reset_success change_email verify_phone", "Firebase Authentication; syncAccountContact", "Auth backend; các bước OTP/reset sử dụng cùng luồng Auth, không tự đặt cờ xác minh."],
   ["home explore", "posts (ACTIVE), users/{uid}/favorites; hồ sơ người dùng", "Tin đăng realtime; loading, rỗng, lỗi và thử lại."],
   ["favorites", "users/{uid}/favorites + posts", "Đọc/lưu/bỏ yêu thích trên Firestore; bài không còn quyền xem không được hiện như còn bán."],
@@ -83,7 +84,7 @@ const lines = [
   "- Không có API nhà cung cấp: thanh toán, vận chuyển, vị trí mô phỏng trên Emulator; chưa chuyển tiền, xác minh ngân hàng, GPS trực tiếp hoặc VNeID thật.",
   "- Chưa có push FCM khi đóng app, gửi ảnh trong chat hoặc form gửi đánh giá. UI không hiển thị điểm đánh giá/online/thời gian phản hồi giả; nút đính kèm chat chưa hỗ trợ được ẩn.",
   "- Ngôn ngữ chỉ có tiếng Việt; FAQ/chính sách là nội dung tĩnh. Không cần thêm API chỉ để hiển thị những màn này.",
-  "- Cấu hình Admin được lưu. Tự ẩn theo ngưỡng báo cáo, bắt xác minh điện thoại trước đăng bài và tự hoàn tất theo số ngày chưa được thi hành đầy đủ; không tính là chính sách tự động hoàn tất chỉ vì đã lưu cấu hình.", "",
+  "- Người dùng thường cần xác minh email để đăng bài/mua/xin đồ; Admin có claim và hồ sơ hợp lệ được miễn. Không bắt buộc SĐT, SMS thật tắt; bài được công khai ngay. Tự ẩn theo ngưỡng báo cáo và tự hoàn tất theo số ngày còn chưa được thi hành đầy đủ.", "",
   "## Tái kiểm tra source inventory", "", "```powershell", "node scripts/audit-ui-backend.cjs", "```", "",
   "Script kiểm tra mọi route/layout có trong inventory và chặn việc dùng lại các kho trạng thái nghiệp vụ cục bộ cũ. Đọc thêm `QA_BACKEND_UI_RESULTS.md` về build và kết quả kiểm thử thực tế.", ""
 ];

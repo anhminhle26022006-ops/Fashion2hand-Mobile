@@ -1,5 +1,7 @@
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
+const { verifyFixture } = require("./verified-fixture");
+const { getAuth } = require("firebase-admin/auth");
 const { initializeApp, deleteApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
@@ -10,7 +12,7 @@ const docs = "http://127.0.0.1:8080/v1/projects/fashion2hand/databases/(default)
 after(() => deleteApp(app));
 async function post(url, data, token) {
   const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify(data), signal: AbortSignal.timeout(60000) });
+    body: JSON.stringify(data), signal: AbortSignal.timeout(90000) });
   return { status: response.status, body: await response.json() };
 }
 async function call(name, data, user) {
@@ -20,7 +22,7 @@ async function ok(name, data, user) {
   const response = await call(name, data, user); assert.equal(response.status, 200, `${name}: ${JSON.stringify(response.body)}`); return response.body.result;
 }
 async function denied(name, data, user) { const result = await call(name, data, user); assert.notEqual(result.status, 200, `${name} should reject`); return result.body; }
-async function account(label) {
+async function account(label, verified = true) {
   const result = await post("http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator", {
     email: `${label}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`, password: "Test-only-123!", returnSecureToken: true
   });
@@ -28,8 +30,32 @@ async function account(label) {
   const user = { uid: result.body.localId, token: result.body.idToken };
   await db.doc(`users/${user.uid}`).set({ uid: user.uid, name: label, email: result.body.email, role: "USER", accountStatus: "ACTIVE" });
   await db.doc(`users/${user.uid}/addresses/home`).set({ recipient: label, phone: "0901234567", province: "TP.HCM", district: "Quận 1", ward: "Bến Nghé", street: "1 Đường kiểm thử" });
-  return user;
+  return verified ? verifyFixture(app, user) : user;
 }
+test("buy and free requests require verified Auth email; phone is optional and profile flags cannot bypass email", async () => {
+  const seller = await account("verified-seller"), buyer = await account("unverified-buyer", false);
+  const saleId = await listing(seller), freeId = await listing(seller, "FREE");
+  await db.doc(`users/${buyer.uid}`).update({ emailVerified: true, phoneVerified: true, verificationStatus: "VERIFIED" });
+  for (const state of [
+    { emailVerified: false, phoneNumber: null },
+    { emailVerified: false, phoneNumber: "+15550001234" }
+  ]) {
+    await getAuth(app).updateUser(buyer.uid, state);
+    for (const [name, data] of [
+      ["createPaidOrder", { postId: saleId, addressId: "home", idempotencyKey: "verification-denied" }],
+      ["createFreeRequest", { postId: freeId, addressId: "home", message: "Xin nhận món đồ kiểm thử" }]
+    ]) {
+      const result = await call(name, data, buyer);
+      assert.equal(result.body.error?.status, "FAILED_PRECONDITION", JSON.stringify(result.body));
+    }
+  }
+  assert.equal((await db.collection("orders").where("buyerId", "==", buyer.uid).get()).size, 0);
+  assert.equal((await db.doc(`posts/${saleId}`).get()).get("status"), "ACTIVE");
+  await verifyFixture(app, buyer, { phone: false });
+  await getAuth(app).updateUser(buyer.uid, { phoneNumber: null });
+  await ok("createPaidOrder", { postId: saleId, addressId: "home", idempotencyKey: "verification-allowed" }, buyer);
+  await ok("createFreeRequest", { postId: freeId, addressId: "home", message: "Xin nhận món đồ kiểm thử" }, buyer);
+});
 async function listing(seller, type = "SALE") {
   const ref = db.collection("posts").doc(); await ref.set({ ownerId: seller.uid, title: "Món đồ giao dịch " + ref.id, description: "Kiểm thử", type,
     price: type === "SALE" ? 120000 : 0, condition: "GOOD", status: "ACTIVE", createdAt: Timestamp.now(), updatedAt: Timestamp.now() }); return ref.id;

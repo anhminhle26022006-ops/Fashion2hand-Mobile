@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-module.exports = ({ db, onCall, uidOf, cleanDocumentId, cleanText, fail, FieldValue, shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent }) => {
+module.exports = ({ db, onCall, uidOf, cleanDocumentId, cleanText, fail, FieldValue, shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent, requireVerifiedAccount }) => {
   function idsOf(data) {
     if (!Array.isArray(data.postIds) || !data.postIds.length || data.postIds.length > 20) fail('invalid-argument', 'Chọn từ 1 đến 20 món đồ.');
     const ids = data.postIds.map(id => cleanDocumentId(id, 'Bài đăng')).sort();
@@ -31,6 +31,7 @@ module.exports = ({ db, onCall, uidOf, cleanDocumentId, cleanText, fail, FieldVa
       total: groups.reduce((sum,g) => sum+g.price+g.shippingFee,0), currency: 'VND', mode: 'SIMULATED' };
   });
   const createCartOrders = onCall(async request => {
+    await requireVerifiedAccount(request);
     const uid = uidOf(request), ids = idsOf(request.data);
     const addressId = cleanDocumentId(request.data.addressId,'Địa chỉ nhận');
     const key = cleanText(request.data.idempotencyKey,128,'Mã yêu cầu');

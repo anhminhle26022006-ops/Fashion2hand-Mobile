@@ -20,10 +20,16 @@ service firebase.storage {
         ];
     }
 
+    function verifiedAccount() {
+      return signedIn() && (request.auth.token.get('email_verified', false) == true
+        || (request.auth.token.get('admin', false) == true
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'));
+    }
+
     match /posts/{postId}/images/{fileName} {
       allow read: if firestore.get(/databases/(default)/documents/posts/$(postId)).data.status == 'ACTIVE'
         || ownsPost(postId) || postOrderMember(postId);
-      allow create, update: if ownsPost(postId)
+      allow create, update: if ownsPost(postId) && verifiedAccount()
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
       allow delete: if ownsPost(postId);

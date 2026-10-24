@@ -16,14 +16,17 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "vn.edu.ueh.thudinh.fashion2hand.EmulatorTestRunner"
-        buildConfigField("boolean", "USE_FIREBASE_EMULATORS",
-            providers.gradleProperty("useFirebaseEmulators").orElse("false").get())
         buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"${providers.gradleProperty("firebaseEmulatorHost").orElse("10.0.2.2").get()}\"")
     }
 
     buildTypes {
         release {
+            buildConfigField("boolean", "USE_FIREBASE_EMULATORS", "false")
             isMinifyEnabled = false
+        }
+        debug {
+            buildConfigField("boolean", "USE_FIREBASE_EMULATORS",
+                providers.gradleProperty("useFirebaseEmulators").orElse("false").get().toBoolean().toString())
         }
     }
 

@@ -46,3 +46,4 @@ activity_transaction_history
 activity_transactions
 activity_verification_status
 activity_verify_phone
+activity_contact_required

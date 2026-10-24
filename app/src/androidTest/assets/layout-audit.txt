@@ -13,6 +13,7 @@ activity_change_email
 activity_chat
 activity_checkout
 activity_community_policy
+activity_contact_required
 activity_delivery
 activity_delivery_map
 activity_edit_profile
@@ -75,7 +76,9 @@ item_order_list_status_row
 item_order_timeline
 item_order_update
 item_security_notice
+item_transaction_history
 view_admin_backbar
 view_admin_list_content
 view_admin_state
 view_admin_topbar
+view_transaction_header

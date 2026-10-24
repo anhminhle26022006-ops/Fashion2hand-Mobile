@@ -9,6 +9,17 @@ service cloud.firestore {
           || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'ACTIVE');
     }
     function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    // Admin requires both a signed claim and a server-owned active ADMIN profile.
+    function activeAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+    // Publication is immediate; verified email or active Admin (SMS is disabled),
+    // using signed Firebase Auth claims, never client-editable profile flags.
+    function verifiedAccount() {
+      return signedIn() && (request.auth.token.get('email_verified', false) == true || activeAdmin());
+    }
     function involvedInPostOrder(data) {
       return signedIn() && data.reservedForOrderId is string
         && exists(/databases/$(database)/documents/orders/$(data.reservedForOrderId))
@@ -56,11 +67,11 @@ service cloud.firestore {
       allow read: if resource.data.status == 'ACTIVE'
         || (signedIn() && resource.data.ownerId == request.auth.uid)
         || involvedInPostOrder(resource.data);
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid
+      allow create: if verifiedAccount() && request.resource.data.ownerId == request.auth.uid
         && validPost(request.resource.data)
         && !request.resource.data.keys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked'])
         && request.resource.data.status in ['DRAFT','PENDING_REVIEW','ACTIVE'];
-      allow update: if signedIn() && resource.data.ownerId == request.auth.uid
+      allow update: if verifiedAccount() && resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerId == resource.data.ownerId
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked','createdAt'])
         && (!('moderationLocked' in resource.data) || resource.data.moderationLocked == false)
