@@ -31,6 +31,7 @@ public class MarketplaceFlowTest {
         user.put("role", "USER"); user.put("accountStatus", "ACTIVE");
         user.put("createdAt", FieldValue.serverTimestamp()); user.put("updatedAt", FieldValue.serverTimestamp());
         Tasks.await(FirebaseFirestore.getInstance().collection("users").document(uid).set(user), 30, TimeUnit.SECONDS);
+        VerifiedAccountFixture.verify(auth);
     }
 
     private void waitFor(ActivityScenario<MainActivity> scenario, int id) throws Exception {

@@ -71,7 +71,7 @@ final class AccountScreens {
             for(DocumentSnapshot doc:snapshot.getDocuments()){
                 Map<String,Object> data=doc.getData();LinearLayout card=new LinearLayout(a);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(8,12,8,12);
                 card.addView(label(("WORK".equals(doc.getString("label"))?"Văn phòng":"Nhà riêng")+(Boolean.TRUE.equals(doc.getBoolean("isDefault"))?" · Mặc định":"")));
-                card.addView(label(string(data,"recipient","")+" · "+string(data,"phone","")+"\n"+string(data,"street","")+", "+string(data,"ward","")+"\n"+string(data,"district","")+", "+string(data,"province","")));
+                card.addView(label(string(data,"recipient","")+" · "+string(data,"phone","")+"\n"+AddressPicker.format(data)));
                 card.addView(button("Chỉnh sửa",()->{addressId=doc.getId();host.open(R.layout.activity_address_form);}));
                 card.addView(button("Xóa",()->new AlertDialog.Builder(a).setMessage("Xóa địa chỉ này?").setNegativeButton("Hủy",null).setPositiveButton("Xóa",(dialog,which)->call("deleteAddress",args("id",doc.getId())).addOnFailureListener(this::error)).show()));cards.addView(card);
             }
@@ -83,23 +83,38 @@ final class AccountScreens {
         final int token=++generation;
         if(addressId.isEmpty())addressId=UUID.randomUUID().toString();
         final String id=addressId;final String uid=host.uid();
-        int[] ids={R.id.edtAddressRecipient,R.id.edtAddressPhone,R.id.edtAddressProvince,R.id.edtAddressDistrict,R.id.edtAddressWard,R.id.edtAddressStreet};
-        String[] keys={"recipient","phone","province","district","ward","street"};
+        int[] ids={R.id.edtAddressRecipient,R.id.edtAddressPhone,R.id.edtAddressProvince,R.id.edtAddressWard,R.id.edtAddressStreet};
+        String[] keys={"recipient","phone","province","ward","street"};
+        FirebaseUser user=FirebaseAuth.getInstance().getCurrentUser();
+        if(!host.restoringDraft()&&user!=null){text(R.id.edtAddressRecipient,user.getDisplayName());text(R.id.edtAddressPhone,user.getPhoneNumber());}
+        final AddressPicker picker;
+        try{picker=new AddressPicker(a,a.findViewById(R.id.edtAddressProvince),a.findViewById(R.id.edtAddressWard));}
+        catch(IOException failure){error(failure);a.findViewById(R.id.btnSaveAddress).setEnabled(false);return;}
         Set<Integer> edited=track(ids);Button save=a.findViewById(R.id.btnSaveAddress);save.setEnabled(false);
         text(R.id.txtAddressFormTitle,"Địa chỉ nhận hàng");
         db.document("users/"+uid+"/addresses/"+id).get(Source.SERVER).addOnSuccessListener(doc->{
             if(!valid(token))return;save.setEnabled(true);
             if(doc.exists()){
-                for(int i=0;i<ids.length;i++)if(!edited.contains(ids[i]))input(ids[i]).setText(doc.getString(keys[i]));
+                Set<Integer> beforeLoad=new HashSet<>(edited);
+                boolean keepArea=beforeLoad.contains(R.id.edtAddressProvince)||beforeLoad.contains(R.id.edtAddressWard);
+                for(int i=0;i<ids.length;i++)if(!beforeLoad.contains(ids[i])&&!(keepArea&&(i==2||i==3)))input(ids[i]).setText(doc.getString(keys[i]));
+                if(!"VN_2_LEVEL_2025".equals(doc.getString("addressVersion")))text(R.id.txtAddressLegacy,"Địa chỉ cũ: "+AddressPicker.format(doc.getData())+". Hãy chọn lại tỉnh/thành phố và phường/xã hiện hành khi lưu.");
                 if(!host.restoringDraft()){
                     ((RadioGroup)a.findViewById(R.id.rgAddressType)).check("WORK".equals(doc.getString("label"))?R.id.radioAddressWork:R.id.radioAddressHome);
                     ((CheckBox)a.findViewById(R.id.checkAddressDefault)).setChecked(Boolean.TRUE.equals(doc.getBoolean("isDefault")));
                 }
+            }else if(!host.restoringDraft()){
+                db.document("users/"+uid).get(Source.SERVER).addOnSuccessListener(profile->{
+                    if(!valid(token))return;
+                    for(String key:new String[]{"name","phone"}){int field="name".equals(key)?R.id.edtAddressRecipient:R.id.edtAddressPhone;
+                        String v=profile.getString(key);if(!edited.contains(field)&&v!=null&&!v.trim().isEmpty())text(field,v);}
+                }).addOnFailureListener(failure->{if(valid(token))Toast.makeText(a,"Không tải được hồ sơ. Bạn có thể nhập tên và SĐT.",Toast.LENGTH_LONG).show();});
             }
         }).addOnFailureListener(failure->{if(valid(token)){error(failure);text(R.id.txtAddressFormTitle,"Không tải được địa chỉ · Quay lại để thử lại");}});
         click(R.id.btnSaveAddress,()->{
             Map<String,Object> data=new HashMap<>();for(int i=0;i<ids.length;i++){String v=value(ids[i]);if(v.isEmpty()){input(ids[i]).setError("Vui lòng nhập thông tin");return;}data.put(keys[i],v);}
             if(MarketplaceLinks.normalizePhone(value(R.id.edtAddressPhone)).isEmpty()){input(R.id.edtAddressPhone).setError("Số điện thoại không hợp lệ");return;}
+            if(!picker.apply(data))return;
             data.put("label",((RadioGroup)a.findViewById(R.id.rgAddressType)).getCheckedRadioButtonId()==R.id.radioAddressWork?"WORK":"HOME");data.put("isDefault",checked(R.id.checkAddressDefault));
             save.setEnabled(false);call("saveAddress",args("id",id,"address",data)).addOnSuccessListener(done->{if(valid(token)){addressId="";host.open(R.layout.activity_addresses);}})
                 .addOnFailureListener(failure->{if(valid(token)){save.setEnabled(true);error(failure);}});
@@ -191,7 +206,8 @@ final class AccountScreens {
     void privacy() {
         ++generation;FirebaseUser user=FirebaseAuth.getInstance().getCurrentUser();
         text(R.id.txtPrivacyEmail,user==null||user.getEmail()==null?"Chưa có email":user.getEmail()+(user.isEmailVerified()?" · Đã xác minh":" · Chưa xác minh"));
-        text(R.id.txtPrivacyPhone,user==null||user.getPhoneNumber()==null?"Chưa xác minh số điện thoại":user.getPhoneNumber()+" · Đã xác minh");
+        text(R.id.txtPrivacyPhone,user==null||user.getPhoneNumber()==null?"Không bắt buộc · SMS thật đang tạm tắt":user.getPhoneNumber()+" · Không bắt buộc xác minh SĐT");
+        a.findViewById(R.id.btnPrivacyPhone).setVisibility(BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS ? View.VISIBLE : View.GONE);
         click(R.id.btnPrivacyEmail,()->host.open(R.layout.activity_change_email));click(R.id.btnPrivacyPhone,()->host.open(R.layout.activity_verify_phone));click(R.id.btnPrivacyIdentityVerification,()->host.open(R.layout.activity_verification_status));
     }
 

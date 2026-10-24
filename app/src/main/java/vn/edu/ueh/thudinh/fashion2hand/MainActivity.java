@@ -39,6 +39,7 @@ import androidx.credentials.CustomCredential;
 import androidx.credentials.GetCredentialRequest;
 import androidx.credentials.exceptions.GetCredentialException;
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 import vn.edu.ueh.thudinh.fashion2hand.repository.AuthRepository;
 import vn.edu.ueh.thudinh.fashion2hand.repository.MemberTwoRepository;
@@ -113,6 +114,12 @@ public class MainActivity extends AppCompatActivity {
     private com.google.firebase.auth.PhoneAuthProvider.ForceResendingToken phoneResendToken;
     private long phoneResendAt;
     private boolean contactBusy;
+    private EmulatorOtpNotifications emulatorOtpNotifications;
+    private String verificationRoleUid = "";
+    private boolean verificationRoleResolved;
+    private boolean verificationRoleLoading;
+    private boolean verificationRoleAdmin;
+    private int verificationRoleGeneration;
     private boolean savingListing;
     private String pendingProductLink = "";
     private String viewedSellerId = "";
@@ -206,6 +213,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        emulatorOtpNotifications = new EmulatorOtpNotifications(this);
 
         galleryPicker = registerForActivityResult(new ActivityResultContracts.GetMultipleContents(), uris -> {
             if (uris != null && !uris.isEmpty()) {
@@ -304,9 +312,37 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showScreen(int layoutId) {
-        if(layoutId==R.layout.activity_login && authRepository.getCurrentUser()==null) accountScreens.clearSession();
+        FirebaseUser contactUser = authRepository.getCurrentUser();
+        boolean protectedAction = layoutId == R.layout.activity_home || layoutId == R.layout.activity_sell
+                || layoutId == R.layout.activity_sell_type || layoutId == R.layout.activity_sell_details
+                || layoutId == R.layout.activity_sell_preview || layoutId == R.layout.activity_checkout
+                || layoutId == R.layout.activity_requestfree;
+        if ((protectedAction || layoutId == R.layout.activity_contact_required)
+                && contactUser != null && !contactUser.isEmailVerified()) {
+            String uid = contactUser.getUid();
+            if (!uid.equals(verificationRoleUid)) { resetVerificationRole(); verificationRoleUid = uid; }
+            if (!verificationRoleResolved) {
+                if (!verificationRoleLoading) {
+                    verificationRoleLoading = true;
+                    int generation = verificationRoleGeneration, destination = layoutId;
+                    showScreen(R.layout.activity_splash);
+                    authRepository.isActiveAdmin()
+                            .addOnSuccessListener(admin -> finishVerificationRole(generation, uid, destination, admin))
+                            .addOnFailureListener(error -> finishVerificationRole(generation, uid, destination, false));
+                }
+                return;
+            }
+            if (!verificationRoleAdmin) layoutId = R.layout.activity_contact_required;
+            else if (layoutId == R.layout.activity_contact_required) layoutId = R.layout.activity_home;
+        } else if (layoutId == R.layout.activity_contact_required && contactUser != null && contactUser.isEmailVerified()) {
+            layoutId = R.layout.activity_home;
+        }
+        if(layoutId==R.layout.activity_login && authRepository.getCurrentUser()==null) {
+            accountScreens.clearSession(); resetVerificationRole();
+        }
         if (!restoringScreen && currentScreen != layoutId && currentScreen != R.layout.activity_splash) {
-            if (layoutId == R.layout.activity_home || layoutId == R.layout.activity_login) backStack.clear();
+            if (layoutId == R.layout.activity_home || layoutId == R.layout.activity_login
+                    || layoutId == R.layout.activity_contact_required) backStack.clear();
             else if (!backStack.isEmpty() && backStack.peek().layout == layoutId) {
                 goBack();
                 return;
@@ -318,6 +354,7 @@ public class MainActivity extends AppCompatActivity {
         if (transactionScreens.owns(layoutId)) transactionScreens.prepare(layoutId);
         else setContentView(layoutId);
         applySystemBarInsets();
+        if (layoutId == R.layout.activity_contact_required) { bindContactRequired(); return; }
         if (transactionScreens.owns(layoutId)) {
             transactionScreens.bind(layoutId);
             bindVisibleBackButtons(findViewById(android.R.id.content));
@@ -594,6 +631,22 @@ public class MainActivity extends AppCompatActivity {
         ViewCompat.requestApplyInsets(content);
     }
 
+    private void resetVerificationRole() {
+        verificationRoleGeneration++;
+        verificationRoleUid = "";
+        verificationRoleResolved = false;
+        verificationRoleLoading = false;
+        verificationRoleAdmin = false;
+    }
+
+    private void finishVerificationRole(int generation, String uid, int destination, boolean admin) {
+        if (generation != verificationRoleGeneration || !uid.equals(currentUid()) || isFinishing() || isDestroyed()) return;
+        verificationRoleResolved = true;
+        verificationRoleLoading = false;
+        verificationRoleAdmin = admin;
+        if (currentScreen == R.layout.activity_splash) showScreen(destination);
+    }
+
     private void bindLogin() {
         EditText email = findViewById(R.id.edtLoginEmail);
         EditText password = findViewById(R.id.edtLoginPassword);
@@ -632,17 +685,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startGoogleSignIn() {
+        if(authenticationBusy)return;
         int clientIdResource = getResources().getIdentifier("default_web_client_id", "string", getPackageName());
         if (clientIdResource == 0) {
-            Toast.makeText(this, "Tải google-services.json mới sau khi bật Google trong Firebase rồi thay file trong app/.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Đăng nhập Google chưa sẵn sàng. Vui lòng thử lại sau.", Toast.LENGTH_LONG).show();
             return;
         }
         String serverClientId = getString(clientIdResource);
-        GetGoogleIdOption googleOption = new GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(serverClientId)
-                .setAutoSelectEnabled(false)
-                .build();
+        GetSignInWithGoogleOption googleOption = new GetSignInWithGoogleOption.Builder(serverClientId).build();
+        authenticationBusy=true;
+        View googleButton=findViewById(R.id.btnGoogleLogin);if(googleButton!=null)googleButton.setEnabled(false);
         GetCredentialRequest request = new GetCredentialRequest.Builder()
                 .addCredentialOption(googleOption)
                 .build();
@@ -650,30 +702,43 @@ public class MainActivity extends AppCompatActivity {
         credentialManager.getCredentialAsync(this, request, new CancellationSignal(), getMainExecutor(),
                 new CredentialManagerCallback<androidx.credentials.GetCredentialResponse, GetCredentialException>() {
                     @Override public void onResult(androidx.credentials.GetCredentialResponse response) {
+                        if(isFinishing()||isDestroyed())return;
                         Credential credential = response.getCredential();
                         if (!(credential instanceof CustomCredential)
                                 || !GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType())) {
+                            finishGoogleSignInUi();
                             Toast.makeText(MainActivity.this, "Không nhận được thông tin tài khoản Google hợp lệ.", Toast.LENGTH_LONG).show();
                             return;
                         }
-                        GoogleIdTokenCredential googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());
+                        final GoogleIdTokenCredential googleCredential;
+                        try{googleCredential = GoogleIdTokenCredential.createFrom(((CustomCredential) credential).getData());}
+                        catch(Exception error){finishGoogleSignInUi();Toast.makeText(MainActivity.this,"Không đọc được tài khoản Google. Vui lòng thử lại.",Toast.LENGTH_LONG).show();return;}
                         com.google.firebase.auth.AuthCredential firebaseCredential = com.google.firebase.auth.GoogleAuthProvider
                                 .getCredential(googleCredential.getIdToken(), null);
                         authRepository.signInWithGoogleCredential(firebaseCredential, new AuthRepository.AuthCallback() {
                             @Override public void onSuccess(FirebaseUser user) {
+                                finishGoogleSignInUi();if(isFinishing()||isDestroyed())return;
                                 ensureUserProfile(user, googleCredential.getDisplayName(), () -> showScreen(R.layout.activity_home));
                             }
                             @Override public void onFailure(String message) {
+                                finishGoogleSignInUi();if(isFinishing()||isDestroyed())return;
                                 Toast.makeText(MainActivity.this, message == null ? "Đăng nhập Google thất bại." : message, Toast.LENGTH_LONG).show();
                             }
                         });
                     }
                     @Override public void onError(GetCredentialException exception) {
-                        if (isFinishing()) return;
-                        String message = exception.getMessage();
-                        Toast.makeText(MainActivity.this, message == null ? "Không thể đăng nhập bằng Google." : message, Toast.LENGTH_LONG).show();
+                        finishGoogleSignInUi();if(isFinishing()||isDestroyed())return;
+                        if(exception instanceof androidx.credentials.exceptions.GetCredentialCancellationException)return;
+                        String message=exception instanceof androidx.credentials.exceptions.NoCredentialException
+                                ?"Thêm tài khoản Google vào thiết bị rồi thử lại.":"Không thể đăng nhập Google. Kiểm tra kết nối và thử lại.";
+                        Toast.makeText(MainActivity.this,message,Toast.LENGTH_LONG).show();
                     }
                 });
+    }
+
+    private void finishGoogleSignInUi(){
+        authenticationBusy=false;
+        View button=findViewById(R.id.btnGoogleLogin);if(button!=null)button.setEnabled(true);
     }
 
     private void bindRegister() {
@@ -690,13 +755,19 @@ public class MainActivity extends AppCompatActivity {
             authenticationBusy=true;findViewById(R.id.btnCreateAccount).setEnabled(false);
             authRepository.createAccountWithEmail(email.getText().toString().trim(), password.getText().toString())
                     .addOnSuccessListener(result -> ensureUserProfile(result.getUser(), name.getText().toString().trim(),
-                            () -> showScreen(R.layout.activity_home)))
+                            () -> {
+                                showScreen(R.layout.activity_home);
+                                result.getUser().sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
+                                        "Đã gửi email xác minh. Kiểm tra hộp thư và thư rác, rồi quay lại bấm kiểm tra.", Toast.LENGTH_LONG).show())
+                                        .addOnFailureListener(this::showFirebaseError);
+                            }))
                     .addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done->{authenticationBusy=false;View button=findViewById(R.id.btnCreateAccount);if(button!=null)button.setEnabled(true);});
         });
     }
 
     private void ensureUserProfile(FirebaseUser user, String displayName, Runnable onReady) {
+        resetVerificationRole();
         if (user == null) {
             Toast.makeText(this, "Không lấy được tài khoản Firebase.", Toast.LENGTH_LONG).show();
             return;
@@ -807,7 +878,9 @@ public class MainActivity extends AppCompatActivity {
         setTextIfPresent(R.id.txtOtpTitle, emailChange ? "Xác nhận email mới" : "Xác minh số điện thoại");
         setTextIfPresent(R.id.txtOtpDescription, emailChange
                 ? "Mở liên kết trong email mới, sau đó quay lại nhấn kiểm tra."
-                : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
+                : BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS
+                        ? "OTP mô phỏng được hiển thị trên thanh thông báo. Nhập mã 6 chữ số để tiếp tục:"
+                        : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
         setTextIfPresent(R.id.txtOtpTarget, otpTarget);
         findViewById(R.id.edtOtpCode).setVisibility(emailChange ? View.GONE : View.VISIBLE);
         setTextIfPresent(R.id.btnSubmitOtp, emailChange ? "Tôi đã xác nhận — kiểm tra" : "Xác nhận");
@@ -825,15 +898,22 @@ public class MainActivity extends AppCompatActivity {
             completePhoneVerification(com.google.firebase.auth.PhoneAuthProvider.getCredential(phoneVerificationId, code.getText().toString()));
         });
         setContactBusy(contactBusy);
+        if (!emailChange && !phoneVerificationId.isEmpty())
+            emulatorOtpNotifications.show(otpTarget, phoneVerificationId);
     }
 
     private void sendPhoneOtp(boolean resend) {
+        if (!BuildConfig.DEBUG || !BuildConfig.USE_FIREBASE_EMULATORS) {
+            Toast.makeText(this, "SMS thật đang tạm tắt. Bạn chỉ cần xác minh email.", Toast.LENGTH_LONG).show();
+            return;
+        }
         if (!requireSignedIn() || contactBusy) return;
         if (android.os.SystemClock.elapsedRealtime() < phoneResendAt) {
             Toast.makeText(this, "Vui lòng chờ 60 giây trước khi gửi lại mã.", Toast.LENGTH_SHORT).show(); return;
         }
         String owner = currentUid();
         String requestedPhone = otpTarget;
+        emulatorOtpNotifications.clear();
         phoneVerificationId = "";
         setContactBusy(true);
         authRepository.sendPhoneCode(this, requestedPhone, resend ? phoneResendToken : null,
@@ -853,6 +933,7 @@ public class MainActivity extends AppCompatActivity {
                         setContactBusy(false);
                         if (currentScreen == R.layout.activity_verify_phone || currentScreen == R.layout.activity_otp_verification)
                             showScreen(R.layout.activity_otp_verification);
+                        emulatorOtpNotifications.show(requestedPhone, verificationId);
                     }
                     @Override public void onCodeAutoRetrievalTimeOut(String verificationId) { setContactBusy(false); }
                 });
@@ -862,9 +943,11 @@ public class MainActivity extends AppCompatActivity {
         if (!requireSignedIn()) return;
         setContactBusy(true);
         authRepository.verifyPhone(credential).addOnSuccessListener(unused -> {
+            emulatorOtpNotifications.clear();
             setContactBusy(false); phoneVerificationId = ""; phoneResendToken = null;
             syncVerifiedContact();
-            navigateRoot(R.layout.activity_profile); showScreen(R.layout.activity_edit_profile);
+            authRepository.getCurrentUser().getIdToken(true).addOnSuccessListener(token -> showScreen(R.layout.activity_home))
+                    .addOnFailureListener(this::showFirebaseError);
             Toast.makeText(this, "Số điện thoại đã được Firebase xác minh.", Toast.LENGTH_SHORT).show();
         }).addOnFailureListener(error -> contactError(error, () -> completePhoneVerification(credential)));
     }
@@ -932,7 +1015,48 @@ public class MainActivity extends AppCompatActivity {
                 .addOnFailureListener(this::showFirebaseError);
     }
 
+    private void bindContactRequired() {
+        FirebaseUser user = authRepository.getCurrentUser();
+        if (user == null) { showScreen(R.layout.activity_login); return; }
+        setTextIfPresent(R.id.txtContactRequiredStatus, "Email: " + user.getEmail()
+                + (user.isEmailVerified() ? " — đã xác minh" : " — chưa xác minh")
+                + "\nKhông bắt buộc xác minh số điện thoại. SMS thật đang tạm tắt.");
+        findViewById(R.id.btnRequiredPhone).setVisibility(
+                BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS ? View.VISIBLE : View.GONE);
+        setTextIfPresent(R.id.btnRequiredPhone, "Thử OTP số điện thoại (mô phỏng)");
+        findViewById(R.id.btnSendVerificationEmail).setEnabled(!user.isEmailVerified());
+        bindClick(R.id.btnSendVerificationEmail, () -> {
+            View button = findViewById(R.id.btnSendVerificationEmail); button.setEnabled(false);
+            user.sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
+                    "Đã gửi liên kết. Mở email xác minh rồi bấm kiểm tra lại.", Toast.LENGTH_LONG).show())
+                    .addOnFailureListener(this::showFirebaseError)
+                    .addOnCompleteListener(done -> { if (currentScreen == R.layout.activity_contact_required) button.setEnabled(true); });
+        });
+        bindClick(R.id.btnRequiredPhone, () -> { otpFlow = "phone_verify"; otpTarget = ""; showScreen(R.layout.activity_verify_phone); });
+        bindClick(R.id.btnRefreshContactVerification, () -> {
+            View button = findViewById(R.id.btnRefreshContactVerification); button.setEnabled(false);
+            user.reload().continueWithTask(task -> {
+                if (!task.isSuccessful()) throw task.getException();
+                return user.getIdToken(true);
+            }).addOnSuccessListener(result -> {
+                if (!isFinishing() && currentScreen == R.layout.activity_contact_required) {
+                    if (user.isEmailVerified()) {
+                        syncVerifiedContact();
+                        showScreen(R.layout.activity_home);
+                    } else Toast.makeText(this, "Email chưa được xác minh. Mở liên kết trong thư rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
+                }
+            }).addOnFailureListener(this::showFirebaseError)
+                    .addOnCompleteListener(done -> button.setEnabled(true));
+        });
+        bindClick(R.id.btnRequiredSignOut, () -> { authRepository.signOut(); navigateRoot(R.layout.activity_login); });
+    }
+
     private void bindVerifyPhone() {
+        if (!BuildConfig.DEBUG || !BuildConfig.USE_FIREBASE_EMULATORS) {
+            Toast.makeText(this, "SMS thật đang tạm tắt. Bạn chỉ cần xác minh email.", Toast.LENGTH_LONG).show();
+            showScreen(R.layout.activity_home);
+            return;
+        }
         if (!requireSignedIn()) return;
         EditText phone = findViewById(R.id.edtVerifyPhoneNumber);
         String existing = authRepository.getCurrentUser().getPhoneNumber();
@@ -1531,7 +1655,12 @@ public class MainActivity extends AppCompatActivity {
         setTextIfPresent(R.id.txtProfileEmail, account == null || account.getEmail() == null ? "Chưa có email" : account.getEmail());
         setTextIfPresent(R.id.txtProfilePhone, account == null || account.getPhoneNumber() == null ? "Chưa có số điện thoại" : account.getPhoneNumber());
         setTextIfPresent(R.id.txtProfileEmailStatus, account != null && account.isEmailVerified() ? "✓ Email đã xác minh" : "Email chưa xác minh");
-        setTextIfPresent(R.id.txtProfilePhoneStatus, account != null && account.getPhoneNumber() != null ? "✓ Số điện thoại đã xác minh" : "Số điện thoại chưa xác minh");
+        boolean simulatedPhone = BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS;
+        setTextIfPresent(R.id.txtProfilePhoneStatus, simulatedPhone ? "OTP chỉ mô phỏng, không bắt buộc" : "SMS thật đang tạm tắt, không bắt buộc xác minh SĐT");
+        for (int id : new int[]{R.id.btnVerifyPhone, R.id.btnChangeProfilePhone}) {
+            View button = findViewById(id);
+            if (button != null) button.setVisibility(simulatedPhone ? View.VISIBLE : View.GONE);
+        }
         if (requireSignedIn()) FirebaseFirestore.getInstance().collection("users").document(currentUid()).get()
                 .addOnSuccessListener(user -> {
                     if (isDestroyed() || !user.exists() || currentScreen != R.layout.activity_edit_profile) return;
@@ -1785,7 +1914,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindOrderChat() {
         if (chatFeed != null) { chatFeed.removeObservers(this); chatFeed = null; }
-        setTextIfPresent(R.id.tvChatStatus,"Tin nhắn được đồng bộ từ backend");
+        setTextIfPresent(R.id.tvChatStatus,"Cuộc trò chuyện");
         View attach=findViewById(R.id.btnAttach);if(attach!=null)attach.setVisibility(View.GONE);
         bindClick(R.id.btnMenu,()->new android.app.AlertDialog.Builder(this).setItems(new String[]{"Xem hồ sơ thành viên","Thông báo"},(dialog,which)->{if(which==1)showScreen(R.layout.activity_notifications);else if(!currentPeerId.isEmpty()){viewedSellerId=currentPeerId;showScreen(R.layout.activity_seller_profile);}}).show());
         bindClick(R.id.btnBack, () -> showScreen(chatReturnScreen));
@@ -1803,6 +1932,7 @@ public class MainActivity extends AppCompatActivity {
             currentProductData=post.getData();currentProductName=textValue(currentProductData,"title","Sản phẩm");currentSellerId=textValue(currentProductData,"ownerId","");currentProductIsFree="FREE".equals(textValue(currentProductData,"type","SALE"));
             setTextIfPresent(R.id.tvPinnedProductName,currentProductName);setTextIfPresent(R.id.tvPinnedProductPrice,currentProductIsFree?"Miễn phí":String.format(java.util.Locale.getDefault(),"%,d đ",numberValue(post.get("price"))));
             boolean available="ACTIVE".equals(post.getString("status"))&&!currentUid().equals(currentSellerId);cartButton.setEnabled(available&&!currentProductIsFree);buyButton.setEnabled(available);buyButton.setText(currentProductIsFree?"Yêu cầu nhận":"Mua ngay");
+            if(currentProductIsFree)bindFreeRequestAction(buyButton,chatPostId,available);
         }).addOnFailureListener(error->{if(currentScreen==R.layout.activity_chat)setTextIfPresent(R.id.tvPinnedProductName,"Không tải được sản phẩm. Quay lại để thử lại.");});
         bindClick(R.id.btnAddToCart,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;cartButton.setEnabled(false);memberTwoRepository.addCartItem(currentUid(),currentPostId,cartDataForCurrentProduct()).addOnSuccessListener(done->Toast.makeText(this,"Đã thêm vào giỏ hàng.",Toast.LENGTH_SHORT).show()).addOnFailureListener(this::showFirebaseError).addOnCompleteListener(done->{if(cartButton.isAttachedToWindow())cartButton.setEnabled(true);});});
         bindClick(R.id.btnBuyNow,()->{if(currentPostId.isEmpty()||!requireSignedIn())return;checkoutReturnScreen=R.layout.activity_chat;showScreen(currentProductIsFree?R.layout.activity_requestfree:R.layout.activity_checkout);});
@@ -2455,9 +2585,9 @@ public class MainActivity extends AppCompatActivity {
                     loadAvatarIntoTextView(user.getString("photoUrl"), findViewById(R.id.imgProfileAvatar));
                     boolean verified = "VERIFIED".equals(user.getString("verificationStatus"));
                     boolean pending = "PENDING".equals(user.getString("verificationStatus"));
-                    ((TextView) findViewById(R.id.txtVerificationCardTitle)).setText(verified ? "Đã xác minh" : pending ? "Đang chờ duyệt" : "Cần xác minh");
+                    ((TextView) findViewById(R.id.txtVerificationCardTitle)).setText(verified ? "Đã xác minh danh tính" : pending ? "Đã gửi hồ sơ danh tính" : "Xác minh danh tính (tùy chọn)");
                     ((TextView) findViewById(R.id.txtVerificationCardSubtitle)).setText(verified
-                            ? "Tài khoản đã được xác minh" : pending ? "Hồ sơ đã được backend tiếp nhận" : "Chưa được backend xác nhận danh tính");
+                            ? "Hồ sơ danh tính đã được duyệt" : pending ? "Đang chờ quản trị viên duyệt" : "Chưa gửi hồ sơ · không bắt buộc để mua/nhận đồ");
                 }));
         addScreenListener(memberOneRepository.listenMyListings(uid, (snapshot, error) -> {
             if (root != findViewById(R.id.profileRoot)) return;
@@ -2690,6 +2820,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         applyProductKindUi();
+        if(currentProductIsFree)bindFreeRequestAction(findViewById(R.id.btnRequestFree),currentPostId,"ACTIVE".equals(textValue(currentProductData,"status","ACTIVE"))&&!currentUid().equals(currentSellerId));
+    }
+
+    private void bindFreeRequestAction(Button button,String postId,boolean available) {
+        if(button==null||postId.isEmpty())return;
+        final int origin=currentScreen;final String uid=currentUid();
+        if(uid.isEmpty()){button.setText("Gửi yêu cầu");button.setEnabled(available);return;}
+        button.setEnabled(false);button.setText("Đang kiểm tra yêu cầu…");
+        addScreenListener(memberTwoRepository.listenMyFreeRequest(uid,postId,(snapshot,error)->{
+            if(isDestroyed()||currentScreen!=origin||!postId.equals(currentPostId)||!uid.equals(currentUid())||!button.isAttachedToWindow())return;
+            if(error!=null){button.setText("Không tải được yêu cầu");button.setEnabled(false);return;}
+            DocumentSnapshot existing=null;
+            if(snapshot!=null)for(DocumentSnapshot request:snapshot.getDocuments())if(FreeRequestUi.alreadySent(request.getString("status"))){existing=request;break;}
+            if(existing!=null){
+                final String requestId=existing.getId();button.setText(FreeRequestUi.action(existing.getString("status")));button.setEnabled(true);
+                button.setOnClickListener(v->openTransactionDestination(R.layout.activity_request_status,()->currentFreeRequestId=requestId));
+            }else{
+                boolean ready=snapshot!=null&&!snapshot.getMetadata().isFromCache();button.setText(ready?"Gửi yêu cầu":"Đang kiểm tra yêu cầu…");button.setEnabled(ready&&available);
+                button.setOnClickListener(v->{if(!requireSignedIn())return;checkoutReturnScreen=origin;showScreen(R.layout.activity_requestfree);});
+            }
+        }));
     }
 
     private void updateProductImageIndex(TextView indicator) {
@@ -2822,6 +2973,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override protected void onDestroy() {
+        if (emulatorOtpNotifications != null) emulatorOtpNotifications.close();
         clearScreenListeners();
         super.onDestroy();
     }

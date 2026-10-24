@@ -72,7 +72,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
       const [bytes] = await file.download(); return { contentType: meta.contentType, base64: bytes.toString("base64") };
     }),
     adminSettings: onCall(async request => {
-      await admin(request); const doc = await db.doc("systemConfig/active").get(); return { ...configDefaults, ...(doc.exists ? json(doc.data()) : {}), revision: doc.exists ? doc.get("revision") || 0 : 0 };
+      await admin(request); const doc = await db.doc("systemConfig/active").get(); return { ...configDefaults, ...(doc.exists ? json(doc.data()) : {}), requirePhoneBeforeSelling: false, revision: doc.exists ? doc.get("revision") || 0 : 0 };
     }),
     adminMutate: onCall(async request => {
       const uid = await admin(request);
@@ -94,6 +94,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
             if (!Number.isSafeInteger(data[key]) || data[key] < min || data[key] > max) fail("invalid-argument", `Cấu hình ${key} không hợp lệ.`);
           for (const key of ["autoHideReported", "requirePhoneBeforeSelling"]) if (typeof data[key] !== "boolean") fail("invalid-argument", `${key} phải là boolean.`);
           const saved = Object.fromEntries(Object.keys(configDefaults).map(key => [key, data[key]]));
+          saved.requirePhoneBeforeSelling = false;
           tx.set(ref, { ...saved, revision: data.revision + 1, updatedAt: stamp(), updatedBy: uid });
           tx.set(db.doc("shippingTariffs/active"), { minFee: data.shippingFee, updatedAt: stamp() }, { merge: true });
           auditData.before = before.exists ? before.data() : {}; auditData.after = saved;

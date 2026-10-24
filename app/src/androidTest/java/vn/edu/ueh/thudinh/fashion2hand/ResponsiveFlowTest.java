@@ -54,7 +54,7 @@ public class ResponsiveFlowTest {
  private Object field(MainActivity a,String name){try{Field field=MainActivity.class.getDeclaredField(name);field.setAccessible(true);return field.get(a);}catch(Exception e){throw new AssertionError(e);}}
  private String user()throws Exception{
   auth.signOut();String email="qa-"+System.nanoTime()+"@example.com";String uid=Tasks.await(auth.createUserWithEmailAndPassword(email,"Test-only-123!"),45,TimeUnit.SECONDS).getUser().getUid();
-  Map<String,Object> data=new HashMap<>();data.put("uid",uid);data.put("name","QA Tester");data.put("email",email);data.put("role","USER");data.put("accountStatus","ACTIVE");data.put("createdAt",FieldValue.serverTimestamp());Tasks.await(db.collection("users").document(uid).set(data),45,TimeUnit.SECONDS);return uid;
+  Map<String,Object> data=new HashMap<>();data.put("uid",uid);data.put("name","QA Tester");data.put("email",email);data.put("role","USER");data.put("accountStatus","ACTIVE");data.put("createdAt",FieldValue.serverTimestamp());Tasks.await(db.collection("users").document(uid).set(data),45,TimeUnit.SECONDS);VerifiedAccountFixture.verify(auth);return uid;
  }
  private void admin()throws Exception{auth.signOut();Tasks.await(auth.signInWithEmailAndPassword("admin-ui@example.com","Test-only-123!"),45,TimeUnit.SECONDS);}
  private List<String> asset(String name)throws Exception{try(BufferedReader input=new BufferedReader(new InputStreamReader(InstrumentationRegistry.getInstrumentation().getContext().getAssets().open(name)))){List<String> lines=new ArrayList<>();String line;while((line=input.readLine())!=null)if(!line.trim().isEmpty())lines.add(line.trim());return lines;}}

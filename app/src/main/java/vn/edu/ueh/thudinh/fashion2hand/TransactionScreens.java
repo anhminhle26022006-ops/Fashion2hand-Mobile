@@ -290,11 +290,16 @@ final class TransactionScreens {
     private void requestCard(LinearLayout parent, DocumentSnapshot request, boolean detail) {
         Map<String, Object> data = request.getData(); if (data == null) return;
         LinearLayout card = card(parent); card.setTag("request|" + request.getId());
-        section(card, title(data)); info(card, "Yêu cầu #" + request.getId());
-        info(card, label(text(data, "status")) + " · " + date(data.get("createdAt")));
+        section(card, title(data)); info(card, "Mã yêu cầu: " + FreeRequestUi.code(request.getId()));
+        info(card, ("PENDING".equals(text(data,"status"))?"Đã gửi yêu cầu · Chờ người tặng phản hồi":label(text(data, "status"))) + " · " + date(data.get("createdAt")));
         info(card, text(data, "note"));
         boolean owner = host.uid().equals(text(data, "ownerId"));
-        info(card, owner ? "Người yêu cầu: " + text(data, "requesterId") : "Người đăng: " + text(data, "ownerId"));
+        TextView person=info(card, owner ? "Người yêu cầu: Thành viên" : "Người tặng: Thành viên");
+        String personId=text(data,owner?"requesterId":"ownerId");long personToken=generation;
+        com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile")
+            .call(Collections.singletonMap("sellerId",personId)).addOnSuccessListener(result->{
+                if(valid(personToken)&&person.isAttachedToWindow())person.setText((owner?"Người yêu cầu: ":"Người tặng: ")+text(map(result.getData()),"name"));
+            }).addOnFailureListener(ignored->{if(valid(personToken)&&person.isAttachedToWindow())person.setText(owner?"Người yêu cầu: Thành viên":"Người tặng: Thành viên");});
         if ("PENDING".equals(text(data, "status"))) {
             if (owner) {
                 button(card, R.id.btnAcceptFreeRequest, "Chấp nhận yêu cầu", () -> execute(repo.respondFreeRequest(request.getId(), true), result -> host.openOrder(text(map(result), "orderId"))));
@@ -383,7 +388,7 @@ final class TransactionScreens {
     }
     private String addressLabel(DocumentSnapshot address) {
         Map<String, Object> data = address.getData(); if (data == null) return address.getId();
-        return text(data, "recipient") + " · " + text(data, "phone") + "\n" + text(data, "street") + ", " + text(data, "ward") + ", " + text(data, "district") + ", " + text(data, "province");
+        return text(data, "recipient") + " · " + text(data, "phone") + "\n" + AddressPicker.format(data);
     }
     private void renderCheckout(boolean free) {
         reset(); LinearLayout summary = card(content); section(summary, text(quote, "title"));
@@ -441,10 +446,26 @@ final class TransactionScreens {
     }
     private void newAddress() {
         LinearLayout form = new LinearLayout(a); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(8), dp(16), 0);
-        String[] keys = {"recipient", "phone", "province", "district", "ward", "street"};
-        String[] hints = {"Tên người nhận", "Số điện thoại", "Tỉnh / thành phố", "Quận / huyện", "Phường / xã", "Số nhà, đường"};
+        String[] keys = {"recipient", "phone", "province", "ward", "street"};
+        String[] hints = {"Tên người nhận", "Số điện thoại", "Chọn tỉnh / thành phố", "Chọn phường / xã", "Số nhà, đường"};
         EditText[] inputs = new EditText[keys.length];
-        for (int i = 0; i < keys.length; i++) inputs[i] = input(form, 0, hints[i], "");
+        for (int i = 0; i < keys.length; i++) {
+            if(i==2||i==3){android.widget.AutoCompleteTextView field=new android.widget.AutoCompleteTextView(a);field.setHint(hints[i]);field.setTextSize(14);form.addView(field,new LinearLayout.LayoutParams(-1,dp(54)));inputs[i]=field;}
+            else inputs[i] = input(form, 0, hints[i], "");
+        }
+        final AddressPicker picker;
+        try{picker=new AddressPicker(a,(android.widget.AutoCompleteTextView)inputs[2],(android.widget.AutoCompleteTextView)inputs[3]);}
+        catch(java.io.IOException failure){error(failure);return;}
+        com.google.firebase.auth.FirebaseUser user=com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        if(user!=null){inputs[0].setText(user.getDisplayName());inputs[1].setText(user.getPhoneNumber());}
+        final boolean[] edited={false,false};
+        for(int i=0;i<2;i++){final int field=i;inputs[i].addTextChangedListener(new android.text.TextWatcher(){
+            public void beforeTextChanged(CharSequence s,int st,int c,int after){}public void onTextChanged(CharSequence s,int st,int before,int count){edited[field]=true;}public void afterTextChanged(android.text.Editable s){}
+        });}
+        long profileToken=generation;
+        db.document("users/"+host.uid()).get(Source.SERVER).addOnSuccessListener(profile->{if(!valid(profileToken))return;
+            for(int i=0;i<2;i++){String v=profile.getString(i==0?"name":"phone");if(!edited[i]&&v!=null&&!v.trim().isEmpty())inputs[i].setText(v);}
+        }).addOnFailureListener(failure->{ /* Editable Auth defaults remain available. */ });
         inputs[1].setInputType(android.text.InputType.TYPE_CLASS_PHONE);
         ScrollView scroll = new ScrollView(a); scroll.addView(form);
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(a).setTitle("Thêm địa chỉ nhận hàng").setView(scroll)
@@ -457,9 +478,11 @@ final class TransactionScreens {
                 String value = inputs[i].getText().toString().trim(); if (value.isEmpty()) { inputs[i].setError("Vui lòng nhập thông tin"); return; } address.put(keys[i], value);
             }
             if (MarketplaceLinks.normalizePhone(String.valueOf(address.get("phone"))).isEmpty()) { inputs[1].setError("Số điện thoại không hợp lệ"); return; }
+            if(!picker.apply(address))return;
             dialog.getButton(-1).setEnabled(false); DocumentReference ref = db.collection("users").document(host.uid()).collection("addresses").document(newAddressKey);
-            address.put("isDefault", addresses.isEmpty()); address.put("createdAt", FieldValue.serverTimestamp());
-            ref.set(address).addOnSuccessListener(value -> { if (valid(token)) { addressId = ref.getId(); newAddressKey="";dialog.dismiss(); host.open(screen); } })
+            address.put("isDefault", addresses.isEmpty()); address.put("label", "HOME");
+            Map<String,Object> payload=new HashMap<>();payload.put("id",newAddressKey);payload.put("address",address);
+            com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("saveAddress").call(payload).addOnSuccessListener(value -> { if (valid(token)) { addressId = ref.getId(); newAddressKey="";dialog.dismiss(); host.open(screen); } })
                     .addOnFailureListener(error -> { if (valid(token)) { dialog.getButton(-1).setEnabled(true); error(error); } });
         })); dialog.show();
     }
@@ -545,7 +568,7 @@ final class TransactionScreens {
             button(shipping, R.id.btnTrackShipping, "Chi tiết vận đơn và lịch sử", () -> host.open(R.layout.activity_delivery));
         }
         Map<String, Object> address = map(order.get("shippingAddress"));
-        info(shipping, address.isEmpty() ? "Đơn cũ chưa lưu địa chỉ." : text(address, "recipient") + " · " + text(address, "phone") + "\n" + text(address, "street") + ", " + text(address, "ward") + ", " + text(address, "district") + ", " + text(address, "province"));
+        info(shipping, address.isEmpty() ? "Đơn cũ chưa lưu địa chỉ." : text(address, "recipient") + " · " + text(address, "phone") + "\n" + AddressPicker.format(address));
         if (!buyer) {
             if ("CONFIRMED".equals(status)) button(content, R.id.btnSellerConfirm, "Xác nhận đơn và chuẩn bị hàng", () -> execute(repo.updateOrderStatus(host.orderId(), "PREPARING"), value -> { }));
             if ("PREPARING".equals(status)) button(content, R.id.btnSellerReady, "Đã chuẩn bị — sẵn sàng giao", () -> execute(repo.updateOrderStatus(host.orderId(), "READY_TO_SHIP"), value -> { }));

@@ -7,7 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.storage.FirebaseStorage;
 
-/** Configures local Firebase services before any Activity or repository uses them. */
+/** Configures Firebase services before any Activity or repository uses them. */
 public class Fashion2handApplication extends Application {
     @Override
     public void onCreate() {

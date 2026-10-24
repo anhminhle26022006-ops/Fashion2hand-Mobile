@@ -1,5 +1,6 @@
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
+const { verifyFixture } = require("./verified-fixture");
 const { initializeApp, deleteApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -23,7 +24,7 @@ async function user(role = "USER", claim = false) {
  if (claim) await auth.setCustomUserClaims(record.uid, { admin: true });
  await db.doc(`users/${record.uid}`).set({ uid: record.uid, name: email, email, role, accountStatus: "ACTIVE", createdAt: FieldValue.serverTimestamp() });
  await db.doc(`users/${record.uid}/addresses/home`).set({ recipient: "Test", phone: "0901234567", province: "HCM", district: "Q1", ward: "Ward", street: "1 Test" });
- return { uid: record.uid, email, token: await login(email) };
+ return verifyFixture(app, { uid: record.uid, email, token: await login(email) });
 }
 async function mutate(admin, action, id, value, note = "Kiểm thử quản trị", requestId = `r-${Date.now()}-${Math.random()}`) { return ok("adminMutate", { action, id, value, note, requestId }, admin); }
 const docs = "http://127.0.0.1:8080/v1/projects/fashion2hand/databases/(default)/documents/";

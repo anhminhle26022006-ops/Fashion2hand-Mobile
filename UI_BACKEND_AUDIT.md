@@ -1,6 +1,6 @@
 # Rà soát kết nối backend toàn bộ giao diện
 
-Phạm vi: 49 màn Main (gồm splash) + 6 màn Admin = 55 màn đang dùng; 81 XML gồm cả thành phần và layout cũ. Firebase Emulator, không production.
+Phạm vi: 50 màn Main (gồm splash) + 6 màn Admin = 56 màn đang dùng; 84 XML gồm cả thành phần và layout cũ. Firebase Emulator, không production.
 
 Bảng dưới xác nhận đường đọc/ghi trong source. Kết quả E2E được ghi riêng; không coi việc có API trong source là đã kiểm thử mọi nhánh nghiệp vụ.
 
@@ -17,6 +17,7 @@ Bảng dưới xác nhận đường đọc/ghi trong source. Kết quả E2E đ
 | `activity_chat` | chats/messages; getChatContext; createChat/sendMessage/markChatRead | Tên, vai mua/bán, số chưa đọc từ backend; hiện chỉ hỗ trợ chat văn bản, không báo online giả. |
 | `activity_checkout` | cart; addresses; getCheckoutQuote; createPaidOrder/createFreeRequest | Checkout dùng cùng sổ địa chỉ Firestore; mỗi món tạo đơn riêng theo khả năng backend. |
 | `activity_community_policy` | Nội dung tĩnh / điều hướng | Không cần backend: ứng dụng chỉ có tiếng Việt; FAQ/chính sách hiện đóng gói trong app. |
+| `activity_contact_required` | Firebase Authentication; syncAccountContact | Người dùng thường cần email đã xác minh; Admin đang hoạt động được miễn. SĐT tùy chọn, SMS thật tắt. Không yêu cầu duyệt CCCD hoặc duyệt bài. |
 | `activity_delivery` | shipments; trackingEvents; lastLocation | Đọc vận đơn/lịch sử/tọa độ backend. Nhà vận chuyển và cập nhật GPS thật chưa có API; luồng mô phỏng được ghi rõ. |
 | `activity_delivery_map` | shipments; trackingEvents; lastLocation | Đọc vận đơn/lịch sử/tọa độ backend. Nhà vận chuyển và cập nhật GPS thật chưa có API; luồng mô phỏng được ghi rõ. |
 | `activity_edit_profile` | users/{uid}; Firebase Storage avatar; Firebase Auth contact | Lưu hồ sơ và avatar backend; tên/giới thiệu/khu vực và liên hệ không lấy dữ liệu mẫu. |
@@ -90,6 +91,7 @@ Bốn màn Main/List/Detail/Settings của Admin dựng UI trong `LiveAdminActiv
 | `activity_chat.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
 | `activity_checkout.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
 | `activity_community_policy.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
+| `activity_contact_required.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
 | `activity_delivery.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
 | `activity_delivery_map.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
 | `activity_edit_profile.xml` | Màn Main; đối chiếu bảng trên (giao dịch dùng controller runtime) |
@@ -152,17 +154,19 @@ Bốn màn Main/List/Detail/Settings của Admin dựng UI trong `LiveAdminActiv
 | `item_order_timeline.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `item_order_update.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `item_security_notice.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
+| `item_transaction_history.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `view_admin_backbar.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `view_admin_list_content.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `view_admin_state.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 | `view_admin_topbar.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
+| `view_transaction_header.xml` | Thành phần UI / Fragment cũ, không phải route riêng |
 
 ## Giới hạn chức năng đã xác định
 
 - Không có API nhà cung cấp: thanh toán, vận chuyển, vị trí mô phỏng trên Emulator; chưa chuyển tiền, xác minh ngân hàng, GPS trực tiếp hoặc VNeID thật.
 - Chưa có push FCM khi đóng app, gửi ảnh trong chat hoặc form gửi đánh giá. UI không hiển thị điểm đánh giá/online/thời gian phản hồi giả; nút đính kèm chat chưa hỗ trợ được ẩn.
 - Ngôn ngữ chỉ có tiếng Việt; FAQ/chính sách là nội dung tĩnh. Không cần thêm API chỉ để hiển thị những màn này.
-- Cấu hình Admin được lưu. Tự ẩn theo ngưỡng báo cáo, bắt xác minh điện thoại trước đăng bài và tự hoàn tất theo số ngày chưa được thi hành đầy đủ; không tính là chính sách tự động hoàn tất chỉ vì đã lưu cấu hình.
+- Người dùng thường cần xác minh email để đăng bài/mua/xin đồ; Admin có claim và hồ sơ hợp lệ được miễn. Không bắt buộc SĐT, SMS thật tắt; bài được công khai ngay. Tự ẩn theo ngưỡng báo cáo và tự hoàn tất theo số ngày còn chưa được thi hành đầy đủ.
 
 ## Tái kiểm tra source inventory
 

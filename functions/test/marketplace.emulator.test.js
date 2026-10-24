@@ -1,5 +1,7 @@
 const { test, after } = require("node:test");
 const assert = require("node:assert/strict");
+const { verifyFixture } = require("./verified-fixture");
+const { getAuth } = require("firebase-admin/auth");
 const { initializeApp, deleteApp } = require("firebase-admin/app");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 
@@ -13,10 +15,31 @@ const authUrl = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/";
 const docUrl = `http://127.0.0.1:8080/v1/projects/${project}/databases/(default)/documents/`;
 after(() => deleteApp(app));
 
+test("unverified active Admin can publish only with BOTH signed admin claim and server ADMIN role", async () => {
+  const user = await account("admin-publication");
+  const postId = `admin-exempt-${Date.now()}`;
+  await db.doc(`posts/${postId}`).set({ ownerId: user.uid, title: "Admin miễn xác minh", description: "Kiểm thử",
+    type: "SALE", price: 100000, condition: "GOOD", status: "DRAFT", createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+  await db.doc(`users/${user.uid}`).update({ role: "ADMIN" });
+  assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, user.token)).status, 403);
+  await db.doc(`users/${user.uid}`).update({ role: "USER" });
+  await getAuth(app).setCustomUserClaims(user.uid, { admin: true });
+  const login = await post(authUrl + "accounts:signInWithPassword?key=emulator", {
+    email: user.email, password: "Test-only-123!", returnSecureToken: true });
+  assert.equal(login.status, 200);
+  user.token = login.body.idToken;
+  assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, user.token)).status, 403);
+  await db.doc(`users/${user.uid}`).update({ role: "ADMIN" });
+  assert.equal((await getAuth(app).getUser(user.uid)).emailVerified, false);
+  assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, user.token)).status, 200);
+  await db.doc(`users/${user.uid}`).update({ accountStatus: "LOCKED" });
+  assert.equal((await patchDoc(`posts/${postId}`, { title: "Admin bị khóa" }, user.token)).status, 403);
+});
+
 async function post(url, data, token) {
   const response = await fetch(url, { method: "POST", headers: {
     "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {})
-  }, body: JSON.stringify(data), signal: AbortSignal.timeout(30000) });
+  }, body: JSON.stringify(data), signal: AbortSignal.timeout(90000) });
   return { status: response.status, body: await response.json() };
 }
 async function account(label) {
@@ -108,6 +131,11 @@ test("posting, editing, own-list query and favorite/unfavorite obey real rules",
   // Seed only timestamps; all listing edits below use the user's token and rules.
   await db.doc(`posts/${postId}`).set({ ownerId: user.uid, title: "Áo kiểm thử", description: "Mô tả", type: "SALE", price: 100000,
     condition: "GOOD", status: "DRAFT", createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+  assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, user.token)).status, 403);
+  const staleToken = user.token;
+  await verifyFixture(app, user, { phone: false });
+  assert.equal(JSON.parse(Buffer.from(user.token.split(".")[1], "base64url")).phone_number, undefined);
+  assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, staleToken)).status, 403);
   assert.equal((await patchDoc(`posts/${postId}`, { status: "ACTIVE" }, user.token)).status, 200);
   assert.equal((await patchDoc(`posts/${postId}`, { title: "Áo đã sửa", price: 120000 }, user.token)).status, 200);
   assert.equal((await patchDoc(`posts/${postId}`, { title: "Sửa trái phép" }, other.token)).status, 403);

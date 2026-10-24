@@ -56,6 +56,35 @@ Chờ Firebase CLI báo hoàn tất. Index mới có thể cần vài phút đ�
 5. Thêm Firebase SDK cho Firestore và Authentication, đồng thời cấu hình Google Sign-In theo tài liệu Firebase.
 6. Trong Authentication, kiểm tra Google provider vẫn đang bật.
 
+### Chọn Firebase thật hoặc Emulator khi build Android
+
+App mặc định kết nối Firebase thật của project `fashion2hand` trong `app/google-services.json` (cả debug và release). Build APK dùng chung giữa các máy:
+
+```powershell
+.\build-debug.ps1
+```
+
+Để thử nghiệm bằng Firebase Emulator trên máy phát triển, chạy `start-emulators.ps1` rồi build:
+
+```powershell
+.\build-debug.ps1 -UseFirebaseEmulators
+# Hoặc: .\gradlew.bat :app:assembleDebug -PuseFirebaseEmulators=true
+```
+
+`-RunDeviceTests` tự bật Emulator. Khi chạy kiểm thử thiết bị trực tiếp bằng Gradle, luôn truyền `-PuseFirebaseEmulators=true`. Release luôn dùng Firebase thật.
+
+Hiện **SMS thật đang tạm tắt** để tránh phí; app chỉ bắt buộc xác minh email. Phone Authentication trên project Firebase thật được tắt; client cũng chặn gửi và xác minh OTP ngoài Emulator. SĐT trong địa chỉ nhận hàng chỉ là thông tin liên hệ, không yêu cầu OTP.
+
+Trong bản debug bật Emulator, có thể thử OTP điện thoại tùy chọn. Ứng dụng đọc mã của đúng số và phiên xác minh từ Auth Emulator, rồi hiện thông báo **OTP mô phỏng — Fashion2hand**. Cho phép quyền thông báo trên Android 13 trở lên. Nếu từ chối, mã được hiện trong hộp thoại mô phỏng. Thông báo tự ẩn sau 60 giây hoặc khi xác minh thành công; không cần lấy mã từ terminal. Nếu thông báo hết thời gian, bấm gửi lại để lấy phiên mới. Bản release không chứa phần đọc mã mô phỏng; bản debug dùng Firebase thật cũng không đọc hoặc hiển thị mã này.
+
+### Email xác minh bị đưa vào Spam
+
+Thông báo gửi thành công chỉ xác nhận Firebase chấp nhận yêu cầu gửi, chưa xác nhận Gmail đã nhận vào Inbox. Kiểm tra cả Spam/Thư rác và bấm **Báo cáo không phải thư rác** nếu tìm thấy thư.
+
+Để dùng địa chỉ gửi mang thương hiệu, cần tên miền do bạn quản lý. Trong Firebase Console → Authentication → Templates, chọn mẫu xác minh email và tùy chỉnh tên miền, thêm chính xác các bản ghi DNS xác minh/SPF/DKIM Firebase cung cấp, đợi xác minh rồi áp dụng tên miền cho mẫu thư. Cấu hình DMARC phù hợp với nhà cung cấp gửi thư; không tạo nhiều bản ghi SPF riêng cho cùng một tên miền. Không tự đặt địa chỉ gửi thuộc tên miền chưa xác minh. Cách này giúp cải thiện độ tin cậy, nhưng không bảo đảm mọi thư vào Inbox. Xem [hướng dẫn Firebase](https://firebase.google.com/docs/auth/email-custom-domain) và [yêu cầu của Gmail](https://support.google.com/mail/answer/81126).
+
+Emulator dùng địa chỉ `10.0.2.2` dành cho Android Emulator và không đồng bộ dữ liệu lên Firebase thật. Tài khoản, bài đăng và ảnh đã tạo ở Emulator không tự xuất hiện trên cloud; cần đăng ký/đăng nhập và đăng lại trên bản dùng Firebase thật. Database, Authentication, Storage, Functions, Rules và Indexes trên cloud vẫn cần được triển khai và kiểm tra riêng.
+
 ## 5. Tạo dữ liệu ban đầu
 
 Firestore không có lệnh tạo bảng/collection. Khi ứng dụng hoặc script tin cậy ghi document đầu tiên, collection tương ứng sẽ xuất hiện. Ví dụ: ghi document danh mục vào `categories`, hoặc tạo hồ sơ vào `users/{uid}` sau khi người dùng đăng nhập.
@@ -82,3 +111,24 @@ Trước khi dùng thật, chạy Firebase Emulator Suite để kiểm tra Rules
 - [Firestore Indexes](https://firebase.google.com/docs/firestore/query-data/indexing)
 - [Firestore offline trên Android](https://firebase.google.com/docs/firestore/manage-data/enable-offline)
 - [Google Sign-In với Firebase Authentication trên Android](https://firebase.google.com/docs/auth/android/google-signin)
+
+
+### Cập nhật giao diện yêu cầu và đăng nhập (25/10/2026)
+
+- Mã yêu cầu hiển thị dạng `YC-` + 10 ký tự, ID tài liệu gốc giữ nguyên.
+- Trang sản phẩm và khung chat đọc yêu cầu đã lưu: chưa gửi hiện “Gửi yêu cầu”;
+  PENDING hiện “Đã gửi yêu cầu” và mở chi tiết; ACCEPTED mở trạng thái đã chấp nhận.
+  Khi hủy/từ chối, món còn khả dụng thì cho gửi mới. Không đánh dấu đã gửi khi callable lỗi.
+- Thẻ hồ sơ ghi rõ xác minh danh tính là tùy chọn, tách khỏi xác minh email.
+- Google dùng Credential Manager với luồng nút Sign in with Google. Cấu hình Firebase
+  đã tải lại, đăng ký SHA-1/SHA-256 của debug keystore trên máy hiện tại.
+  Khi dùng khóa ký khác cần thêm SHA tương ứng và tải lại cấu hình.
+- Admin cloud `admin@fashion2hand.test` đã tạo theo tài khoản seed emulator, có claim
+  admin và hồ sơ ADMIN/ACTIVE. Kiểm tra đăng nhập/password và callable adminSession
+  trên Firebase thật PASS, không cần email đã xác minh hoặc SĐT.
+
+Kiểm tra đợt cập nhật: 11/11 unit test PASS; 2/2 Android test địa chỉ/trạng thái
+yêu cầu PASS (bao gồm chưa gửi → đã gửi → hủy → gửi mới và giữ trạng thái sau
+recreate). Firestore/Storage Rules compile dry-run PASS, inventory 50 Main + 6
+Admin / 84 layout PASS. Google đã xác nhận cấu hình OAuth/SHA; đăng nhập Google
+bằng tài khoản thật cần người dùng chọn tài khoản và xác nhận trên thiết bị.

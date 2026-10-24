@@ -35,6 +35,7 @@ public class TransactionFlowTest {
         Map<String, Object> address = new HashMap<>(); address.put("recipient", label); address.put("phone", "0901234567");
         address.put("province", "TP.HCM"); address.put("district", "Quận 1"); address.put("ward", "Bến Nghé"); address.put("street", "1 Đường kiểm thử");
         await(db.collection("users").document(user.uid).collection("addresses").document("home").set(address));
+        VerifiedAccountFixture.verify(auth);
         return user;
     }
     private void signIn(User user) throws Exception { auth.signOut(); await(auth.signInWithEmailAndPassword(user.email, "Test-only-123!")); }
