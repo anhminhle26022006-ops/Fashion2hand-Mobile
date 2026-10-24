@@ -156,10 +156,9 @@ public class TransactionFlowTest {
             waitText(scenario, "3 yêu cầu");
             scenario.onActivity(a -> { assertEquals("3",((TextView)a.findViewById(R.id.statPendingRequests)).getText().toString()); assertTrue(a.findViewById(R.id.transactionRoleTabs) instanceof RadioGroup); });
             screenshot("transaction-overview"); click(scenario,R.id.transactionRequestRow);
-            scenario.onActivity(a -> {
-                View root = a.findViewById(R.id.freeRequestList); View card = root.findViewWithTag("request|" + second); assertNotNull(card);
-                assertTrue(card.findViewById(R.id.btnAcceptFreeRequest).performClick());
-            });
+            clickTag(scenario,"free-product|"+secondPost); clickTagAction(scenario,"request|"+second,"Xem yêu cầu");
+            click(scenario,R.id.btnAcceptFreeRequest); confirmDialog(scenario); waitText(scenario,"Người nhận đã được chọn");
+            clickText(scenario,"Xem đơn miễn phí");
             waitFor(scenario, R.id.btnSellerConfirm); id = orderId(scenario);
             assertEquals("PENDING", await(db.collection("freeRequests").document(first).get()).getString("status"));
             assertEquals("ACCEPTED", await(db.collection("freeRequests").document(second).get()).getString("status"));
@@ -211,6 +210,62 @@ public class TransactionFlowTest {
             for (String postId : new String[]{first, second}) assertEquals("SOLD", await(db.document("posts/" + postId).get(Source.SERVER)).getString("status"));
             await(repo.cancelOrder(id)); status(id, "CANCELLED");
             for (String postId : new String[]{first, second}) assertEquals("ACTIVE", await(db.document("posts/" + postId).get(Source.SERVER)).getString("status"));
+        }
+    }
+    private void clickTag(ActivityScenario<MainActivity> scenario,String tag) throws Exception {
+        waitUntil(scenario,a->a.findViewById(android.R.id.content).findViewWithTag(tag)!=null,tag);
+        scenario.onActivity(a->assertTrue(a.findViewById(android.R.id.content).findViewWithTag(tag).performClick()));
+    }
+    private void clickTagAction(ActivityScenario<MainActivity> scenario,String tag,String label) throws Exception {
+        waitUntil(scenario,a->{View card=a.findViewById(android.R.id.content).findViewWithTag(tag);return card!=null&&text(card,label)!=null;},tag+label);
+        scenario.onActivity(a->assertTrue(text(a.findViewById(android.R.id.content).findViewWithTag(tag),label).performClick()));
+    }
+    private void clickText(ActivityScenario<MainActivity> scenario,String label) throws Exception {
+        waitText(scenario,label);scenario.onActivity(a->assertTrue(text(a.findViewById(android.R.id.content),label).performClick()));
+    }
+    private android.app.AlertDialog requestDialog(MainActivity a) {
+        try {
+            java.lang.reflect.Field controller=MainActivity.class.getDeclaredField("transactionScreens");controller.setAccessible(true);
+            java.lang.reflect.Field flow=TransactionScreens.class.getDeclaredField("freeRequests");flow.setAccessible(true);
+            java.lang.reflect.Field dialog=FreeRequestFlow.class.getDeclaredField("confirmation");dialog.setAccessible(true);
+            return (android.app.AlertDialog)dialog.get(flow.get(controller.get(a)));
+        }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+    }
+    private void dialogButton(ActivityScenario<MainActivity> scenario,int which) throws Exception {
+        waitUntil(scenario,a->requestDialog(a)!=null&&requestDialog(a).isShowing(),"Confirmation dialog");
+        scenario.onActivity(a->assertTrue(requestDialog(a).getButton(which).performClick()));
+    }
+    private void confirmDialog(ActivityScenario<MainActivity> scenario) throws Exception {dialogButton(scenario,android.content.DialogInterface.BUTTON_POSITIVE);}
+    @Test public void groupedGiftInboxRejectThenSelectOneRecipient() throws Exception {
+        User seller=user("Người tặng UI");String title="Áo sơ mi miễn phí "+System.nanoTime();
+        String item=post(title,true),other=post("Món tặng còn lại",true);
+        User first=user("Người yêu cầu thứ nhất");String rejected=String.valueOf(result(await(repo.createFreeRequest(item,"Em cần áo để đi học.","home"))).get("requestId"));
+        User second=user("Người được chọn");String accepted=String.valueOf(result(await(repo.createFreeRequest(item,"Em có thể nhận trong tuần này.","home"))).get("requestId"));
+        User third=user("Người yêu cầu còn lại");String closed=String.valueOf(result(await(repo.createFreeRequest(item,"Mình muốn nhận món này.","home"))).get("requestId"));
+        await(repo.createFreeRequest(other,"Mình muốn nhận món còn lại.","home"));signIn(seller);
+        try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
+            waitFor(scenario,R.id.navProfile);click(scenario,R.id.navProfile);click(scenario,R.id.btnMyOrders);click(scenario,R.id.tabGive);
+            waitText(scenario,"4 yêu cầu");click(scenario,R.id.transactionRequestRow);waitText(scenario,"2 món đồ có người yêu cầu");
+            screenshot("gift-products");clickTag(scenario,"free-product|"+item);waitText(scenario,"3 người đã yêu cầu món đồ này");
+            screenshot("gift-applicants");scenario.recreate();waitText(scenario,"3 người đã yêu cầu món đồ này");
+            clickTagAction(scenario,"request|"+rejected,"Xem yêu cầu");waitText(scenario,"Em cần áo để đi học.");
+            click(scenario,R.id.btnRejectFreeRequest);
+            dialogButton(scenario,android.content.DialogInterface.BUTTON_NEGATIVE);
+            assertEquals("PENDING",await(db.document("freeRequests/"+rejected).get(Source.SERVER)).getString("status"));
+            click(scenario,R.id.btnRejectFreeRequest);confirmDialog(scenario);waitText(scenario,"Yêu cầu đã bị từ chối");screenshot("gift-rejected");
+            click(scenario,R.id.btnTransactionBack);clickTagAction(scenario,"request|"+accepted,"Xem yêu cầu");waitText(scenario,"Em có thể nhận trong tuần này.");
+            screenshot("gift-detail");click(scenario,R.id.btnAcceptFreeRequest);screenshot("gift-confirm");confirmDialog(scenario);waitText(scenario,"Người nhận đã được chọn");
+            screenshot("gift-selected-detail");scenario.recreate();waitText(scenario,"Người nhận đã được chọn");
+            assertEquals("ACCEPTED",await(db.document("freeRequests/"+accepted).get(Source.SERVER)).getString("status"));
+            assertEquals("REJECTED",await(db.document("freeRequests/"+rejected).get(Source.SERVER)).getString("status"));
+            assertEquals("UNAVAILABLE",await(db.document("freeRequests/"+closed).get(Source.SERVER)).getString("status"));
+            DocumentSnapshot request=await(db.document("freeRequests/"+accepted).get(Source.SERVER));
+            DocumentSnapshot order=await(db.document("orders/"+request.getString("orderId")).get(Source.SERVER));
+            assertEquals(second.uid,order.getString("buyerId"));assertEquals("RESERVED",await(db.document("posts/"+item).get(Source.SERVER)).getString("status"));
+            click(scenario,R.id.btnTransactionBack);waitText(scenario,"Đơn miễn phí đã được tạo");waitText(scenario,"Không có phí cho sản phẩm.");
+            screenshot("gift-selected-applicants");
+            scenario.onActivity(a->{View card=a.findViewById(android.R.id.content).findViewWithTag("request|"+closed);assertNotNull(card);assertNull(text(card,"Xem yêu cầu"));});
+            click(scenario,R.id.btnTransactionBack);waitText(scenario,"2 món đồ có người yêu cầu");
         }
     }
     private void screenshot(String name) throws Exception {

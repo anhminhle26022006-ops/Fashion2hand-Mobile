@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
                 if (bitmap != null) target.setImageBitmap(bitmap);
             });
         }
-        public void chat(String peerId, String postId) { startChatWithPeer(peerId, postId, R.layout.activity_order_detail); }
+        public void chat(String peerId, String postId) { startChatWithPeer(peerId, postId, currentScreen); }
     });
     private String reportEvidenceOrderId = "";
     private final java.util.ArrayDeque<ScreenEntry> backStack = new java.util.ArrayDeque<>();
