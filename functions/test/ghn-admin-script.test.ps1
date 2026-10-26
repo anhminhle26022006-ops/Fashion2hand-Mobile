@@ -34,6 +34,7 @@ function Invoke-RestMethod {
         'ghn-auth-error' {@{error=@{status='FAILED_PRECONDITION';message='NEVER-ECHO-RAW-RESPONSE';details=@{reason='GHN_AUTH_REJECTED';environment='staging';providerHttpStatus=401;operation='SHOPS_LIST';Token='NEVER-ECHO-RAW-RESPONSE';Authorization='fixture-not-real'}}}}
         'unsafe-details' {@{error=@{status='FAILED_PRECONDITION';message='NEVER-ECHO-RAW-RESPONSE';details=@{reason='NEVER-ECHO-RAW-RESPONSE';environment='NEVER-ECHO-RAW-RESPONSE';providerHttpStatus='NEVER-ECHO-RAW-RESPONSE';operation='NEVER-ECHO-RAW-RESPONSE'}}}}
         'legacy-ghn-error' {@{error=@{status='FAILED_PRECONDITION';message='GHN fixture Token, Shop ID'}}}
+        'missing-ghn-address' {@{error=@{status='FAILED_PRECONDITION';message=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('xJDhu4thIGNo4buJIGNoxrBhIGPDsyBtw6MgR0hOLiBDaOG7jW4gxJHhu4thIGNo4buJIGdpYW8gaMOgbmcgR0hOIHRyb25nIOG7qW5nIGThu6VuZy4='))}}}
     }
     $exception = New-Object Exception('NEVER-ECHO-RAW-RESPONSE')
     $record = New-Object Management.Automation.ErrorRecord($exception,'Fixture',[Management.Automation.ErrorCategory]::InvalidOperation,$null)
@@ -79,7 +80,7 @@ $global:ghnScriptRequests.Clear()
 $caught = ''
 try{& $targetPath -Target Cloud -UseEmulators | Out-Null}catch{$caught=$_.Exception.Message}
 Assert-True ($caught -like '*Conflicting*' -and $global:ghnScriptRequests.Count -eq 0) 'conflicting environment flags fail before sign-in'
-foreach($case in @('auth-error','permission-error','wrong-project','ghn-auth-error','unsafe-details','legacy-ghn-error')){
+foreach($case in @('auth-error','permission-error','wrong-project','ghn-auth-error','unsafe-details','legacy-ghn-error','missing-ghn-address')){
     $global:ghnScriptCase = $case
     $global:ghnScriptRequests.Clear()
     $caught = ''
@@ -89,6 +90,7 @@ foreach($case in @('auth-error','permission-error','wrong-project','ghn-auth-err
     if($case -eq 'wrong-project'){Assert-True ($caught -like '*token validation*PROJECT_MISMATCH*' -and $global:ghnScriptRequests.Count -eq 1) 'wrong token project blocked before callable'}
     if($case -eq 'ghn-auth-error'){Assert-True ($caught -like '*GHN_AUTH_REJECTED*401*SHOPS_LIST*') 'safe GHN reason and details displayed'}
     if($case -eq 'legacy-ghn-error'){Assert-True ($caught -like '*GHN_AUTH_REJECTED_LEGACY*') 'deployed legacy error diagnosed without backend deploy'}
+    if($case -eq 'missing-ghn-address'){Assert-True ($caught -like '*GHN_ADDRESS_CODES_MISSING*select GHN province/district/ward*') 'missing GHN codes diagnosed without backend deploy'}
     Assert-True (-not $caught.Contains('NEVER-ECHO-RAW-RESPONSE') -and -not $caught.Contains($global:ghnScriptPassword) -and -not $caught.Contains('fixture-not-real')) 'errors do not expose password, token or raw response'
 }
 Write-Output "PASS: PowerShell $($PSVersionTable.PSVersion): project/key, Cloud/Emulator, SecureString exact password roundtrip, JWT project and safe errors. Mock HTTP only; no real users changed."

@@ -14,6 +14,7 @@ module.exports = ({ db, FieldValue, fail, writeOrderEvent }) => async function s
     const blocked = [order.get('disputeStatus'), dispute.exists ? dispute.get('status') : null]
       .some(status => ['OPEN', 'WAITING_EVIDENCE'].includes(status));
     if (blocked) { if (buyerUid) fail('failed-precondition', 'Tranh chấp đang mở; chưa thể giải ngân.'); return false; }
+    if (order.get('paymentNeedsReview')) { if (buyerUid) fail('failed-precondition','Thanh toán cần đối soát.'); return false; }
     if (!shipment.exists || shipment.get('status') !== 'DELIVERED'
         || !(shipment.get('events') || []).some(event => event.status === 'DELIVERED')) {
       if (buyerUid) fail('failed-precondition', 'Thiếu bằng chứng giao hàng từ backend.'); return false;
@@ -32,6 +33,12 @@ module.exports = ({ db, FieldValue, fail, writeOrderEvent }) => async function s
       ...(buyerUid ? { buyerConfirmedAt: now } : {}), updatedAt: now });
     writeOrderEvent(tx, ref, 'DELIVERED', 'COMPLETED', buyerUid || 'SYSTEM', buyerUid ? 'Người mua xác nhận nhận hàng.' : 'Đã hết thời hạn kiểm tra 3 ngày, không có tranh chấp.');
     if (paid) {
+      if (require('./payment-policy').isVnpay(order)) {
+        tx.update(ref, {payoutStatus:'REVIEW_REQUIRED'});
+        tx.create(payoutRef, {orderId,paymentId:payment.id,type:'SELLER_PAYOUT',amount:order.get('price'),provider:'VNPAY',environment:'sandbox',mode:'VNPAY_SANDBOX',status:'REVIEW_REQUIRED',createdAt:now});
+        for(const uid of [order.get('buyerId'),order.get('sellerId')])tx.create(db.doc(`users/${uid}/notifications/settled_${orderId}`),{type:'ORDER_COMPLETED',title:'Đơn thử nghiệm hoàn tất',body:'Chưa chuyển tiền cho người bán; cần đối soát thủ công.',orderId,read:false,createdAt:now});
+        return true;
+      }
       tx.update(receivedRef, { status: 'RELEASED', releasedAt: now });
       tx.create(payoutRef, { orderId, paymentId: payment.id, type: 'SELLER_PAYOUT', amount: order.get('price'),
         mode: 'SIMULATED', status: 'PAYOUT_COMPLETED_SIMULATED', idempotencyKey: `payout_${orderId}`, createdAt: now });

@@ -1,0 +1,28 @@
+const {test,after}=require('node:test');
+const assert=require('node:assert/strict');
+process.env.GCLOUD_PROJECT='demo-fashion2hand-addresses';
+process.env.FIREBASE_CONFIG=JSON.stringify({projectId:process.env.GCLOUD_PROJECT});
+process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';process.env.FUNCTIONS_EMULATOR='true';
+const endpoints=require('../index');
+const {getFirestore}=require('firebase-admin/firestore');
+const {deleteApp,getApp}=require('firebase-admin/app');
+const db=getFirestore(),uid='address-'+Date.now();
+after(async()=>{await db.recursiveDelete(db.doc(`users/${uid}`));await deleteApp(getApp());});
+test('real saveAddress persists legacy hierarchy, keeps current directory compatible, rejects cross-parent codes',async()=>{
+ await db.doc(`users/${uid}`).set({name:'Fixture recipient',accountStatus:'ACTIVE'});
+ const legacy=require('../data/vietnam-addresses-legacy.json'),current=require('../data/vietnam-addresses.json');
+ const p=legacy.find(p=>p.code===79),d=p.districts.find(d=>d.name==='Quận 8'),w=d.wards.find(w=>w.name==='Phường 5');
+ const address={recipient:'Address recipient',phone:'0987654321',street:'Test street',province:'FORGED',district:'FORGED',ward:'FORGED',provinceCode:String(p.code),districtCode:String(d.code),wardCode:String(w.code),addressVersion:'VN_3_LEVEL_LEGACY',isDefault:true};
+ const request=(id,address)=>({auth:{uid},data:{id,address}});
+ await endpoints.saveAddress.run(request('legacy',address));
+ const saved=(await db.doc(`users/${uid}/addresses/legacy`).get()).data();
+ assert.equal(saved.province,'Thành phố Hồ Chí Minh');assert.equal(saved.district,'Quận 8');assert.equal(saved.ward,'Phường 5');assert.equal(saved.districtCode,String(d.code));assert.equal(saved.addressVersion,'VN_3_LEVEL_LEGACY');
+ await assert.rejects(endpoints.saveAddress.run(request('invalid',{...address,provinceCode:'1'})),e=>e.code==='invalid-argument');
+ assert.equal((await db.doc(`users/${uid}/addresses/invalid`).get()).exists,false);
+ const cp=current.find(p=>p.code===79),cw=cp.wards[0];
+ await endpoints.saveAddress.run(request('current',{...address,districtCode:undefined,provinceCode:String(cp.code),wardCode:String(cw.code),addressVersion:'VN_2_LEVEL_2025'}));
+ assert.equal((await db.doc(`users/${uid}/addresses/current`).get()).get('addressVersion'),'VN_2_LEVEL_2025');
+ assert.equal((await db.doc(`users/${uid}/addresses/current`).get()).get('district'),'');
+ assert.equal((await db.doc(`users/${uid}/addresses/legacy`).get()).get('isDefault'),false);
+ assert.equal((await db.doc(`users/${uid}`).get()).get('name'),'Fixture recipient');
+});

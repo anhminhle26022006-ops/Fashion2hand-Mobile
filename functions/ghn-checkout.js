@@ -103,6 +103,7 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
     if(hash(source)!==q.sourceHash)fail('failed-precondition','Đầu vào đã thay đổi trong lúc đặt đơn. Lấy lại báo giá.');
   }
   async function createOrders(request,single) {
+    const paymentConfig=require('./payment-policy').orderPaymentConfig();
     await requireVerifiedAccount(request);const uid=uidOf(request),key=cleanText(request.data.idempotencyKey,128,'Mã yêu cầu'),ids=idsOf(request.data);
     if(single&&ids.length!==1)fail('invalid-argument','Luồng mua ngay chỉ nhận một món.');
     const ref=db.doc(`orderRequests/ghn_${hash([uid,key])}`),prior=await ref.get();
@@ -120,12 +121,12 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
         const first=group.items[0],shippingQuote={...group,environment:q.environment,quoteId:q.id,provider:'GHN'};
         tx.create(orderRef,{buyerId:uid,sellerId:group.sellerId,orderType:'PAID',postId:first.postId,postSnapshot:first,items:group.items,itemCount:group.items.length,schemaVersion:2,
           price:group.price,subtotal:group.price,shippingFee:group.shippingFee,totalAmount:group.price+group.shippingFee,shippingAddress:group.shippingAddress,pickupAddress:group.pickup,
-          shippingQuote,shippingProvider:'GHN',shippingEnvironment:q.environment,paymentId:orderId,paymentMode:'SIMULATED',
+          shippingQuote,shippingProvider:'GHN',shippingEnvironment:q.environment,paymentId:orderId,paymentMode:paymentConfig.mode,paymentProvider:paymentConfig.provider,paymentEnvironment:paymentConfig.environment,
           orderStatus:'PENDING_PAYMENT',paymentStatus:'PENDING',shippingStatus:'READY',trackingCode:'',paymentDeadline:new Date(Date.now()+15*60*1000),createdAt:now,updatedAt:now});
-        tx.create(db.doc(`payments/${orderId}`),{orderId,buyerId:uid,sellerId:group.sellerId,amount:group.price+group.shippingFee,currency:'VND',status:'PENDING',provider:'SIMULATED',createdAt:now,updatedAt:now});
-        writeOrderEvent(tx,orderRef,'','PENDING_PAYMENT',uid,'Báo giá GHN đã được xác nhận; thanh toán vẫn mô phỏng.');
+        tx.create(db.doc(`payments/${orderId}`),{orderId,buyerId:uid,sellerId:group.sellerId,amount:group.price+group.shippingFee,currency:'VND',status:'PENDING',provider:paymentConfig.provider,environment:paymentConfig.environment,createdAt:now,updatedAt:now});
+        writeOrderEvent(tx,orderRef,'','PENDING_PAYMENT',uid,'Báo giá GHN đã được xác nhận; chờ thanh toán '+paymentConfig.mode);
         for(const item of group.items){tx.update(db.doc(`posts/${item.postId}`),{status:'RESERVED',reservedForOrderId:orderId,updatedAt:now});tx.delete(db.doc(`users/${uid}/cartItems/${item.postId}`));}
-        tx.create(db.doc(`users/${group.sellerId}/notifications/created_${orderId}`),{type:'ORDER_AWAITING_PAYMENT',title:'Đơn hàng mới',body:'Đơn mới có báo giá GHN; thanh toán mô phỏng.',orderId,read:false,createdAt:now});
+        tx.create(db.doc(`users/${group.sellerId}/notifications/created_${orderId}`),{type:'ORDER_AWAITING_PAYMENT',title:'Đơn hàng mới',body:'Đơn mới có báo giá GHN; chờ người mua thanh toán.',orderId,read:false,createdAt:now});
       }
       tx.create(ref,{postIds:ids,addressId:q.addressId,buyerId:uid,orderIds,createdAt:now});return single?{orderId:orderIds[0]}:{orderIds};
     });

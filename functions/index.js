@@ -12,6 +12,7 @@ const db = getFirestore();
 const orderItems = require("./order-items");
 const readOrderPosts = (tx, order) => orderItems.readOrderPosts(tx, order, db);
 const writeOrderPosts = orderItems.writeOrderPosts;
+const paymentPolicy = require('./payment-policy');
 const { getAuth } = require("firebase-admin/auth");
 const paymentWebhookToken = defineSecret("PAYMENT_WEBHOOK_TOKEN");
 const shipmentWebhookToken = defineSecret("SHIPMENT_WEBHOOK_TOKEN");
@@ -65,7 +66,7 @@ function validatedAddress(address) {
   const value = addressSnapshot(address);
   if (value.addressVersion || value.provinceCode || value.wardCode)
     Object.assign(value, require("./address-catalog").canonicalAddress(value, fail));
-  if (!value.recipient.trim() || !value.province.trim() || !value.ward.trim()
+  if (!value.recipient.trim() || !value.province.trim() || (!value.ward.trim() && !(value.addressVersion==='VN_3_LEVEL_LEGACY'&&value.districtCode&&!value.wardCode))
       || !value.street.trim() || !/^\+?[0-9 ()-]{9,20}$/.test(value.phone))
     fail("failed-precondition", "Địa chỉ nhận hàng chưa đầy đủ hoặc số điện thoại không hợp lệ.");
   return value;
@@ -122,6 +123,12 @@ exports.refreshOrder = onCall(async request => {
     const paymentRef = order.get("paymentId") ? db.doc(`payments/${order.get("paymentId")}`) : null;
     const payment = paymentRef ? await tx.get(paymentRef) : null;
     const next = unconfirmed ? "REFUNDED" : "CANCELLED";
+    if (unconfirmed && paymentPolicy.isVnpay(order)) {
+      paymentPolicy.requestRefund(tx, db, FieldValue, order, payment, 'Người bán quá hạn phản hồi');
+      writeOrderPosts(tx, orderPosts, { status:'ACTIVE', reservedForOrderId:FieldValue.delete(), updatedAt:FieldValue.serverTimestamp() });
+      writeOrderEvent(tx, ref, order.get('orderStatus'), 'CANCELLED', 'SYSTEM', 'VNPAY sandbox: cần đối soát hoàn tiền, chưa hoàn tiền.');
+      return;
+    }
     tx.update(ref, { orderStatus: next, paymentStatus: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
     if (post.exists && post.get("reservedForOrderId") === orderId) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     if (payment?.exists) tx.update(paymentRef, { status: unconfirmed ? "REFUNDED" : "EXPIRED", updatedAt: FieldValue.serverTimestamp() });
@@ -233,7 +240,7 @@ function addressSnapshot(address) {
     phone: String(data.phone || ""),
     province: String(data.province || ""),
     district: String(data.district || ""),
-    provinceCode: String(data.provinceCode || ""), wardCode: String(data.wardCode || ""),
+    provinceCode: String(data.provinceCode || ""), districtCode: String(data.districtCode || ""), wardCode: String(data.wardCode || ""),
     addressVersion: String(data.addressVersion || ""),
     ward: String(data.ward || ""),
     street: String(data.street || data.addressLine || ""),
@@ -551,6 +558,7 @@ exports.simulatePaymentResult = onCall(async (request) => {
     const order = await tx.get(orderRef);
     const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("buyerId") !== uid) fail("permission-denied", "Đơn hàng không thể thanh toán.");
+    if (paymentPolicy.isVnpay(order)) fail('failed-precondition', 'Không mô phỏng kết quả payment VNPAY.');
     if (order.get("paymentStatus") === status) { alreadyApplied = true; return; }
     if (order.get("orderStatus") !== "PENDING_PAYMENT") fail("permission-denied", "Đơn hàng không thể thanh toán.");
     if (order.get("paymentDeadline") && order.get("paymentDeadline").toDate() <= new Date()) fail("deadline-exceeded", "Đơn hàng đã hết thời hạn thanh toán.");
@@ -596,6 +604,12 @@ exports.cancelOrder = onCall(async (request) => {
     const paymentRef = paymentId ? db.collection("payments").doc(paymentId) : null;
     const payment = paymentRef ? await tx.get(paymentRef) : null;
     const previousStatus = order.get("orderStatus");
+    if (paid && paymentPolicy.isVnpay(order)) {
+      paymentPolicy.requestRefund(tx, db, FieldValue, order, payment, 'Người mua hủy');
+      writeOrderPosts(tx, orderPosts, {status:'ACTIVE', reservedForOrderId:FieldValue.delete(), updatedAt:FieldValue.serverTimestamp()});
+      writeOrderEvent(tx, orderRef, previousStatus, 'CANCELLED', uid, 'Hủy đơn; VNPAY cần đối soát hoàn tiền.');
+      return;
+    }
     writeOrderEvent(tx, orderRef, previousStatus, "CANCELLED", uid, "Người mua hủy trước khi người bán chuẩn bị hàng.");
     const paymentStatus = order.get("orderType") === "FREE" ? "NOT_REQUIRED" : (paid ? "REFUNDED" : "CANCELLED");
     tx.update(orderRef, { orderStatus: "CANCELLED", paymentStatus, updatedAt: FieldValue.serverTimestamp() });
@@ -634,6 +648,12 @@ exports.rejectOrder = onCall(async (request) => {
     const freeRequest = freeRequestRef ? await tx.get(freeRequestRef) : null;
     const paid = order.get("paymentStatus") === "PAID";
     const nextPaymentStatus = order.get("orderType") === "FREE" ? "NOT_REQUIRED" : (paid ? "REFUNDED" : "CANCELLED");
+    if (paid && paymentPolicy.isVnpay(order)) {
+      paymentPolicy.requestRefund(tx, db, FieldValue, order, payment, reason || 'Người bán từ chối');
+      writeOrderPosts(tx, orderPosts, {status:'ACTIVE', reservedForOrderId:FieldValue.delete(), updatedAt:FieldValue.serverTimestamp()});
+      writeOrderEvent(tx, orderRef, order.get('orderStatus'), 'CANCELLED', uid, 'VNPAY cần đối soát hoàn tiền.');
+      return;
+    }
     writeOrderEvent(tx, orderRef, order.get("orderStatus"), "CANCELLED", uid, reason || "Người bán từ chối đơn hàng.");
     tx.update(orderRef, { orderStatus: "CANCELLED", paymentStatus: nextPaymentStatus, cancellationReason: reason || "SELLER_REJECTED", updatedAt: FieldValue.serverTimestamp() });
     if (freeRequestRef && freeRequest && freeRequest.exists && freeRequest.get("status") === "ACCEPTED") {
@@ -652,7 +672,7 @@ exports.rejectOrder = onCall(async (request) => {
       tx.set(db.collection("moneyTransactions").doc(`refund_${orderId}`), { orderId, paymentId: paymentRef.id, type: "REFUND", amount, mode: "SIMULATED", idempotencyKey: `refund_${orderId}`, createdAt: FieldValue.serverTimestamp() });
     }
   });
-  await notify(buyerId, { type: "ORDER_REJECTED", title: "Người bán đã từ chối đơn", body: reason || `Đơn ${orderId} đã được hủy và hoàn tiền mô phỏng nếu đã thanh toán.`, orderId });
+  await notify(buyerId, { type: "ORDER_REJECTED", title: "Người bán đã từ chối đơn", body: reason || `Đơn ${orderId} đã hủy. Mở chi tiết để xem trạng thái thanh toán/đối soát.`, orderId });
   return { ok: true };
 });
 
@@ -845,6 +865,7 @@ exports.updatePaymentFromProvider = onRequest({ secrets: [paymentWebhookToken] }
       const paymentRef = db.collection("payments").doc(order.get("paymentId"));
       const payment = await tx.get(paymentRef);
       if (!payment.exists || payment.get("orderId") !== String(orderId)) throw new Error("Payment not found");
+      if (payment.get('provider') === 'VNPAY' || paymentPolicy.isVnpay(order)) throw new Error('VNPAY requires verified IPN or QueryDR');
       const postRef = db.collection("posts").doc(postId);
       const post = await tx.get(postRef);
       const priorPaymentStatus = order.get("paymentStatus");
@@ -919,6 +940,13 @@ exports.expireUnpaidAndUnconfirmedOrders = onSchedule("every 15 minutes", async 
       if (!order.exists || order.get("orderStatus") !== "CONFIRMED") return;
       const postRef = db.collection("posts").doc(order.get("postId"));
       const post = await tx.get(postRef);
+      if (paymentPolicy.isVnpay(order)) {
+        const payment = await tx.get(db.doc(`payments/${order.get('paymentId')}`));
+        paymentPolicy.requestRefund(tx, db, FieldValue, order, payment, 'Người bán quá hạn phản hồi');
+        writeOrderPosts(tx, orderPosts, {status:'ACTIVE', reservedForOrderId:FieldValue.delete(), updatedAt:FieldValue.serverTimestamp()});
+        writeOrderEvent(tx, orderDoc.ref, 'CONFIRMED', 'CANCELLED', 'SYSTEM', 'VNPAY cần đối soát hoàn tiền.');
+        return;
+      }
       tx.update(orderDoc.ref, { orderStatus: "REFUNDED", paymentStatus: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });
       writeOrderEvent(tx, orderDoc.ref, "CONFIRMED", "REFUNDED", "SYSTEM", "Người bán không phản hồi trong 48 giờ.");
       tx.set(db.collection("refunds").doc(orderDoc.id), { orderId: orderDoc.id, paymentId: order.get("paymentId"), amount: order.get("price") + order.get("shippingFee"), reason: "Người bán không phản hồi trong 48 giờ", status: "COMPLETED", mode: "SIMULATED", createdAt: FieldValue.serverTimestamp() });
@@ -927,7 +955,7 @@ exports.expireUnpaidAndUnconfirmedOrders = onSchedule("every 15 minutes", async 
       tx.update(db.collection("moneyTransactions").doc(`received_${orderDoc.id}`), { status: "REFUNDED", refundedAt: FieldValue.serverTimestamp() });
       if (post.exists && post.get("reservedForOrderId") === orderDoc.id) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
     });
-    await Promise.all([orderDoc.get("buyerId"), orderDoc.get("sellerId")].map((uid) => notify(uid, { type: "ORDER_TIMEOUT", title: "Đơn hàng đã hết hạn phản hồi", body: `Đơn ${orderDoc.id} đã được hoàn tiền mô phỏng.`, orderId: orderDoc.id })));
+    await Promise.all([orderDoc.get("buyerId"), orderDoc.get("sellerId")].map((uid) => notify(uid, { type: "ORDER_TIMEOUT", title: "Đơn hàng đã hết hạn phản hồi", body: paymentPolicy.isVnpay(orderDoc) ? 'Đơn VNPAY sandbox đã hủy; cần đối soát hoàn tiền, chưa hoàn tiền.' : `Đơn ${orderDoc.id} đã được hoàn tiền mô phỏng.`, orderId: orderDoc.id })));
   }
 });
 
@@ -944,3 +972,4 @@ Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, Fie
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));
 
 require('./ghn-integration')({ exports, db, getAuth, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, cleanText, FieldValue, logger, requireVerifiedAccount, postOwnerId, postType, orderPostSnapshot, writeOrderEvent });
+require('./vnpay-integration')({ exports, db, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, FieldValue, writeOrderEvent });

@@ -34,19 +34,20 @@ public class AddressFormFlowTest {
                     assertFalse(((EditText)a.findViewById(R.id.edtAddressPhone)).getText().toString().isEmpty());
                     ((EditText)a.findViewById(R.id.edtAddressRecipient)).setText("Another recipient");
                     ((EditText)a.findViewById(R.id.edtAddressPhone)).setText("0987654321");
-                    AutoCompleteTextView province=a.findViewById(R.id.edtAddressProvince),ward=a.findViewById(R.id.edtAddressWard);
-                    assertEquals(34,province.getAdapter().getCount());
-                    province.setText("Thành phố Hà Nội",false);ward.setText("Phường Ba Đình",false);
+                    AutoCompleteTextView province=a.findViewById(R.id.edtAddressProvince),district=a.findViewById(R.id.edtAddressDistrict),ward=a.findViewById(R.id.edtAddressWard);
+                    assertEquals(63,province.getAdapter().getCount());
+                    province.setText("Thành phố Hà Nội",false);district.setText("Quận Ba Đình",false);ward.setText("Phường Phúc Xá",false);
                     assertTrue(ward.getAdapter().getCount()>0);
-                    province.setText("Thành phố Hồ Chí Minh",false);assertEquals("",ward.getText().toString());
-                    ward.setText("Phường Sài Gòn",false);
+                    province.setText("Thành phố Hồ Chí Minh",false);assertEquals("",district.getText().toString());assertEquals("",ward.getText().toString());
+                    district.setText("Quận 8",false);ward.setText("Phường 5",false);
                 });
                 scenario.recreate();Thread.sleep(2000);
                 scenario.onActivity(a->{
                     assertEquals("Another recipient",((EditText)a.findViewById(R.id.edtAddressRecipient)).getText().toString());
                     assertEquals("0987654321",((EditText)a.findViewById(R.id.edtAddressPhone)).getText().toString());
                     assertEquals("Thành phố Hồ Chí Minh",((EditText)a.findViewById(R.id.edtAddressProvince)).getText().toString());
-                    assertEquals("Phường Sài Gòn",((EditText)a.findViewById(R.id.edtAddressWard)).getText().toString());
+                    assertEquals("Quận 8",((EditText)a.findViewById(R.id.edtAddressDistrict)).getText().toString());
+                    assertEquals("Phường 5",((EditText)a.findViewById(R.id.edtAddressWard)).getText().toString());
                 });
             }
         } finally {

@@ -47,3 +47,11 @@ Các màn giao dịch đang gọi `MemberTwoRepository` qua `TransactionScreens`
 - Giao thành công ghi `deliveredAt/inspectionDeadline`. Backend xác nhận điều kiện thanh toán, sự kiện giao, tranh chấp và payout trước khi ghi giải ngân mô phỏng. Sau 3 ngày, scheduler hoặc `refreshOrder` đối soát đơn đủ điều kiện. Đơn cũ thiếu deadline không bị tự suy đoán ngày giao.
 - Webhook vận chuyển cần thêm `eventId` duy nhất: `{ eventId, orderId, trackingCode, status, description }`. Ghi `webhookEvents`, chặn replay khác payload và chặn chuyển ngược vận đơn đã kết thúc.
 - Đã deploy cloud ngày 24/10/2026 sau khi người dùng đăng nhập lại: 39/39 Functions ACTIVE, rules/indexes/Storage rules đã phát hành. Xem `CLOUD_DEPLOYMENT.md`. Không bật billing tự động; mock vẫn chỉ hoạt động trên Emulator.
+
+## VNPAY sandbox — 27/10/2026 (thay thế mô tả chỉ mô phỏng cho đơn VNPAY mới)
+
+Đã thêm provider PAY 2.1.0 HMAC-SHA512, payment attempts theo từng đơn/seller, IPN public, Return chỉ điều hướng, trạng thái có kiểm quyền và QueryDR. Android Java/XML mở Custom Tabs, đọc kết quả server, không tin deep link. Đơn nhiều món schemaVersion=2 và đơn cũ tiếp tục đọc tương thích; đơn SIMULATED cũ không tự đổi provider. FREE và GHN staging giữ nghiệp vụ hiện có, prepaid COD=0, production vẫn chặn.
+
+Hủy/từ chối/hết hạn phản hồi đơn VNPAY đã trả chỉ ghi yêu cầu hoàn tiền REVIEW_REQUIRED; không ghi REFUNDED hoặc giải ngân thật. Khoản trùng/trễ được lưu và đối soát; không hồi sinh đơn hoặc lấy hàng từ đơn khác. Chi tiết cấu hình Secrets, 17 Functions cần deploy, IPN/Return dự kiến và giới hạn QueryDR IP nằm ở VNPAY_INTEGRATION.md.
+
+Kiểm thử local: 49/49 backend (gồm regression GHN), build Android và 14/14 unit test pass. Không có thiết bị ADB kết nối. Chưa deploy VNPAY, chưa kiểm ngân hàng sandbox/merchant credential thật, chưa chạy/đạt SIT. Không mở billing hay production.

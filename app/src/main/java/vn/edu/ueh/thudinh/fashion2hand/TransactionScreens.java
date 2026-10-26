@@ -201,7 +201,7 @@ final class TransactionScreens {
         else if (layout == R.layout.activity_delivery || layout == R.layout.activity_delivery_map) bindShipment(layout == R.layout.activity_delivery_map);
         else if (layout == R.layout.activity_transaction_history) bindHistory();
         else if (layout == R.layout.activity_cancel_order) {
-            heading("Hủy đơn hàng"); info(content, "Chỉ người mua được hủy trước khi người bán chuẩn bị. Đơn đã thanh toán sẽ ghi hoàn tiền mô phỏng.");
+            heading("Hủy đơn hàng"); info(content, "Chỉ người mua được hủy trước khi người bán chuẩn bị. Đơn VNPAY sandbox đã thanh toán sẽ chờ đối soát hoàn tiền; chưa tự hoàn tiền. Đơn mô phỏng giữ luồng mô phỏng.");
             button(content, R.id.btnCancelOrder, "Xác nhận hủy đơn", () -> execute(repo.cancelOrder(host.orderId()), value -> host.back()));
         }
     }
@@ -209,7 +209,20 @@ final class TransactionScreens {
     private void setLabel(int id, String value) { ((TextView) a.findViewById(id)).setText(value); }
     private void bindOverview() {
         heading("Trung tâm giao dịch"); long token = generation; final boolean owner = ownerView;
-        capabilities(() -> { if(valid(token)&&owner&&"GHN".equals(text(capabilities,"shippingProvider")))button(content,0,"Thiết lập địa chỉ lấy hàng GHN",this::selectGhnPickupAddress); });
+        capabilities(() -> { if(valid(token)&&owner&&"GHN".equals(text(capabilities,"shippingProvider"))){
+            button(content,0,"Thiết lập địa chỉ lấy hàng GHN",this::selectGhnPickupAddress);
+            TextView pickupStatus=info(content,"Đang tải trạng thái điểm lấy hàng GHN…");
+            db.collection("users").document(host.uid()).collection("addresses").get(Source.SERVER).addOnCompleteListener(result->{
+                if(!valid(token))return;
+                if(!result.isSuccessful()){pickupStatus.setText("Chưa tải được trạng thái điểm lấy hàng. Bấm thiết lập để thử lại.");return;}
+                List<String> savedLocations=new ArrayList<>();
+                for(DocumentSnapshot address:result.getResult().getDocuments())if(address.get("ghn") instanceof Map){
+                    Map<String,Object> display=map(address.get("ghnDisplay"));
+                    savedLocations.add(display.isEmpty()?addressLabel(address):text(display,"ward")+", "+text(display,"district")+", "+text(display,"province"));
+                }
+                pickupStatus.setText(savedLocations.isEmpty()?"Chưa có địa chỉ được lưu mã GHN. Thiết lập điểm lấy hàng của người bán ở trên.":"Địa chỉ đã lưu mã GHN:\n"+android.text.TextUtils.join("\n",savedLocations)+"\nLiên kết shop do Admin cấu hình riêng; chưa tự tạo vận đơn.");
+            });
+        } });
         RadioGroup roles = a.findViewById(R.id.transactionRoleTabs);
         roles.check(owner ? R.id.tabGive : R.id.tabReceive);
         for (int id : new int[]{R.id.tabReceive, R.id.tabGive}) {
@@ -387,7 +400,7 @@ final class TransactionScreens {
         info(summary, "Phí vận chuyển: " + money(quote.get("shippingFee")));
         TextView total = info(summary, "Tổng dự kiến: " + money(quote.get("total"))); total.setId(R.id.txtCheckoutQuote);
         info(summary, free ? ("GHN".equals(text(quote,"provider"))?"Món tặng miễn phí. Người nhận thanh toán phí giao hàng trực tiếp cho GHN; app không thu khoản này.":"Món đồ được tặng miễn phí. Phí vận chuyển hiển thị để tham khảo; app chưa thu phí này.")
-                : "Thanh toán mô phỏng. Các món cùng người bán được gộp trong một đơn; phí giao tính cho từng đơn.");
+                : "VNPAY".equals(text(capabilities,"paymentProvider"))?"VNPAY Sandbox – thanh toán thử nghiệm từng đơn theo người bán. Một đơn thành công không có nghĩa cả giỏ đã thanh toán.":"Thanh toán mô phỏng. Các món cùng người bán được gộp trong một đơn; phí giao tính cho từng đơn.");
         if (quote.get("groups") instanceof List) for (Object raw : (List<?>) quote.get("groups")) {
             Map<String, Object> group = map(raw); section(summary, "Người bán: " + text(group, "sellerId"));
             for (Object item : (List<?>) group.get("items")) { Map<String, Object> data = map(item); info(summary, text(data, "title") + " × 1 · " + money(data.get("price"))); }
@@ -416,8 +429,8 @@ final class TransactionScreens {
             });
         }
         button(destination, R.id.btnNewCheckoutAddress, "Thêm địa chỉ", this::newAddress);
-        if("GHN".equals(text(capabilities,"shippingProvider"))&&!addressId.isEmpty())button(destination,0,"Chọn / cập nhật địa chỉ giao hàng GHN",()->{
-            long pickerToken=generation;new GhnAddressPicker(a,addressId,()->valid(pickerToken),this::error).open();
+        if("GHN".equals(text(capabilities,"shippingProvider"))&&!addressId.isEmpty())button(destination,0,"Chọn / cập nhật địa chỉ nhận hàng GHN",()->{
+            long pickerToken=generation;new GhnAddressPicker(a,addressId,()->valid(pickerToken),this::error,false,()->{if(valid(pickerToken))host.open(screen);}).open();
         });
         for(DocumentSnapshot address:addresses)if(address.getId().equals(addressId)&&address.get("ghnDisplay") instanceof Map){Map<String,Object> display=map(address.get("ghnDisplay"));info(destination,"Địa chỉ theo GHN: "+text(display,"ward")+", "+text(display,"district")+", "+text(display,"province"));}
         if (free) {
@@ -437,7 +450,7 @@ final class TransactionScreens {
                     if (!(ids instanceof List) || ((List<?>) ids).isEmpty()) { error(new IllegalStateException("Server không trả mã đơn hàng.")); return; }
                     List<?> orderIds = (List<?>) ids;
                     if (orderIds.size() == 1) host.openOrder(String.valueOf(orderIds.get(0)));
-                    else { Toast.makeText(a, "Đã tạo " + orderIds.size() + " đơn theo người bán. Chọn từng đơn để thanh toán mô phỏng.", Toast.LENGTH_LONG).show(); host.orders(false); }
+                    else { Toast.makeText(a, "Đã tạo " + orderIds.size() + " đơn theo người bán. Chọn từng đơn để thanh toán riêng; mỗi đơn có kết quả riêng.", Toast.LENGTH_LONG).show(); host.orders(false); }
                 });
             } else {
                 final String postId = host.postId(); final boolean fromCart = host.checkoutFromCart();
@@ -451,15 +464,15 @@ final class TransactionScreens {
     }
     private void newAddress() {
         LinearLayout form = new LinearLayout(a); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(8), dp(16), 0);
-        String[] keys = {"recipient", "phone", "province", "ward", "street"};
-        String[] hints = {"Tên người nhận", "Số điện thoại", "Chọn tỉnh / thành phố", "Chọn phường / xã", "Số nhà, đường"};
+        String[] keys = {"recipient", "phone", "province", "district", "ward", "street"};
+        String[] hints = {"Tên người nhận", "Số điện thoại", "Chọn trong 63 tỉnh / thành trước sáp nhập", "Chọn quận / huyện", "Chọn phường / xã", "Số nhà, đường"};
         EditText[] inputs = new EditText[keys.length];
         for (int i = 0; i < keys.length; i++) {
-            if(i==2||i==3){android.widget.AutoCompleteTextView field=new android.widget.AutoCompleteTextView(a);field.setHint(hints[i]);field.setTextSize(14);form.addView(field,new LinearLayout.LayoutParams(-1,dp(54)));inputs[i]=field;}
+            if(i>=2&&i<=4){android.widget.AutoCompleteTextView field=new android.widget.AutoCompleteTextView(a);field.setHint(hints[i]);field.setTextSize(14);form.addView(field,new LinearLayout.LayoutParams(-1,dp(54)));inputs[i]=field;}
             else inputs[i] = input(form, 0, hints[i], "");
         }
         final AddressPicker picker;
-        try{picker=new AddressPicker(a,(android.widget.AutoCompleteTextView)inputs[2],(android.widget.AutoCompleteTextView)inputs[3]);}
+        try{picker=new AddressPicker(a,(android.widget.AutoCompleteTextView)inputs[2],(android.widget.AutoCompleteTextView)inputs[3],(android.widget.AutoCompleteTextView)inputs[4]);}
         catch(java.io.IOException failure){error(failure);return;}
         com.google.firebase.auth.FirebaseUser user=com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
         if(user!=null){inputs[0].setText(user.getDisplayName());inputs[1].setText(user.getPhoneNumber());}
@@ -480,7 +493,7 @@ final class TransactionScreens {
         dialog.setOnShowListener(unused -> dialog.getButton(-1).setOnClickListener(v -> {
             Map<String, Object> address = new HashMap<>();
             for (int i = 0; i < keys.length; i++) {
-                String value = inputs[i].getText().toString().trim(); if (value.isEmpty()) { inputs[i].setError("Vui lòng nhập thông tin"); return; } address.put(keys[i], value);
+                String value = inputs[i].getText().toString().trim(); if (value.isEmpty()&&(i<2||i==5)) { inputs[i].setError("Vui lòng nhập thông tin"); return; } address.put(keys[i], value);
             }
             if (MarketplaceLinks.normalizePhone(String.valueOf(address.get("phone"))).isEmpty()) { inputs[1].setError("Số điện thoại không hợp lệ"); return; }
             if(!picker.apply(address))return;
@@ -544,17 +557,22 @@ final class TransactionScreens {
         }
         info(content, label(status) + " · " + date(order.get("createdAt")));
         if (order.get("inspectionDeadline") != null && "DELIVERED".equals(status))
-            info(content, "Hạn kiểm tra và mở tranh chấp: " + date(order.get("inspectionDeadline")) + ". Hết hạn, backend chỉ giải ngân mô phỏng khi không có tranh chấp.");
+            info(content, "Hạn kiểm tra và mở tranh chấp: " + date(order.get("inspectionDeadline")) + ("VNPAY".equals(text(order,"paymentProvider"))?". Hết hạn, đơn có thể hoàn tất; trả tiền người bán vẫn chờ đối soát.":". Hết hạn, backend chỉ giải ngân mô phỏng khi không có tranh chấp."));
         LinearLayout paymentCard = card(content); section(paymentCard, "Thanh toán");
         TextView payState = info(paymentCard, label(text(order, "paymentStatus"))); payState.setId(R.id.txtLivePaymentState);
         info(paymentCard, "Giá món: " + money(order.get("price")) + " · Phí giao: " + money(order.get("shippingFee")));
         info(paymentCard, "Tổng: " + money(number(order.get("price")) + number(order.get("shippingFee"))));
         info(paymentCard, "FREE".equals(text(order, "orderType")) ? "Món tặng không thu tiền qua app; phí giao hàng chưa được thu."
-                : "THANH TOÁN MÔ PHỎNG — không chuyển tiền thật.");
+                : "VNPAY".equals(text(order,"paymentProvider")) ? "VNPAY Sandbox – thanh toán thử nghiệm. Hoàn tiền và trả người bán cần đối soát, chưa tự động chuyển tiền." : "THANH TOÁN MÔ PHỎNG — không chuyển tiền thật.");
+        if(Boolean.TRUE.equals(order.get("paymentNeedsReview"))||!text(order,"refundStatus").isEmpty())info(paymentCard,"Thanh toán/hoàn tiền cần đối soát: "+text(order,"refundStatus"));
         if (order.get("paymentDeadline") != null && "PENDING_PAYMENT".equals(status)) info(paymentCard, "Hạn thanh toán: " + date(order.get("paymentDeadline")));
         if (!payment.isEmpty()) info(paymentCard, "Mã thanh toán: " + boundPayment + " · " + text(payment, "provider") + "\nTrạng thái bản ghi: " + label(text(payment, "status")));
         if (buyer && "PENDING_PAYMENT".equals(status)) {
-            if (Boolean.TRUE.equals(capabilities.get("simulatedPayments"))) {
+            if ("VNPAY".equals(text(order,"paymentProvider"))) {
+                Button pay=button(paymentCard,0,"Tiếp tục thanh toán VNPAY Sandbox",()->a.startActivity(new android.content.Intent(a,VnpayPaymentActivity.class).putExtra("orderId",host.orderId())));
+                pay.setEnabled(!busy&&Boolean.TRUE.equals(capabilities.get("vnpayConfigured")));
+                if(!Boolean.TRUE.equals(capabilities.get("vnpayConfigured")))info(paymentCard,"VNPAY sandbox chưa được cấu hình đầy đủ trên server.");
+            } else if (Boolean.TRUE.equals(capabilities.get("simulatedPayments"))) {
                 button(paymentCard, R.id.btnSimulatePaid, "Mô phỏng thanh toán thành công", () -> execute(payments.pay(host.orderId()), value -> { }));
                 button(paymentCard, R.id.btnSimulatePaymentFailed, "Mô phỏng thanh toán thất bại", () -> execute(payments.simulateFailure(host.orderId()), value -> { }));
             } else info(paymentCard, "Chưa bật thanh toán mô phỏng trên Emulator; chưa cấu hình cổng thanh toán thật.");
@@ -607,7 +625,7 @@ final class TransactionScreens {
         if (("SHIPPING".equals(status) || "DELIVERED".equals(status)) && !openDispute) button(content, R.id.btnReportOrder, "Báo cáo tranh chấp", () -> host.open(R.layout.activity_report_issue));
         button(content, R.id.btnChatOrderSeller, "Chat với bên còn lại", () -> host.chat(text(order, buyer ? "sellerId" : "buyerId"), text(order, "postId")));
         if("GHN".equals(text(order,"shippingProvider"))) {
-            info(content,"GHN · "+("staging".equals(text(order,"shippingEnvironment"))?"THỬ NGHIỆM STAGING":"VẬN CHUYỂN THẬT")+" · Thanh toán vẫn mô phỏng.");
+            info(content,"GHN · "+("staging".equals(text(order,"shippingEnvironment"))?"THỬ NGHIỆM STAGING":"VẬN CHUYỂN THẬT")+" · "+("VNPAY".equals(text(order,"paymentProvider"))?"VNPAY Sandbox":"Thanh toán mô phỏng"));
             if(!buyer)button(content,0,"Chọn mã GHN cho địa chỉ lấy hàng của tôi",this::selectGhnPickupAddress);
             button(content,0,"Làm mới trạng thái GHN",()->execute(repo.refreshOrder(host.orderId()),value->{}));
             if(!buyer&&Arrays.asList("READY","PICKING").contains(text(shipment,"status")))button(content,0,"Hủy vận đơn GHN",()->new android.app.AlertDialog.Builder(a)
@@ -623,9 +641,9 @@ final class TransactionScreens {
             if(!valid(token))return;if(!result.isSuccessful()){error(result.getException());return;}
             List<DocumentSnapshot> own=result.getResult().getDocuments();
             if(own.isEmpty()){newAddress();return;}
-            String[] names=new String[own.size()];for(int i=0;i<names.length;i++)names[i]=addressLabel(own.get(i));
-            new android.app.AlertDialog.Builder(a).setTitle("Chọn điểm gửi cần quản trị viên ánh xạ shop GHN")
-                .setItems(names,(dialog,index)->new GhnAddressPicker(a,own.get(index).getId(),()->valid(token),this::error).open()).setNegativeButton("Đóng",null).show();
+            String[] names=new String[own.size()];for(int i=0;i<names.length;i++)names[i]=addressLabel(own.get(i))+(own.get(i).get("ghn") instanceof Map?"\nĐã lưu mã GHN · Bấm để cập nhật":"\nChưa có mã GHN · Bấm để thiết lập");
+            new android.app.AlertDialog.Builder(a).setTitle("Chọn địa chỉ lấy hàng của người bán")
+                .setItems(names,(dialog,index)->new GhnAddressPicker(a,own.get(index).getId(),()->valid(token),this::error,true,()->{if(valid(token))host.open(screen);}).open()).setNegativeButton("Đóng",null).show();
         });
     }
     private void rejectOrder() {
@@ -727,6 +745,10 @@ final class TransactionScreens {
     }
     private String historyBadge(Map<String,Object> data,List<DocumentSnapshot> events){
         if("FREE".equals(text(data,"orderType")))return "Chia sẻ miễn phí";
+        if("VNPAY".equals(text(data,"paymentProvider"))) {
+            if(Boolean.TRUE.equals(data.get("paymentNeedsReview"))||"REVIEW_REQUIRED".equals(text(data,"payoutStatus")))return "Cần đối soát\nVNPAY Sandbox";
+            return label(text(data,"paymentStatus"))+"\nVNPAY Sandbox";
+        }
         if(events!=null)for(DocumentSnapshot event:events)if("SELLER_PAYOUT".equals(event.getString("type")))return "Đã giải ngân\nMô phỏng";
         if(events!=null)for(DocumentSnapshot event:events)if("REFUND".equals(event.getString("type")))return "Đã hoàn tiền\nMô phỏng";
         if(events!=null)for(DocumentSnapshot event:events)if("HOLDING".equals(event.getString("status")))return "Đang giữ tiền\nMô phỏng";

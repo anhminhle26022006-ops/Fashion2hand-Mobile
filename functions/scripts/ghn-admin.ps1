@@ -126,6 +126,22 @@ try {
             GHN_TOKEN_MISSING='GHN_TOKEN is empty or unavailable in this Function revision.'
             GHN_AUTH_REJECTED='GHN rejected authentication. Verify the Token for the selected environment and its access restrictions.'
             GHN_REQUEST_REJECTED='GHN rejected the request; raw provider text was suppressed.'
+            GHN_ADDRESS_CODES_MISSING='This saved address has no GHN codes. In the app, tap the address row, select GHN province/district/ward, and save before retrying.'
+            GHN_PICKUP_MISMATCH='The selected GHN shop does not belong to the Token/environment or its district/ward does not match this pickup address.'
+            GHN_PICKUP_CONFIRMATION_REQUIRED='Confirm the registered GHN shop is the actual pickup point, then set confirmRegisteredPickup=true.'
+        }
+        # Recognize exact known legacy messages without printing raw text or adding
+        # non-ASCII source that Windows PowerShell 5.1 could misparse.
+        if ($safeCode -eq 'FAILED_PRECONDITION' -and $errorPayload.error.message -is [string]) {
+            $knownMessages = @{
+                c17f0f325cff44d991aa0abd356bcead84d0936b4ccfb4bb530fd6315669623e='GHN_ADDRESS_CODES_MISSING'
+                e80cccb8f9167ac5b9702846a367ae62ef7fb1d6eaf0381fae4a7c8a05d777f3='GHN_PICKUP_MISMATCH'
+                '4b9be7fbde0073ae01cfe2d1e5e74625b0c1dc2725a5425cc89c1ecadfc25c41'='GHN_PICKUP_CONFIRMATION_REQUIRED'
+            }
+            $hasher = [Security.Cryptography.SHA256]::Create()
+            try { $messageHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($errorPayload.error.message)))).Replace('-','').ToLowerInvariant() }
+            finally { $hasher.Dispose() }
+            if ($knownMessages.ContainsKey($messageHash)) { $reason = $knownMessages[$messageHash] }
         }
         if ($reason -is [string] -and $reasonMessages.ContainsKey($reason)) {
             $safeDetails.reason = $reason
