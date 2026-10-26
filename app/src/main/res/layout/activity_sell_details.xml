@@ -165,12 +165,19 @@
        android:textColor="#173B32"
        android:textStyle="bold" />
 
-   <Spinner
-       android:id="@+id/spinnerLocation"
+   <TextView
+       android:id="@+id/txtListingLocation"
        android:layout_width="match_parent"
-       android:layout_height="50dp"
+       android:layout_height="wrap_content"
+       android:minHeight="50dp"
        android:background="@drawable/bg_form_input"
-       android:paddingHorizontal="12dp" />
+       android:padding="12dp"
+       android:gravity="center_vertical"
+       android:hint="Chọn tỉnh/thành phố, quận/huyện, phường/xã"
+       android:textColor="#173B32"
+       android:textColorHint="#52645A"
+       android:clickable="true"
+       android:focusable="true" />
   </LinearLayout>
  </ScrollView>
 

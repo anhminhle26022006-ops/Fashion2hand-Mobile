@@ -47,3 +47,20 @@ Kết quả xác minh ngày 23/10/2026: build debug thành công; 3/3 unit test 
 - Xử lý/phán quyết tranh chấp của quản trị viên thuộc checklist Admin; phần này hoàn thiện việc gửi, lưu và bảo vệ bằng chứng.
 
 Không deploy production trong đợt này.
+
+## VNPAY sandbox — kiểm chứng 27/10/2026
+
+- [x] PAY signing/checksum/encoding, GMT+7, đơn vị tiền và sandbox fail closed.
+- [x] Attempt idempotency, nhiều món/đơn cũ, tách seller, quyền buyer và snapshot amount.
+- [x] IPN HTTP local và Firestore Emulator: chữ ký/TMN/ref/amount sai, query trùng, callback cạnh tranh/sai thứ tự/trùng, success đến trễ và thanh toán trùng được lưu đối soát, không báo ACK trước commit.
+- [x] Return trước/sau IPN không ghi PAID; mock webhook/callable không giả được VNPAY.
+- [x] QueryDR mock kiểm chữ ký và phục hồi; timeout không suy luận FAILED, rate limit/quyền người gọi.
+- [x] Handler thật cancel/reject/refresh/scheduler và settlement không giả REFUNDED/chuyển tiền VNPAY.
+- [x] GHN staging/FREE regression, prepaid COD=0; GHN production vẫn bị chặn.
+- [x] 49/49 backend tests; Android assembleDebug và 14/14 unit tests pass.
+- [ ] Smoke test thiết bị: ADB hiện không có thiết bị kết nối.
+- [ ] Nhập credential merchant kín, xác định VNPAY_QUERY_IP thực tế, deploy 17 Functions theo VNPAY_INTEGRATION.md.
+- [ ] Xác minh URL deploy thật, gửi IPN URL cho VNPAY và xác nhận họ đã đăng ký.
+- [ ] Thanh toán NCB sandbox thủ công + IPN VNPAY thật/Return/QueryDR/Merchant Admin.
+- [ ] SIT: chưa đăng nhập được, chưa chạy, không tuyên bố đã đạt.
+- [ ] Refund/payout API và production: chưa triển khai/bật; vẫn cần đối soát thủ công cho VNPAY sandbox.

@@ -68,6 +68,7 @@ import java.util.UUID;
 
 /** Main entry point for Fashion2hand's Firebase-backed user flows. */
 public class MainActivity extends AppCompatActivity {
+    private android.app.AlertDialog listingLocationDialog;
     private final TransactionScreens transactionScreens = new TransactionScreens(this, new TransactionScreens.Host() {
         public String uid() { return currentUid(); }
         public String postId() { return currentPostId; }
@@ -2253,11 +2254,12 @@ public class MainActivity extends AppCompatActivity {
         setSpinnerOptions(R.id.spinnerCategory, new String[]{"Áo khoác", "Áo thun", "Áo sơ mi", "Quần", "Váy", "Đầm", "Giày dép", "Túi xách", "Phụ kiện"});
         setSpinnerOptions(R.id.spinnerSize, new String[]{"XS", "S", "M", "L", "XL", "XXL", "Free size"});
         setSpinnerOptions(R.id.spinnerCondition, new String[]{"Mới có tag", "Như mới", "Tốt", "Đã qua sử dụng"});
-        setSpinnerOptions(R.id.spinnerLocation, new String[]{"Quận 1, TP.HCM", "Quận 3, TP.HCM", "Bình Thạnh, TP.HCM", "Thủ Đức, TP.HCM", "Hà Nội", "Đà Nẵng", "Cần Thơ"});
         setSpinnerValue(R.id.spinnerCategory, "category"); setSpinnerValue(R.id.spinnerSize, "size");
         if (!listingDraft.containsKey("conditionLabel") && listingDraft.containsKey("condition"))
             listingDraft.put("conditionLabel", conditionLabel(String.valueOf(listingDraft.get("condition"))));
-        setSpinnerValue(R.id.spinnerCondition, "conditionLabel"); setSpinnerValue(R.id.spinnerLocation, "location");
+        setSpinnerValue(R.id.spinnerCondition, "conditionLabel");
+        TextView location=findViewById(R.id.txtListingLocation);
+        if(location!=null){location.setText(String.valueOf(listingDraft.getOrDefault("location","")));location.setOnClickListener(v->chooseListingLocation());}
         bindClick(R.id.btnSellDetailsBack, () -> showScreen(editingListing ? R.layout.activity_my_listings : R.layout.activity_sell));
         bindClick(R.id.btnSellDetailsPrevious, () -> { captureSellDetails(); showScreen(editingListing ? R.layout.activity_my_listings : R.layout.activity_sell); });
         bindClick(R.id.btnSellDetailsNext, () -> { if (captureSellDetails()) showScreen(R.layout.activity_sell_type); });
@@ -2277,8 +2279,38 @@ public class MainActivity extends AppCompatActivity {
         putSpinnerDraft("spinnerCategory", "category"); putSpinnerDraft("spinnerSize", "size");
         String condition = spinnerText(R.id.spinnerCondition, "Tốt");
         listingDraft.put("conditionLabel", condition); listingDraft.put("condition", toConditionCode(condition));
-        putSpinnerDraft("spinnerLocation", "location");
+        if(String.valueOf(listingDraft.getOrDefault("location","")).trim().isEmpty()){
+            TextView location=findViewById(R.id.txtListingLocation);if(location!=null)location.setError("Vui lòng chọn vị trí sản phẩm");
+            Toast.makeText(this,"Chọn tỉnh/thành phố, quận/huyện và phường/xã của sản phẩm.",Toast.LENGTH_SHORT).show();return false;
+        }
         return true;
+    }
+
+    private void chooseListingLocation(){
+        if(listingLocationDialog!=null&&listingLocationDialog.isShowing())return;
+        LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(12),dp(20),dp(12));
+        TextView note=new TextView(this);note.setText("Danh mục 63 tỉnh/thành trước sáp nhập. Chọn cấp trên rồi tìm đơn vị cấp dưới.");note.setTextColor(android.graphics.Color.parseColor("#52645A"));form.addView(note);
+        android.widget.AutoCompleteTextView province=new android.widget.AutoCompleteTextView(this),district=new android.widget.AutoCompleteTextView(this),ward=new android.widget.AutoCompleteTextView(this);
+        String[] hints={"Chọn hoặc tìm tỉnh / thành phố","Chọn hoặc tìm quận / huyện","Chọn hoặc tìm phường / xã"};
+        android.widget.AutoCompleteTextView[] fields={province,district,ward};
+        for(int i=0;i<fields.length;i++){fields[i].setHint(hints[i]);fields[i].setTextSize(15);fields[i].setSingleLine(true);form.addView(fields[i],new LinearLayout.LayoutParams(-1,dp(56)));}
+        final AddressPicker picker;
+        try{picker=new AddressPicker(this,province,district,ward);}catch(java.io.IOException error){Toast.makeText(this,"Không tải được danh mục địa chỉ. Vui lòng thử lại.",Toast.LENGTH_LONG).show();return;}
+        province.setText(String.valueOf(listingDraft.getOrDefault("locationProvince","")),false);
+        district.setText(String.valueOf(listingDraft.getOrDefault("locationDistrict","")),false);
+        ward.setText(String.valueOf(listingDraft.getOrDefault("locationWard","")),false);
+        Map<String,Object> previous=new HashMap<>();previous.put("wardCode",listingDraft.get("locationWardCode"));picker.restoreWardCode(previous);
+        android.widget.ScrollView scroll=new android.widget.ScrollView(this);scroll.addView(form);
+        listingLocationDialog=new android.app.AlertDialog.Builder(this).setTitle("Vị trí sản phẩm").setView(scroll).setNegativeButton("Hủy",null).setPositiveButton("Chọn vị trí",null).create();
+        listingLocationDialog.setOnShowListener(unused->listingLocationDialog.getButton(-1).setOnClickListener(v->{
+            Map<String,Object> selected=new HashMap<>();if(!picker.apply(selected))return;
+            for(String key:new String[]{"province","district","ward","provinceCode","districtCode","wardCode"})listingDraft.put("location"+Character.toUpperCase(key.charAt(0))+key.substring(1),selected.getOrDefault(key,""));
+            listingDraft.put("locationVersion",selected.get("addressVersion"));
+            java.util.List<String> parts=new java.util.ArrayList<>();for(String key:new String[]{"ward","district","province"}){String value=String.valueOf(selected.getOrDefault(key,""));if(!value.isEmpty())parts.add(value);}
+            listingDraft.put("location",android.text.TextUtils.join(", ",parts));
+            TextView location=findViewById(R.id.txtListingLocation);if(location!=null){location.setText(String.valueOf(listingDraft.get("location")));location.setError(null);}
+            listingLocationDialog.dismiss();
+        }));listingLocationDialog.show();
     }
 
     private String spinnerText(int id, String fallback) { Spinner s = findViewById(id); return s == null || s.getSelectedItem() == null ? fallback : String.valueOf(s.getSelectedItem()); }
@@ -2974,6 +3006,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override protected void onDestroy() {
+        if(listingLocationDialog!=null)listingLocationDialog.dismiss();
         if (emulatorOtpNotifications != null) emulatorOtpNotifications.close();
         clearScreenListeners();
         super.onDestroy();

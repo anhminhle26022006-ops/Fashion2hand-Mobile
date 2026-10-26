@@ -16,6 +16,16 @@ import java.util.Map;
 
 /** Client adapter for the trusted Member 2 Cloud Functions and read-only Firestore streams. */
 public final class MemberTwoRepository {
+    public Task<HttpsCallableResult> createVnpayPayment(String orderId) {
+        return functions.getHttpsCallable("createVnpayPayment").call(java.util.Collections.singletonMap("orderId",orderId));
+    }
+    public Task<HttpsCallableResult> vnpayStatus(String orderId) {
+        return functions.getHttpsCallable("getVnpayPaymentStatus").call(java.util.Collections.singletonMap("orderId",orderId));
+    }
+    public Task<HttpsCallableResult> reconcileVnpay(String orderId, String attemptId) {
+        Map<String,Object> data=new HashMap<>();data.put("orderId",orderId);if(!attemptId.isEmpty())data.put("attemptId",attemptId);
+        return functions.getHttpsCallable("reconcileVnpayPayment").call(data);
+    }
     private static MemberTwoRepository instance;
     private final FirebaseFunctions functions = FirebaseFunctions.getInstance();
     private final FirebaseFirestore firestore = FirebaseFirestore.getInstance();

@@ -3,6 +3,7 @@ const reference = orderId => `F2-${hash(orderId).slice(0,40)}`;
 
 module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, writeOrderEvent, provider }) => {
   function payload(order, code) {
+    if(order.paymentNeedsReview)fail('failed-precondition','Thanh toán cần đối soát trước khi tạo vận đơn.');
     const q=order.shippingQuote;
     if(!q||q.provider!=='GHN'||!q.pickup?.ghn||!q.shippingAddress?.ghn)fail('failed-precondition','Đơn cũ chưa có báo giá và snapshot địa chỉ GHN; không tự bịa dữ liệu để gửi.');
     const p=provider();if(q.environment!==p.settings.environment)fail('failed-precondition','Đơn và cấu hình GHN thuộc môi trường khác nhau.');

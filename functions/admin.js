@@ -42,7 +42,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
         count(db.collection("reports").where("status", "in", ["PENDING", "REVIEWING"])),
         count(db.collection("disputes").where("status", "in", ["OPEN", "WAITING_EVIDENCE"])),
         count(db.collection("verificationRequests").where("status", "==", "PENDING"))]);
-      return { users, activeUsers, posts, activePosts, orders, reports, disputes, verifications, updatedAt: new Date().toISOString(), mode: "SIMULATED" };
+      return { users, activeUsers, posts, activePosts, orders, reports, disputes, verifications, updatedAt: new Date().toISOString(), mode: process.env.PAYMENT_PROVIDER==='VNPAY'?'MIXED_SANDBOX':'SIMULATED', paymentProvider:process.env.PAYMENT_PROVIDER==='VNPAY'?'VNPAY':'SIMULATED' };
     }),
     adminDetail: onCall(async request => {
       await admin(request);

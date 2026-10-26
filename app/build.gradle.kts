@@ -39,6 +39,7 @@ android {
 dependencies {
     implementation(libs.activity.ktx)
     implementation(libs.appcompat)
+    implementation("androidx.browser:browser:1.8.0")
     implementation(libs.constraintlayout)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services.auth)

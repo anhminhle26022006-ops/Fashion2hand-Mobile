@@ -83,12 +83,12 @@ final class AccountScreens {
         final int token=++generation;
         if(addressId.isEmpty())addressId=UUID.randomUUID().toString();
         final String id=addressId;final String uid=host.uid();
-        int[] ids={R.id.edtAddressRecipient,R.id.edtAddressPhone,R.id.edtAddressProvince,R.id.edtAddressWard,R.id.edtAddressStreet};
-        String[] keys={"recipient","phone","province","ward","street"};
+        int[] ids={R.id.edtAddressRecipient,R.id.edtAddressPhone,R.id.edtAddressProvince,R.id.edtAddressDistrict,R.id.edtAddressWard,R.id.edtAddressStreet};
+        String[] keys={"recipient","phone","province","district","ward","street"};
         FirebaseUser user=FirebaseAuth.getInstance().getCurrentUser();
         if(!host.restoringDraft()&&user!=null){text(R.id.edtAddressRecipient,user.getDisplayName());text(R.id.edtAddressPhone,user.getPhoneNumber());}
         final AddressPicker picker;
-        try{picker=new AddressPicker(a,a.findViewById(R.id.edtAddressProvince),a.findViewById(R.id.edtAddressWard));}
+        try{picker=new AddressPicker(a,a.findViewById(R.id.edtAddressProvince),a.findViewById(R.id.edtAddressDistrict),a.findViewById(R.id.edtAddressWard));}
         catch(IOException failure){error(failure);a.findViewById(R.id.btnSaveAddress).setEnabled(false);return;}
         Set<Integer> edited=track(ids);Button save=a.findViewById(R.id.btnSaveAddress);save.setEnabled(false);
         text(R.id.txtAddressFormTitle,"Địa chỉ nhận hàng");
@@ -96,9 +96,12 @@ final class AccountScreens {
             if(!valid(token))return;save.setEnabled(true);
             if(doc.exists()){
                 Set<Integer> beforeLoad=new HashSet<>(edited);
-                boolean keepArea=beforeLoad.contains(R.id.edtAddressProvince)||beforeLoad.contains(R.id.edtAddressWard);
-                for(int i=0;i<ids.length;i++)if(!beforeLoad.contains(ids[i])&&!(keepArea&&(i==2||i==3)))input(ids[i]).setText(doc.getString(keys[i]));
-                if(!"VN_2_LEVEL_2025".equals(doc.getString("addressVersion")))text(R.id.txtAddressLegacy,"Địa chỉ cũ: "+AddressPicker.format(doc.getData())+". Hãy chọn lại tỉnh/thành phố và phường/xã hiện hành khi lưu.");
+                boolean keepArea=beforeLoad.contains(R.id.edtAddressProvince)||beforeLoad.contains(R.id.edtAddressDistrict)||beforeLoad.contains(R.id.edtAddressWard);
+                try{picker.useSavedVersion(doc.getData());}catch(IOException failure){error(failure);save.setEnabled(false);return;}
+                for(int i=0;i<ids.length;i++)if(!beforeLoad.contains(ids[i])&&!(keepArea&&(i>=2&&i<=4)))input(ids[i]).setText(doc.getString(keys[i]));
+                if(!keepArea)picker.restoreWardCode(doc.getData());
+                if("VN_2_LEVEL_2025".equals(doc.getString("addressVersion")))text(R.id.txtAddressDirectory,"Địa chỉ đã lưu theo danh mục 34 tỉnh/thành · Giữ nguyên hệ hai cấp");
+                else if(!"VN_3_LEVEL_LEGACY".equals(doc.getString("addressVersion")))text(R.id.txtAddressLegacy,"Địa chỉ đã lưu: "+AddressPicker.format(doc.getData())+". Chọn lại theo danh mục 63 tỉnh/thành khi lưu.");
                 if(!host.restoringDraft()){
                     ((RadioGroup)a.findViewById(R.id.rgAddressType)).check("WORK".equals(doc.getString("label"))?R.id.radioAddressWork:R.id.radioAddressHome);
                     ((CheckBox)a.findViewById(R.id.checkAddressDefault)).setChecked(Boolean.TRUE.equals(doc.getBoolean("isDefault")));
@@ -112,7 +115,7 @@ final class AccountScreens {
             }
         }).addOnFailureListener(failure->{if(valid(token)){error(failure);text(R.id.txtAddressFormTitle,"Không tải được địa chỉ · Quay lại để thử lại");}});
         click(R.id.btnSaveAddress,()->{
-            Map<String,Object> data=new HashMap<>();for(int i=0;i<ids.length;i++){String v=value(ids[i]);if(v.isEmpty()){input(ids[i]).setError("Vui lòng nhập thông tin");return;}data.put(keys[i],v);}
+            Map<String,Object> data=new HashMap<>();for(int i=0;i<ids.length;i++){String v=value(ids[i]);if(v.isEmpty()&&(i==0||i==1||i==5)){input(ids[i]).setError("Vui lòng nhập thông tin");return;}data.put(keys[i],v);}
             if(MarketplaceLinks.normalizePhone(value(R.id.edtAddressPhone)).isEmpty()){input(R.id.edtAddressPhone).setError("Số điện thoại không hợp lệ");return;}
             if(!picker.apply(data))return;
             data.put("label",((RadioGroup)a.findViewById(R.id.rgAddressType)).getCheckedRadioButtonId()==R.id.radioAddressWork?"WORK":"HOME");data.put("isDefault",checked(R.id.checkAddressDefault));

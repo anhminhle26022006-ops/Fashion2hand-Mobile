@@ -194,3 +194,12 @@ Kết quả thực tế ngày 26/10/2026: **23/23 backend test đạt** (9 provi
 - [Tra cứu theo mã nội bộ](https://developer.ghn.vn/vi/docs/order/info-by-client-code), [chi tiết](https://developer.ghn.vn/vi/docs/order/info), [hủy](https://developer.ghn.vn/vi/docs/order/cancel)
 - [Shop](https://developer.ghn.vn/vi/docs/shop/get-shop), [trạng thái](https://developer.ghn.vn/vi/docs/master-data/order-status), [callback](https://developer.ghn.vn/vi/docs/webhook/callback-order-status)
 - [Firebase Secret parameters và binding](https://firebase.google.com/docs/functions/config-env)
+
+
+## Sửa cấu hình danh mục GHN — 27/10/2026
+
+Log Cloud xác nhận GHN HTTP 400 tại /master-data/province khi hai Function địa chỉ còn dùng GHN_SHOP_ID=2543108. Đã đồng bộ Shop ID 232736 theo ảnh người dùng vào .env.fashion2hand và file .gradle/ghn-seller.json; deploy riêng ghnAddressCatalog và saveGhnAddress thành công, giữ GHN_ENV/GHN_TOKEN_ENV=staging và Secret GHN_TOKEN version 5. Chưa xác minh thành công phản hồi danh mục GHN; cần đối chiếu shop thuộc đúng staging (không suy luận từ ảnh không có tên miền). Không đổi Token hoặc chuyển production.
+
+Người dùng đã xác nhận shop 232736 thuộc 5sao.ghn.dev / developer.ghn.dev (staging). Metadata sau deploy: cả hai Function ACTIVE, ShopId=232736, environment=staging, GHN_TOKEN version 5. Còn cần thử lại bộ chọn trên app để xác minh phản hồi GHN.
+
+UI lưu địa chỉ GHN: sau khi callable lưu thành công, app thông báo rõ và tải lại màn hiện tại. Luồng seller ghi rõ điểm lấy hàng của người bán; luồng buyer ghi địa chỉ nhận hàng. Trung tâm giao dịch phía bán hiển thị các địa chỉ đã lưu mã GHN, không suy luận rằng shop đã được Admin liên kết. Danh sách địa chỉ có nhãn đã lưu/chưa có mã GHN.

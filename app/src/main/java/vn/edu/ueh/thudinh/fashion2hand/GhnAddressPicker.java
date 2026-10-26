@@ -14,19 +14,34 @@ final class GhnAddressPicker {
     private final BooleanSupplier active;
     private final Consumer<Exception> failure;
     private final String addressId;
+    private final boolean pickup;
+    private final Runnable saved;
     private AlertDialog dialog;
     GhnAddressPicker(AppCompatActivity activity,String addressId,BooleanSupplier active,Consumer<Exception> failure) {
-        this.activity=activity;this.addressId=addressId;this.active=active;this.failure=failure;
+        this(activity,addressId,active,failure,false,()->{});
     }
-    void open(){choose("provinces",0,"Chọn tỉnh/thành theo GHN",province->choose("districts",integer(province,"ProvinceID"),"Chọn quận/huyện theo danh mục GHN",district->
-        choose("wards",integer(district,"DistrictID"),"Chọn phường/xã theo GHN",ward->{
+    GhnAddressPicker(AppCompatActivity activity,String addressId,BooleanSupplier active,Consumer<Exception> failure,boolean pickup,Runnable saved) {
+        this.activity=activity;this.addressId=addressId;this.active=active;this.failure=failure;
+        this.pickup=pickup;this.saved=saved;
+    }
+    void open(){choose("provinces",0,pickup?"Tỉnh/thành lấy hàng · Người bán":"Tỉnh/thành nhận hàng · Người mua",province->choose("districts",integer(province,"ProvinceID"),pickup?"Quận/huyện lấy hàng · Người bán":"Quận/huyện nhận hàng · Người mua",district->
+        choose("wards",integer(district,"DistrictID"),pickup?"Phường/xã lấy hàng · Người bán":"Phường/xã nhận hàng · Người mua",ward->{
             if(!active.getAsBoolean())return;
-            new AlertDialog.Builder(activity).setTitle("Xác nhận địa chỉ giao hàng GHN")
-                .setMessage(ward.get("WardName")+", "+district.get("DistrictName")+", "+province.get("ProvinceName")+"\n\nGiữ nguyên người nhận, điện thoại và số nhà/đường của địa chỉ đã lưu. Danh mục này là mã riêng của GHN, có thể dùng tên địa giới cũ.")
-                .setNegativeButton("Hủy",null).setPositiveButton("Lưu địa chỉ GHN",(d,w)->{
+            final String selected=ward.get("WardName")+", "+district.get("DistrictName")+", "+province.get("ProvinceName");
+            new AlertDialog.Builder(activity).setTitle(pickup?"Địa chỉ lấy hàng của người bán":"Địa chỉ nhận hàng của người mua")
+                .setMessage(selected+"\n\n"+(pickup?"Đây là nơi GHN đến lấy hàng từ người bán khi tạo vận đơn. ":"Đây là nơi GHN giao hàng cho người nhận. ")+"Giữ nguyên tên, điện thoại và số nhà/đường đã lưu. Kiểm tra đúng tỉnh, quận và phường trước khi xác nhận.")
+                .setNegativeButton("Hủy",null).setPositiveButton(pickup?"Lưu địa chỉ lấy hàng":"Lưu địa chỉ nhận hàng",(d,w)->{
                     AlertDialog progress=new AlertDialog.Builder(activity).setMessage("Đang xác minh địa chỉ GHN…").setCancelable(false).show();
                     repo.saveGhnAddress(addressId,integer(province,"ProvinceID"),integer(district,"DistrictID"),String.valueOf(ward.get("WardCode")))
-                        .addOnCompleteListener(result->{progress.dismiss();if(active.getAsBoolean()&&!result.isSuccessful())failure.accept(result.getException());});
+                        .addOnCompleteListener(result->{
+                            progress.dismiss();if(!active.getAsBoolean())return;
+                            if(!result.isSuccessful()){failure.accept(result.getException());return;}
+                            android.widget.Toast.makeText(activity,pickup?"Đã lưu địa chỉ lấy hàng của người bán":"Đã lưu địa chỉ nhận hàng",android.widget.Toast.LENGTH_LONG).show();
+                            saved.run();
+                            if(pickup)new AlertDialog.Builder(activity).setTitle("Đã lưu địa chỉ lấy hàng của người bán")
+                                .setMessage(selected+"\n\nMã địa chỉ đã được lưu. Nếu chưa liên kết shop, Admin cần cấu hình shop GHN cho người bán. Thao tác này chưa tạo vận đơn hoặc gọi lấy hàng.")
+                                .setPositiveButton("Đã hiểu",null).show();
+                        });
                 }).show();
         })));
     }

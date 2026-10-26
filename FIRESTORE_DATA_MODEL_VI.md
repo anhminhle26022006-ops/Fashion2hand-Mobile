@@ -64,3 +64,17 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 - `webhookEvents/ghn_{hash}` và notification IDs ổn định dùng chống trùng theo kết quả tra cứu GHN; không tin payload callback để tự đánh dấu giao thành công.
 
 Các collection GHN mới được catch-all deny của rules hiện có bảo vệ, không mở quyền client và không cần composite index mới. Xem `GHN_INTEGRATION.md` để cấu hình bằng Secret/Admin và biết giới hạn thanh toán mô phỏng, mapping seller và ước tính kiện.
+
+## VNPAY sandbox — 27/10/2026
+
+Các mô tả SIMULATED phía trên tiếp tục áp dụng đơn cũ; đơn mới khi PAYMENT_PROVIDER=VNPAY có paymentProvider=VNPAY, paymentEnvironment=sandbox, paymentMode=VNPAY_SANDBOX. Không migration/xóa dữ liệu.
+
+- orders: activePaymentAttemptId, paymentVerifiedAt, paymentNeedsReview/paymentReviewReason, refundStatus/payoutStatus. IPN hợp lệ có thể xác nhận đơn; thành công trễ không phục hồi đơn đóng.
+- payments: provider/environment, activeAttemptId, successfulAttemptId, providerReference, verifiedAt, needsReview. Amount VND do server chốt theo đơn và báo giá GHN; client không ghi.
+- paymentAttempts/{reference}: server-only; orderId/paymentId/buyerId/sellerId, amount/currency, provider/environment, merchantFingerprint (SHA256, không phải TMN code), createDate/expireDate GMT+7, expiresAt, IP dùng tạo phiên, status, transactionNo và cờ đối soát. Không lưu credential hoặc signed URL. Một phiên đang hiệu lực được dùng lại; retry mới có reference mới.
+- vnpayTransactions/{hash(merchantFingerprint:transactionNo)}: server-only bằng chứng và khóa chống dùng cùng giao dịch cho hai reference.
+- webhookEvents/vnpay_{hash}: bằng chứng đã lọc và kết quả xử lý nguyên tử, không lưu callback/URL/header thô. Return không ghi dữ liệu thanh toán.
+- moneyTransactions/received_{orderId}: receipt VNPAY_SANDBOX, HOLDING chỉ là trạng thái app, không phải escrow. Thành công thứ hai lưu riêng vnpay_extra_*; trùng/trễ có REVIEW_REQUIRED.
+- refunds/{orderId}: VNPAY sandbox status REVIEW_REQUIRED, không có API Refund tự động; payment vẫn ghi nhận PAID. Settlement có thể hoàn tất đơn, nhưng payout REVIEW_REQUIRED và không ghi chuyển tiền thật.
+
+Collection mới được catch-all deny của rules hiện có bảo vệ. Không đổi rules/index hoặc quyền client. Trạng thái thanh toán trả qua callable có kiểm Firebase Auth và buyer/seller. Xem VNPAY_INTEGRATION.md.

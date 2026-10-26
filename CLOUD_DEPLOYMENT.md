@@ -61,3 +61,12 @@ Thanh toán và vận chuyển mô phỏng vẫn bị backend khóa ngoài Emula
 Webhook vận chuyển yêu cầu `eventId` duy nhất. Chỉ backend đối tác có secret hợp lệ được gửi cập nhật.
 
 [Firebase Console](https://console.firebase.google.com/project/fashion2hand/overview)
+
+## VNPAY sandbox — mã nguồn 27/10/2026, chưa deploy
+
+Đã triển khai code/test local; chưa phát hành endpoint VNPAY Cloud hoặc chạy SIT. functions/.env.fashion2hand local đã được ghép bốn biến không bí mật sandbox, giữ cấu hình GHN. Credential phải nhập bằng Firebase Functions Secrets; không lưu vào .env. Chạy functions/scripts/deploy-vnpay.ps1 sau cấu hình để deploy đúng 17 Functions; không deploy rules/indexes/Hosting. Xem VNPAY_INTEGRATION.md để biết danh sách/binding Secrets và URL IPN/Return dự kiến. Chỉ dùng URL như endpoint thật sau khi deploy thành công và kiểm tra output CLI. Không tự bật billing hoặc dịch vụ tính phí.
+
+
+## Địa chỉ 63 tỉnh/thành — deploy 27/10/2026
+
+Đã deploy thành công riêng saveAddress, createPaidOrder, createCartOrders, createFreeRequest (us-central1). Địa chỉ mới dùng VN_3_LEVEL_LEGACY với provinceCode/districtCode/wardCode; giữ hỗ trợ VN_2_LEVEL_2025. Không đổi Secrets, rules/indexes/Hosting hoặc migration dữ liệu. Chi tiết và nguồn snapshot trong ADDRESS_DATA.md.
