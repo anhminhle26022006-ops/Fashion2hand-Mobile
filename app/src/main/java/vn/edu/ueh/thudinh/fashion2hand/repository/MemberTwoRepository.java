@@ -92,6 +92,26 @@ public final class MemberTwoRepository {
         return call("createCartOrders", payload("postIds", postIds, "idempotencyKey", key, "addressId", addressId, "expectedTotal", total));
     }
     public Task<HttpsCallableResult> capabilities() { return call("getTransactionCapabilities", payload()); }
+    public Task<HttpsCallableResult> quoteShipping(String postId, java.util.List<String> ids, String addressId) {
+        return call(ids.isEmpty() ? "getCheckoutQuote" : "getCartCheckoutQuote", ids.isEmpty()
+                ? payload("postId", postId, "addressId", addressId) : payload("postIds", ids, "addressId", addressId));
+    }
+    public Task<HttpsCallableResult> checkoutShipping(String postId, java.util.List<String> ids, String key, String addressId, Map<String,Object> quote) {
+        Map<String,Object> data=payload("idempotencyKey",key,"addressId",addressId,"quoteId",quote.get("quoteId"),
+                "expectedPrice",quote.get("price"),"expectedShippingFee",quote.get("shippingFee"),"expectedTotal",quote.get("total"));
+        if(ids.isEmpty())data.put("postId",postId);else data.put("postIds",ids);
+        return call(ids.isEmpty()?"createPaidOrder":"createCartOrders",data);
+    }
+    public Task<HttpsCallableResult> requestFreeWithQuote(String postId,String note,String addressId,Map<String,Object> quote) {
+        return call("createFreeRequest",payload("postId",postId,"note",note,"addressId",addressId,"quoteId",quote.get("quoteId")));
+    }
+    public Task<HttpsCallableResult> ghnCatalog(String kind,int parentId) {
+        return call("ghnAddressCatalog",payload("kind",kind,"provinceId",parentId,"districtId",parentId));
+    }
+    public Task<HttpsCallableResult> saveGhnAddress(String addressId,int provinceId,int districtId,String wardCode) {
+        return call("saveGhnAddress",payload("addressId",addressId,"ghn",payload("provinceId",provinceId,"districtId",districtId,"wardCode",wardCode)));
+    }
+    public Task<HttpsCallableResult> cancelGhnShipment(String orderId) { return call("cancelGhnShipment",payload("orderId",orderId)); }
     public Task<HttpsCallableResult> refreshOrder(String orderId) { return call("refreshOrder", payload("orderId", orderId)); }
 
     public Task<HttpsCallableResult> createDispute(String orderId, String reason, String description, String uploadKey, java.util.List<String> evidencePaths) {

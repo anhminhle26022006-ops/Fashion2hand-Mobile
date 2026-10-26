@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
             showScreen(layout);
         }
         public void openOrder(String id) { openTransactionDestination(R.layout.activity_order_detail, () -> { currentOrderId = id; activeOrder = null; }); }
+        public void requestFree(String id, String note) { openTransactionDestination(R.layout.activity_requestfree, () -> { currentPostId = id; transactionScreens.selectFreeRequestDraft(id,note); }); }
         public void openRequest(String id) { openTransactionDestination(R.layout.activity_request_status, () -> currentFreeRequestId = id); }
         public void checkout(String id) { openTransactionDestination(R.layout.activity_checkout, () -> { currentPostId = id; checkoutReturnScreen = R.layout.activity_cart; }); }
         public void checkoutCart(java.util.List<String> ids) { openTransactionDestination(R.layout.activity_checkout, () -> {

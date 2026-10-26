@@ -52,3 +52,15 @@ Firestore lưu dữ liệu thành collection và document, không phải bảng 
 - `orderRequests/cart_{hash}` lưu `buyerId, postIds, addressId, orderIds, createdAt` để chống tạo trùng toàn bộ lượt checkout. Client không có quyền ghi collection này.
 - Mỗi bài đăng giữ `reservedForOrderId` của đơn theo seller. Mỗi đơn có một payment và một shipment; phí giao tính theo đơn.
 - `deliveredAt`, `inspectionDeadline` chỉ backend ghi khi có sự kiện giao. Sau 3 ngày và không có tranh chấp đang mở, có thể tự hoàn tất/giải ngân mô phỏng.
+## Bổ sung GHN — mã nguồn 26/10/2026, chưa deploy GHN
+
+- `shippingQuotes/{id}`: buyerId, addressId, postIds, environment, sourceHash chuẩn hóa thứ tự field, snapshot nguồn, groups theo seller, phí và expiresAt. Chỉ server đọc/ghi; client lấy dữ liệu đã lọc bằng callable.
+- `shippingConfig/ghn_{environment}`: chính sách kiện ước tính được Admin xác nhận, không có Token.
+- `ghnSellerShops/{environment}_{sellerUid}`: shopId, snapshot pickup đã đối chiếu hồ sơ GHN và cờ enabled; chỉ server/Admin callable quản lý.
+- `ghnOperations/{reference}`: quyền tạo, payload không có Token, trạng thái CREATING/UNKNOWN/REJECTED/LINKED và mã tra cứu ổn định.
+- `ghnTracking/{environment}_{trackingCode}`: ánh xạ mã GHN về operation/order do backend ghi.
+- `shipments/{orderId}` bổ sung provider/environment, providerStatus/normalizedStatus, providerUpdatedAt, snapshot địa chỉ/kiện, phí báo giá/phí hãng và ETA; read vẫn giới hạn buyer/seller, write vẫn server-only.
+- `orders/{id}` bổ sung shippingQuote, shippingProvider, shippingEnvironment, pickupAddress, paymentMode và shippingNeedsReview. Các snapshot không tự đổi theo hồ sơ sau khi xác nhận.
+- `webhookEvents/ghn_{hash}` và notification IDs ổn định dùng chống trùng theo kết quả tra cứu GHN; không tin payload callback để tự đánh dấu giao thành công.
+
+Các collection GHN mới được catch-all deny của rules hiện có bảo vệ, không mở quyền client và không cần composite index mới. Xem `GHN_INTEGRATION.md` để cấu hình bằng Secret/Admin và biết giới hạn thanh toán mô phỏng, mapping seller và ước tính kiện.
