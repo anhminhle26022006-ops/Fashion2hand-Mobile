@@ -13,7 +13,9 @@
     "serve": "firebase emulators:start --only functions,firestore",
     "serve:team": "firebase emulators:start --only auth,firestore,functions,storage --export-on-exit=../emulator-data",
     "seed:emulator": "node seed-emulator.js",
-    "deploy": "firebase deploy --only functions,firestore:rules,firestore:indexes"
+    "deploy": "firebase deploy --only functions,firestore:rules,firestore:indexes",
+    "test:ghn": "node --test test/ghn-provider.test.js",
+    "test:ghn:emulator": "node --test test/ghn.emulator.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",

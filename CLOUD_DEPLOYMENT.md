@@ -1,3 +1,7 @@
+# GHN chưa deploy — cập nhật 26/10/2026
+
+Mã tích hợp GHN đã được chuẩn bị và kiểm thử bằng HTTP giả lập/Firestore Emulator. Chưa nhập Token, chưa triển khai các Functions GHN và chưa xác minh callback công khai. Hướng dẫn Secret, Shop ID và danh sách hàm cần deploy nằm trong [GHN_INTEGRATION.md](GHN_INTEGRATION.md). Báo cáo cloud trước đây dưới đây không phải xác nhận GHN đã hoạt động.
+
 # Kết quả deploy Firebase cloud — 24/10/2026
 
 Project: **fashion2hand** (1096676251064). Source: nhánh **MINH-ANH** trong workspace, gồm các thay đổi chưa commit. Người dùng đã yêu cầu deploy sau khi đăng nhập lại Firebase.

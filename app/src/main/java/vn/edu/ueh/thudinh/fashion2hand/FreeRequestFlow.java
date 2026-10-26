@@ -177,7 +177,8 @@ final class FreeRequestFlow {
             TextView itemHeading=text(item,"Món đồ miễn phí",14,0xFF173B32,false);item.removeView(itemHeading);item.addView(itemHeading,0);
             LinearLayout delivery=box(body);text(delivery,"Thông tin giao nhận",14,0xFF173B32,false);TextView fee=text(delivery,"Giao hàng tiêu chuẩn · Đang tải phí dự kiến…",13,0xFF173B32,true);
             muted(delivery,"Người nhận chi trả phí giao hàng nếu áp dụng.");
-            repo.capabilities().addOnSuccessListener(result->{if(valid(token)&&fee.isAttachedToWindow()){Map<String,Object> c=map(result.getData());fee.setText(c.get("shippingFee") instanceof Number?"Giao hàng tiêu chuẩn · dự kiến "+amount(c.get("shippingFee")):"Phí giao hàng sẽ hiển thị trong đơn được tạo.");}})
+            if(data.get("shippingQuote") instanceof Map){Map<String,Object> savedQuote=map(data.get("shippingQuote"));fee.setText("GHN · "+str(savedQuote,"environment")+" · phí đã xác nhận "+amount(savedQuote.get("shippingFee")));}
+            else repo.capabilities().addOnSuccessListener(result->{if(valid(token)&&fee.isAttachedToWindow()){Map<String,Object> c=map(result.getData());fee.setText(c.get("shippingFee") instanceof Number?"Giao hàng tiêu chuẩn · dự kiến "+amount(c.get("shippingFee")):"Phí giao hàng sẽ hiển thị trong đơn được tạo.");}})
                 .addOnFailureListener(e->{if(valid(token)&&fee.isAttachedToWindow())fee.setText("Chưa tải được phí giao hàng dự kiến.");});
             String status=str(data,"status");
             if(status.equals("PENDING")){
@@ -191,6 +192,7 @@ final class FreeRequestFlow {
                 TextView description=muted(statusCard,status.equals("ACCEPTED")?"Món đồ đã được giữ cho người nhận.":"Yêu cầu này không còn chờ xử lý.");
                 if(status.equals("ACCEPTED"))profile(str(data,"requesterId"),token,p->{if(description.isAttachedToWindow())description.setText("Món đồ đang được giữ cho "+name(p)+".");});
             }
+            if(!owner&&status.equals("PENDING")&&str(data,"shippingProvider").equals("GHN"))action(body,"Cập nhật địa chỉ / xác nhận lại phí GHN",0,2,()->host.requestFree(str(data,"postId"),str(data,"note")));
             action(body,"Trò chuyện",0,2,()->host.chat(peer,str(data,"postId")));
             if(!str(data,"orderId").isEmpty())action(body,"Xem đơn miễn phí",0,1,()->host.openOrder(str(data,"orderId")));
         }));

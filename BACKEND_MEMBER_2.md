@@ -1,5 +1,13 @@
 # Backend thành viên 2
 
+## Cập nhật GHN — 26/10/2026 (mã nguồn, chưa deploy GHN)
+
+Đã thêm provider GHN và nối vào các callable/màn giao dịch hiện có. Xem **[GHN_INTEGRATION.md](GHN_INTEGRATION.md)** để nhập `GHN_TOKEN` bằng Functions Secrets, cấu hình staging/production, Shop ID, điểm gửi riêng của seller và kiện hàng ước tính; tài liệu có lệnh deploy giới hạn đúng các Functions liên quan. Không gửi Token trong chat.
+
+Khi `SHIPPING_PROVIDER=GHN`, phí cố định/mock bên dưới không áp dụng: báo giá GHN có snapshot và hạn, chia theo seller; thiếu credential/mapping/địa chỉ/kiện sẽ bị chặn. Callback dùng tra cứu GHN để đối chiếu, vận đơn UNKNOWN phục hồi theo mã nội bộ. Thanh toán/hoàn tiền/giải ngân vẫn mô phỏng; PAID production bị chặn. Return/cancel/sự cố cần đối soát, không tự ghi hoàn tiền thật. Rules/indexes và database cloud không bị thay đổi trong lượt tích hợp này.
+
+23/23 test backend với HTTP giả lập + Firestore Emulator đạt. Chưa xác minh GHN staging thật do người dùng sẽ tự nhập Token sau khi nhận mã nguồn. Các phần mô tả dưới đây ghi lại luồng mock/triển khai trước khi bổ sung GHN.
+
 Phạm vi: Chats/Messages, FreeRequests, Orders, Payments, Shipments và Notifications. Android gọi các callable trong `MemberTwoRepository`; Cloud Functions dùng Admin SDK để thực hiện thay đổi nhiều tài liệu trong một transaction. Firestore Rules chỉ cấp quyền đọc theo thành viên, mọi ghi nghiệp vụ đều đi qua Functions.
 
 ## Luồng đã có

@@ -15,6 +15,7 @@
 local.properties
 functions/node_modules/
 functions/.env*
+functions/.secret.local
 .firebase/
 firebase-debug.log
 ui-debug.log

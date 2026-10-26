@@ -1,5 +1,7 @@
 # Triển khai Giao dịch & Vận chuyển — MINH-ANH
 
+**Bổ sung ngày 26/10/2026:** đã viết tích hợp GHN backend/Android trong mã nguồn; xem [GHN_INTEGRATION.md](GHN_INTEGRATION.md). 23/23 test backend mock HTTP + Firestore Emulator đạt. Chưa deploy các hàm GHN hoặc gọi GHN thật vì người dùng sẽ tự nhập Secret. Nội dung nghiệm thu ngày 24/10 bên dưới là mốc lịch sử trước GHN.
+
 Ngày: 24/10/2026. Nhánh làm việc: `MINH-ANH`. Chưa commit hoặc push. Đã deploy cloud theo yêu cầu bổ sung; xem [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md). Không tạo project Firebase, bật billing hoặc thực hiện thanh toán thật.
 
 ## 1. Kết quả và giới hạn nghiệm thu

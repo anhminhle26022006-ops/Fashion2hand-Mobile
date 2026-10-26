@@ -16,11 +16,12 @@ const { getAuth } = require("firebase-admin/auth");
 const paymentWebhookToken = defineSecret("PAYMENT_WEBHOOK_TOKEN");
 const shipmentWebhookToken = defineSecret("SHIPMENT_WEBHOOK_TOKEN");
 
-const fail = (code, message) => { throw new HttpsError(code, message); };
+const fail = (code, message, details) => { throw new HttpsError(code, message, details); };
 const settleDelivery = require("./escrow")({ db, FieldValue, fail, writeOrderEvent });
 // Check the current server profile on every callable, including tokens issued before a lock.
-function onCall(handler) {
-  return firebaseOnCall(async request => {
+function onCall(options, handler) {
+  if (typeof options === "function") { handler = options; options = {}; }
+  return firebaseOnCall(options, async request => {
     if (request.auth) {
       const profile = await db.doc(`users/${request.auth.uid}`).get();
       if (profile.exists && profile.get("accountStatus") !== "ACTIVE") fail("permission-denied", "Tài khoản đã bị khóa.");
@@ -694,6 +695,7 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
   let buyerId; let sellerId;
   await db.runTransaction(async (tx) => {
     const order = await tx.get(orderRef);
+    if (order.get("shippingProvider") === "GHN") fail("permission-denied", "Đơn GHN chỉ được cập nhật bằng tra cứu GHN đã xác minh.");
     const orderPosts = await readOrderPosts(tx, order);
     if (!order.exists || order.get("sellerId") !== uid || order.get("shippingStatus") !== "IN_TRANSIT") fail("permission-denied", "Chỉ người bán mới có thể giả lập cập nhật vận chuyển.");
     const postRef = db.collection("posts").doc(order.get("postId"));
@@ -767,6 +769,7 @@ exports.updateShipmentFromCarrier = onRequest({ secrets: [shipmentWebhookToken] 
     await db.runTransaction(async (tx) => {
       duplicateUpdate = false;
       const [order, shipment, event] = await Promise.all([tx.get(orderRef), tx.get(shipmentRef), tx.get(eventRef)]);
+      if (order.get("shippingProvider") === "GHN") fail("permission-denied", "Đơn GHN chỉ được cập nhật bằng tra cứu GHN đã xác minh.");
       const orderPosts = await readOrderPosts(tx, order);
       if (event.exists) {
         if (event.get("orderId") !== normalizedOrderId || event.get("status") !== status || event.get("trackingCode") !== trackingCode)
@@ -939,3 +942,5 @@ Object.assign(exports, require("./cart-checkout")({ db, onCall, uidOf, cleanDocu
   shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent, requireVerifiedAccount }));
 Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }));
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));
+
+require('./ghn-integration')({ exports, db, getAuth, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, cleanText, FieldValue, logger, requireVerifiedAccount, postOwnerId, postType, orderPostSnapshot, writeOrderEvent });
