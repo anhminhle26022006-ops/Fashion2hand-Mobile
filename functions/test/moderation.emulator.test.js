@@ -79,3 +79,26 @@ test("Post is auto-hidden only when the policy is on and distinct reporters reac
   for (const who of [a, c]) await ok("submitReport", report("POST", reserved), who);
   assert.equal((await db.doc(`posts/${reserved}`).get()).get("status"), "ACTIVE");
 });
+
+test("Clients cannot write reports directly; they must use submitReport", async () => {
+  const reporter = await user(), owner = await user(); const postId = await post(owner);
+  const direct = await http(docs + "reports", { fields: { reporterId: { stringValue: reporter.uid }, targetType: { stringValue: "POST" },
+    targetId: { stringValue: postId }, reason: { stringValue: "Spam" }, status: { stringValue: "RESOLVED" } } }, reporter.token);
+  assert.equal(direct.status, 403);
+});
+
+test("Rules enforce maxPrice for client-created posts and edits", async () => {
+  await policy({ maxPrice: 500000 });
+  const seller = await user();
+  const fields = (type, price) => ({ fields: { ownerId: { stringValue: seller.uid }, title: { stringValue: "Áo kiểm thử" }, description: { stringValue: "Test" },
+    type: { stringValue: type }, price: { integerValue: String(price) }, condition: { stringValue: "GOOD" }, status: { stringValue: "ACTIVE" },
+    createdAt: { timestampValue: new Date().toISOString() }, updatedAt: { timestampValue: new Date().toISOString() } } });
+  const id = () => `rules-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  assert.equal((await http(docs + `posts?documentId=${id()}`, fields("SALE", 600000), seller.token)).status, 403);
+  const okId = id();
+  assert.equal((await http(docs + `posts?documentId=${okId}`, fields("SALE", 500000), seller.token)).status, 200);
+  const raise = await http(docs + `posts/${okId}?updateMask.fieldPaths=price`, { fields: { price: { integerValue: "900000" } } }, seller.token, "PATCH");
+  assert.equal(raise.status, 403);
+  await policy({ maxPrice: 2000000 });
+  assert.equal((await http(docs + `posts/${okId}?updateMask.fieldPaths=price`, { fields: { price: { integerValue: "900000" } } }, seller.token, "PATCH")).status, 200);
+});
