@@ -39,6 +39,8 @@ final class TransactionScreens {
     private final AppCompatActivity a;
     private final Host host;
     private final FreeRequestFlow freeRequests;
+    private ShipmentTrackingMap shipmentMap;
+    private final Map<String,double[]> shipmentGeocodes = new LinkedHashMap<>();
     private final MemberTwoRepository repo = MemberTwoRepository.getInstance();
     private final vn.edu.ueh.thudinh.fashion2hand.service.PaymentService payments =
             new vn.edu.ueh.thudinh.fashion2hand.service.MockPaymentService(repo);
@@ -100,7 +102,8 @@ final class TransactionScreens {
                 || layout == R.layout.activity_delivery || layout == R.layout.activity_delivery_map
                 || layout == R.layout.activity_transaction_history || layout == R.layout.activity_cancel_order;
     }
-    void invalidate() { generation++; busy = false; freeRequests.invalidate(); }
+    void invalidate() { generation++; busy = false; freeRequests.invalidate(); closeShipmentMap(); }
+    private void closeShipmentMap() { if (shipmentMap != null) { shipmentMap.close(); shipmentMap = null; } }
     private boolean valid(long token) { return !a.isDestroyed() && token == generation; }
     private int dp(int value) { return (int) (value * a.getResources().getDisplayMetrics().density + .5f); }
     private static String text(Map<String, Object> data, String key) { Object value = data.get(key); return value == null ? "" : String.valueOf(value); }
@@ -153,7 +156,7 @@ final class TransactionScreens {
         scroll.addView(content); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1)); a.setContentView(root);
     }
     private void heading(String value) { ((TextView) a.findViewById(R.id.txtTransactionTitle)).setText(value); }
-    private void reset() { content.removeAllViews(); buttons.clear(); }
+    private void reset() { closeShipmentMap(); content.removeAllViews(); buttons.clear(); }
     private TextView info(LinearLayout parent, String value) {
         TextView view = new TextView(a); view.setText(value); view.setTextSize(14); view.setTextColor(0xFF52645A); view.setPadding(0, dp(6), 0, dp(6)); parent.addView(view); return view;
     }
@@ -562,14 +565,21 @@ final class TransactionScreens {
         TextView payState = info(paymentCard, label(text(order, "paymentStatus"))); payState.setId(R.id.txtLivePaymentState);
         info(paymentCard, "Giá món: " + money(order.get("price")) + " · Phí giao: " + money(order.get("shippingFee")));
         info(paymentCard, "Tổng: " + money(number(order.get("price")) + number(order.get("shippingFee"))));
+        if (buyer && "PAID".equals(text(order, "paymentStatus"))
+                && !Boolean.TRUE.equals(order.get("paymentNeedsReview")) && !Boolean.TRUE.equals(payment.get("needsReview"))
+                && Arrays.asList("CONFIRMED", "PREPARING", "READY_TO_SHIP", "SHIPPING", "DELIVERED", "COMPLETED").contains(status)) {
+            TextView success = info(paymentCard, "Thanh toán thành công"); success.setId(R.id.paymentSuccessMessage);
+            success.setTextColor(0xFF1F6B48); success.setTypeface(null, android.graphics.Typeface.BOLD);
+            info(paymentCard, "Bạn đã hoàn tất đặt hàng. Người bán sẽ tiếp tục xử lý đơn.");
+            button(paymentCard, R.id.btnPaymentComplete, "Hoàn tất", () -> host.orders(false));
+        }
         info(paymentCard, "FREE".equals(text(order, "orderType")) ? "Món tặng không thu tiền qua app; phí giao hàng chưa được thu."
                 : "VNPAY".equals(text(order,"paymentProvider")) ? "VNPAY Sandbox – thanh toán thử nghiệm. Hoàn tiền và trả người bán cần đối soát, chưa tự động chuyển tiền." : "THANH TOÁN MÔ PHỎNG — không chuyển tiền thật.");
         if(Boolean.TRUE.equals(order.get("paymentNeedsReview"))||!text(order,"refundStatus").isEmpty())info(paymentCard,"Thanh toán/hoàn tiền cần đối soát: "+text(order,"refundStatus"));
         if (order.get("paymentDeadline") != null && "PENDING_PAYMENT".equals(status)) info(paymentCard, "Hạn thanh toán: " + date(order.get("paymentDeadline")));
-        if (!payment.isEmpty()) info(paymentCard, "Mã thanh toán: " + boundPayment + " · " + text(payment, "provider") + "\nTrạng thái bản ghi: " + label(text(payment, "status")));
         if (buyer && "PENDING_PAYMENT".equals(status)) {
             if ("VNPAY".equals(text(order,"paymentProvider"))) {
-                Button pay=button(paymentCard,0,"Tiếp tục thanh toán VNPAY Sandbox",()->a.startActivity(new android.content.Intent(a,VnpayPaymentActivity.class).putExtra("orderId",host.orderId())));
+                Button pay=button(paymentCard,0,"Thanh toán ngay",()->a.startActivity(new android.content.Intent(a,VnpayPaymentActivity.class).putExtra("orderId",host.orderId()).putExtra("startPayment",true)));
                 pay.setEnabled(!busy&&Boolean.TRUE.equals(capabilities.get("vnpayConfigured")));
                 if(!Boolean.TRUE.equals(capabilities.get("vnpayConfigured")))info(paymentCard,"VNPAY sandbox chưa được cấu hình đầy đủ trên server.");
             } else if (Boolean.TRUE.equals(capabilities.get("simulatedPayments"))) {
@@ -582,16 +592,22 @@ final class TransactionScreens {
         for (DocumentSnapshot event : timeline) {
             Map<String, Object> data = event.getData(); info(events, date(data.get("createdAt")) + " · " + label(text(data, "to")) + "\n" + text(data, "reason"));
         }
-        LinearLayout money = card(content); money.setId(R.id.liveMoneyEvents); section(money, "Bút toán từ backend");
-        if (ledger.isEmpty()) info(money, "Chưa phát sinh bút toán.");
-        for (DocumentSnapshot event : ledger) moneyEvent(money, event);
+        if (!ledger.isEmpty()) {
+            LinearLayout money = card(content); money.setId(R.id.liveMoneyEvents); section(money, "Lịch sử thanh toán");
+            for (DocumentSnapshot event : ledger) moneyEvent(money, event);
+        }
         LinearLayout shipping = card(content); section(shipping, "Vận chuyển");
-        if (shipment.isEmpty()) info(shipping, "Chưa có vận đơn."); else {
+        if (shipment.isEmpty()) {
+            info(shipping, "Chưa có vận đơn.");
+            button(shipping, R.id.btnOpenDeliveryMap, "Xem bản đồ điểm gửi – nhận", () -> host.open(R.layout.activity_delivery_map));
+        } else {
             info(shipping, text(shipment, "trackingCode") + " · " + label(text(shipment, "status")));
             button(shipping, R.id.btnTrackShipping, "Chi tiết vận đơn và lịch sử", () -> host.open(R.layout.activity_delivery));
         }
         Map<String, Object> address = map(order.get("shippingAddress"));
         info(shipping, address.isEmpty() ? "Đơn cũ chưa lưu địa chỉ." : text(address, "recipient") + " · " + text(address, "phone") + "\n" + AddressPicker.format(address));
+        if("GHN".equals(text(order,"shippingProvider"))&&!text(shipment,"trackingCode").isEmpty())
+            button(shipping,R.id.btnRefreshGhnShipment,"Cập nhật vận chuyển",()->execute(repo.refreshOrder(host.orderId()),value->{}));
         if (!buyer) {
             if ("CONFIRMED".equals(status)) button(content, R.id.btnSellerConfirm, "Xác nhận đơn và chuẩn bị hàng", () -> execute(repo.updateOrderStatus(host.orderId(), "PREPARING"), value -> { }));
             if ("PREPARING".equals(status)) button(content, R.id.btnSellerReady, "Đã chuẩn bị — sẵn sàng giao", () -> execute(repo.updateOrderStatus(host.orderId(), "READY_TO_SHIP"), value -> { }));
@@ -627,7 +643,6 @@ final class TransactionScreens {
         if("GHN".equals(text(order,"shippingProvider"))) {
             info(content,"GHN · "+("staging".equals(text(order,"shippingEnvironment"))?"THỬ NGHIỆM STAGING":"VẬN CHUYỂN THẬT")+" · "+("VNPAY".equals(text(order,"paymentProvider"))?"VNPAY Sandbox":"Thanh toán mô phỏng"));
             if(!buyer)button(content,0,"Chọn mã GHN cho địa chỉ lấy hàng của tôi",this::selectGhnPickupAddress);
-            button(content,0,"Làm mới trạng thái GHN",()->execute(repo.refreshOrder(host.orderId()),value->{}));
             if(!buyer&&Arrays.asList("READY","PICKING").contains(text(shipment,"status")))button(content,0,"Hủy vận đơn GHN",()->new android.app.AlertDialog.Builder(a)
                 .setTitle("Yêu cầu GHN hủy vận đơn?").setMessage("Chỉ xác nhận hủy khi GHN trả trạng thái đã hủy. Thao tác này không tự hoàn tiền hoặc hủy đơn mua.")
                 .setNegativeButton("Quay lại",null).setPositiveButton("Yêu cầu hủy",(dialog,which)->execute(repo.cancelGhnShipment(host.orderId()),value->{})).show());
@@ -670,47 +685,89 @@ final class TransactionScreens {
     }
 
     private void bindShipment(boolean mapPage) {
-        heading(mapPage ? "Vị trí vận chuyển" : "Chi tiết vận đơn"); long token = generation; info(content, "Đang tải vận đơn…");
-        host.listen(repo.listenShipment(host.orderId(), (snapshot, error) -> {
+        heading(mapPage ? "Điểm gửi, nhận và lịch sử" : "Chi tiết vận đơn");
+        long token = generation; info(content, "Đang tải vận đơn…");
+        Map<String,Object> orderData = new HashMap<>();
+        DocumentSnapshot[] record = {null}; boolean[] loaded = {false, false}; String[] errors = {"", ""};
+        Runnable render = () -> {
             if (!valid(token)) return;
-            if (error != null) { failure("Không tải được vận đơn.", () -> host.open(screen)); return; }
+            if (!errors[0].isEmpty() || !errors[1].isEmpty()) { failure("Không tải được vận đơn hoặc địa chỉ. Kiểm tra kết nối và thử lại.", () -> host.open(screen)); return; }
+            if (!loaded[0] || !loaded[1]) return;
             reset();
-            if (snapshot == null || !snapshot.exists()) { info(content, "Đơn này chưa có vận đơn."); return; }
-            Map<String, Object> data = snapshot.getData(); section(content, text(data, "trackingCode"));
-            info(content, text(data, "carrier") + " · " + ("SIMULATED".equals(text(data, "mode")) || "MOCK_CARRIER".equals(text(data, "carrier")) ? "VẬN CHUYỂN MÔ PHỎNG" : "Dữ liệu hãng vận chuyển"));
-            if("GHN".equals(text(data,"provider"))) {
-                info(content,"Môi trường GHN: "+text(data,"environment")+" · "+text(data,"providerStatus"));
-                if(data.get("expectedDeliveryTime")!=null)info(content,"Giao dự kiến: "+date(data.get("expectedDeliveryTime")));
-                info(content,"Phí báo giá: "+money(data.get("quotedFee"))+(data.get("providerFee") instanceof Number?" · Phí hãng: "+money(data.get("providerFee")):""));
-                button(content,0,"Làm mới từ GHN",()->execute(repo.refreshOrder(host.orderId()),value->{}));
+            if (record[0] == null || !record[0].exists()) {
+                if (mapPage) {
+                    section(content, "Điểm gửi và điểm nhận của đơn");
+                    info(content, "Chưa tạo vận đơn. Bản đồ chỉ hiển thị địa chỉ đã lưu trong đơn.");
+                    shipmentMap = new ShipmentTrackingMap(a, map(orderData.get("pickupAddress")), map(orderData.get("shippingAddress")),
+                            Collections.emptyMap(), ShipmentTrackingMap.geocoder(a), shipmentGeocodes);
+                    content.addView(shipmentMap, new LinearLayout.LayoutParams(-1, -2));
+                    LinearLayout events = card(content); events.setId(R.id.liveShipmentEvents);
+                    section(events, "Lịch sử vận chuyển"); info(events, "Chưa có mốc vận chuyển được ghi nhận.");
+                } else info(content, "Đơn này chưa có vận đơn.");
+                return;
+            }
+            Map<String,Object> data = record[0].getData(); section(content, text(data, "trackingCode"));
+            boolean simulated = "SIMULATED".equals(text(data, "mode")) || "MOCK_CARRIER".equals(text(data, "carrier"));
+            info(content, text(data, "carrier") + " · " + (simulated ? "VẬN CHUYỂN MÔ PHỎNG" : "Dữ liệu hãng vận chuyển"));
+            if ("GHN".equals(text(data, "provider"))) {
+                info(content, "Môi trường GHN: " + text(data, "environment") + " · " + text(data, "providerStatus"));
+                if (data.get("expectedDeliveryTime") != null) info(content, "Giao dự kiến: " + date(data.get("expectedDeliveryTime")));
+                info(content, "Phí báo giá: " + money(data.get("quotedFee")) + (data.get("providerFee") instanceof Number ? " · Phí hãng: " + money(data.get("providerFee")) : ""));
+                button(content, 0, "Làm mới từ GHN", () -> execute(repo.refreshOrder(host.orderId()), value -> { }));
             }
             TextView status = info(content, label(text(data, "status"))); status.setId(R.id.txtLiveShipmentState);
-            Map<String, Object> location = map(data.get("location"));
+            Map<String,Object> location = map(data.get("location"));
             if (mapPage) {
+                Map<String,Object> pickup = map(data.get("pickupAddress")), delivery = map(data.get("deliveryAddress"));
+                if (delivery.isEmpty()) delivery = map(data.get("shippingAddress"));
+                if (delivery.isEmpty()) delivery = map(orderData.get("shippingAddress"));
+                shipmentMap = new ShipmentTrackingMap(a, pickup, delivery, location, ShipmentTrackingMap.geocoder(a), shipmentGeocodes);
+                content.addView(shipmentMap, new LinearLayout.LayoutParams(-1, -2));
                 Object latitude = location.get("lat"), longitude = location.get("lng");
-                if (!(latitude instanceof Number) || !(longitude instanceof Number)) info(content, "Chưa có vị trí từ backend. App không vẽ tuyến đường hoặc vị trí ước lượng.");
-                else {
-                    double lat = ((Number) latitude).doubleValue(), lng = ((Number) longitude).doubleValue();
-                    if (!Double.isFinite(lat) || !Double.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) { info(content, "Tọa độ không hợp lệ."); return; }
-                    info(content, "SIMULATED".equals(text(location, "source")) ? "Tọa độ kiểm thử do người bán nhập; không phải vị trí giao hàng thật." : "Vị trí cập nhật từ hãng vận chuyển.");
-                    info(content, lat + ", " + lng + "\nCập nhật: " + date(location.get("recordedAt")));
-                    button(content, R.id.btnOpenTrackingMap, "Mở vị trí này trên bản đồ", () -> {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + lat + "," + lng + "?q=" + lat + "," + lng));
-                        try { a.startActivity(intent); }
-                        catch (android.content.ActivityNotFoundException missing) {
-                            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lng + "#map=16/" + lat + "/" + lng))); }
-                            catch (android.content.ActivityNotFoundException absent) { error(absent); }
-                        }
-                    });
+                if (latitude instanceof Number && longitude instanceof Number) {
+                    double lat = ((Number)latitude).doubleValue(), lng = ((Number)longitude).doubleValue();
+                    if (ShipmentTrackingMap.valid(new double[]{lat, lng})) {
+                        info(content, "SIMULATED".equals(text(location, "source")) ? "Mốc mô phỏng do người bán nhập." : "Mốc cập nhật từ đơn vị vận chuyển.");
+                        info(content, lat + ", " + lng + "\nCập nhật: " + date(location.get("recordedAt")));
+                        button(content, R.id.btnOpenTrackingMap, "Mở mốc cập nhật trên bản đồ", () -> openTrackingPoint(lat, lng));
+                    }
                 }
-            } else {
-                button(content, R.id.btnOpenDeliveryMap, "Xem vị trí từ backend", () -> host.open(R.layout.activity_delivery_map));
-                LinearLayout events = card(content); events.setId(R.id.liveShipmentEvents); section(events, "Lịch sử vận chuyển");
-                List<?> records = data.get("events") instanceof List ? (List<?>) data.get("events") : Collections.emptyList();
-                if (records.isEmpty()) info(events, "Chưa có sự kiện vận chuyển.");
-                for (Object raw : records) { Map<String, Object> event = map(raw); info(events, date(event.get("createdAt")) + " · " + label(text(event, "status")) + "\n" + text(event, "description")); }
+            } else button(content, R.id.btnOpenDeliveryMap, "Xem bản đồ điểm gửi – nhận và lịch sử", () -> host.open(R.layout.activity_delivery_map));
+            LinearLayout events = card(content); events.setId(R.id.liveShipmentEvents); section(events, "Lịch sử vận chuyển");
+            List<?> records = data.get("events") instanceof List ? (List<?>)data.get("events") : Collections.emptyList();
+            if (records.isEmpty()) info(events, "Chưa có sự kiện vận chuyển.");
+            for (int i = records.size() - 1; i >= 0; i--) {
+                Map<String,Object> event = map(records.get(i));
+                LinearLayout row = new LinearLayout(a); row.setOrientation(LinearLayout.VERTICAL); row.setPadding(dp(12), dp(8), dp(12), dp(8));
+                row.setBackgroundResource(R.drawable.bg_transaction_card); events.addView(row);
+                section(row, (i == records.size() - 1 ? "● " : "○ ") + label(text(event, "status")));
+                info(row, date(event.get("createdAt")) + (simulated ? " · Mô phỏng" : ""));
+                if (!text(event, "description").isEmpty()) info(row, text(event, "description"));
+                if (!text(event, "warehouse").isEmpty()) info(row, "Điểm xử lý: " + text(event, "warehouse"));
             }
+        };
+        host.listen(repo.listenOrder(host.orderId(), (snapshot, error) -> {
+            if (!valid(token)) return;
+            Map<String,Object> incoming = snapshot != null && snapshot.exists() ? snapshot.getData() : Collections.emptyMap();
+            if (loaded[0] && error == null && errors[0].isEmpty() && orderData.equals(incoming)) return;
+            loaded[0] = true; errors[0] = error == null ? "" : "order"; orderData.clear(); orderData.putAll(incoming);
+            render.run();
         }));
+        host.listen(repo.listenShipment(host.orderId(), (snapshot, error) -> {
+            if (!valid(token)) return;
+            if (loaded[1] && error == null && errors[1].isEmpty() && record[0] != null && snapshot != null
+                    && Objects.equals(record[0].getData(), snapshot.getData())) return;
+            loaded[1] = true; errors[1] = error == null ? "" : "shipment"; record[0] = snapshot;
+            render.run();
+        }));
+    }
+
+    private void openTrackingPoint(double lat, double lng) {
+        try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + lat + "," + lng + "?q=" + lat + "," + lng))); }
+        catch (android.content.ActivityNotFoundException missing) {
+            try { a.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.openstreetmap.org/?mlat=" + lat + "&mlon=" + lng + "#map=16/" + lat + "/" + lng))); }
+            catch (android.content.ActivityNotFoundException absent) { error(absent); }
+        }
     }
 
     private void bindHistory() {
@@ -785,7 +842,7 @@ final class TransactionScreens {
         Map<String, Object> data = doc.getData(); String type = text(data, "type");
         String description = "PAYMENT_RECEIVED".equals(type) ? "Thanh toán nhận vào" : "REFUND".equals(type) ? "Hoàn tiền" : "SELLER_PAYOUT".equals(type) ? "Giải ngân người bán" : type;
         String status = text(data, "status");
-        info(parent, description + " · " + money(data.get("amount")) + " · " + (status.isEmpty() ? "Đã ghi nhận bút toán" : label(status)) + "\n" + date(data.get("createdAt")) + " · " + text(data, "mode"));
+        info(parent, description + " · " + money(data.get("amount")) + " · " + (status.isEmpty() ? "Đã ghi nhận giao dịch" : label(status)) + "\n" + date(data.get("createdAt")) + " · " + text(data, "mode"));
     }
 
     void submitDispute(List<Object> evidence) {

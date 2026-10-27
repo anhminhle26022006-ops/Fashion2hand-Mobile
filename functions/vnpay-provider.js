@@ -96,7 +96,16 @@ class VnpayProvider {
       failed:fields.vnp_TransactionStatus==='02',source:query?'QUERYDR':'IPN'};
   }
   async query(attempt) {
-    const ip=this.env.VNPAY_QUERY_IP;
+    // Cloud Run uses dynamic egress unless a fixed NAT has been configured.
+    // Discover the public server IP for sandbox QueryDR; never use the mobile IP.
+    let ip=this.env.VNPAY_QUERY_IP;
+    if(!ip&&this.env.K_SERVICE){
+      try{
+        const response=await this.fetch('https://api.ipify.org',{redirect:'error',signal:AbortSignal.timeout(4000)});
+        if(!response.ok)throw new Error('IP lookup failed');
+        ip=(await response.text()).trim();
+      }catch{throw new VnpayError('unavailable','Chưa thể kiểm tra kết quả thanh toán. Vui lòng thử lại.');}
+    }
     if(!isIP(ip||''))throw new VnpayError('failed-precondition','Cấu hình VNPAY_QUERY_IP bằng IP outbound thực tế của server để QueryDR.');
     const body={vnp_RequestId:crypto.randomBytes(16).toString('hex'),vnp_Version:'2.1.0',vnp_Command:'querydr',vnp_TmnCode:this.tmnCode,
       vnp_TxnRef:attempt.reference,vnp_TransactionDate:attempt.createDate,vnp_CreateDate:dateVn(new Date()),vnp_IpAddr:ip,vnp_OrderInfo:`Query ${attempt.reference}`};

@@ -53,3 +53,26 @@ test('QueryDR timeout/network/not-found remains unknown, never fabricates failur
 test('signed callback cannot change VND currency',()=>{
  const p=new VnpayProvider(fixture);assert.throws(()=>p.normalize({vnp_CurrCode:'USD'}),/currency/);
 });
+
+test('Cloud Run sandbox discovers server IP when QueryDR IP is unset and verifies the response',async()=>{
+ const calls=[];
+ const p=new VnpayProvider({...fixture,env:{...env,K_SERVICE:'sandbox-reconcile',VNPAY_QUERY_IP:''},fetchImpl:async(url,options)=>{
+   calls.push(url);
+   if(url==='https://api.ipify.org')return {ok:true,text:async()=> '203.0.113.19\n'};
+   const body=JSON.parse(options.body);assert.equal(body.vnp_IpAddr,'203.0.113.19');
+   const data=queryResponse();data.vnp_SecureHash=hmac(fixture.secret,pipeData(data,QUERY_RESPONSE_FIELDS));
+   return {ok:true,json:async()=>data};
+ }});
+ assert.equal((await p.query({reference:'REF',createDate:'20261027120000'})).success,true);
+ assert.deepEqual(calls,['https://api.ipify.org','https://sandbox.vnpayment.vn/merchant_webapi/api/transaction']);
+});
+
+test('IP discovery failure or invalid response never sends an invented QueryDR IP',async()=>{
+ for(const result of [null,'not-an-ip']){
+   let calls=0;
+   const p=new VnpayProvider({...fixture,env:{...env,K_SERVICE:'sandbox-reconcile',VNPAY_QUERY_IP:''},fetchImpl:async()=>{
+     calls++;if(result===null)throw Error('lookup unavailable');return {ok:true,text:async()=>result};
+   }});
+   await assert.rejects(p.query({reference:'REF'}));assert.equal(calls,1);
+ }
+});

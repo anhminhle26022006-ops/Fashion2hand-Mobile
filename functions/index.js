@@ -247,6 +247,15 @@ function addressSnapshot(address) {
     label: String(data.label || data.type || "")
   };
 }
+// Map endpoints need geographic fields only; contacts stay in the private order/address book.
+function trackingAddress(data = {}) {
+  const result = {};
+  for (const key of ["street", "ward", "district", "province"]) {
+    const value = key === "street" ? data.street || data.addressLine : data[key];
+    result[key] = typeof value === "string" ? value.trim().slice(0, key === "street" ? 300 : 100) : "";
+  }
+  return result.street && result.province ? result : null;
+}
 async function notify(uid, data) {
   try {
     return await db.collection("users").doc(uid).collection("notifications").add({
@@ -408,7 +417,7 @@ exports.createFreeRequest = onCall(async (request) => {
     if (addressRef && !address.exists) fail("not-found", "Không tìm thấy địa chỉ nhận hàng.");
     const shippingAddress = validatedAddress(address);
     if (prior.exists) {
-      tx.update(requestRef, { note, postSnapshot: orderPostSnapshot(post), addressId: addressId || null, shippingAddress, status: "PENDING", createdAt: now, updatedAt: FieldValue.serverTimestamp() });
+      tx.update(requestRef, { note, postSnapshot: orderPostSnapshot(post), addressId: addressId || null, shippingAddress, status: "PENDING", orderId: FieldValue.delete(), createdAt: now, updatedAt: FieldValue.serverTimestamp() });
       return;
     }
     tx.create(requestRef, {
@@ -693,8 +702,12 @@ exports.createShipment = onCall(async (request) => {
     if (!order.exists || order.get("sellerId") !== uid || order.get("orderStatus") !== "READY_TO_SHIP") {
       fail("permission-denied", "Bạn không thể tạo vận đơn cho đơn hàng này.");
     }
+    const addresses = await tx.get(db.collection(`users/${uid}/addresses`).orderBy("__name__").limit(50));
+    const pickup = addresses.docs.find(doc => doc.get("isDefault") === true) || addresses.docs[0];
+    const endpoints = { pickupAddress: pickup ? trackingAddress(pickup.data()) : null,
+      deliveryAddress: trackingAddress(order.get("shippingAddress") || {}) };
     buyerId = order.get("buyerId");
-    tx.set(shipmentRef, { orderId, buyerId, sellerId: uid, carrier: "MOCK_CARRIER", mode: "SIMULATED", trackingCode, status: "IN_TRANSIT", events: [{ status: "IN_TRANSIT", description: "Bàn giao cho đơn vị vận chuyển mô phỏng", createdAt: new Date().toISOString() }], updatedAt: FieldValue.serverTimestamp() });
+    tx.set(shipmentRef, { orderId, buyerId, sellerId: uid, ...endpoints, carrier: "MOCK_CARRIER", mode: "SIMULATED", trackingCode, status: "IN_TRANSIT", events: [{ status: "IN_TRANSIT", description: "Bàn giao cho đơn vị vận chuyển mô phỏng", createdAt: new Date().toISOString() }], updatedAt: FieldValue.serverTimestamp() });
     tx.update(orderRef, { orderStatus: "SHIPPING", shippingStatus: "IN_TRANSIT", trackingCode, updatedAt: FieldValue.serverTimestamp() });
     writeOrderEvent(tx, orderRef, "READY_TO_SHIP", "SHIPPING", uid, "Đã bàn giao cho đơn vị vận chuyển.");
   });
@@ -724,6 +737,9 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
     const payment = paymentRef ? await tx.get(paymentRef) : null;
     const shipment = await tx.get(shipmentRef);
     if (!shipment.exists) fail("not-found", "Không tìm thấy vận đơn.");
+    const freeRequestRef = status === "RETURNED" && order.get("orderType") === "FREE" && order.get("requestId")
+      ? db.doc(`freeRequests/${order.get("requestId")}`) : null;
+    const freeRequest = freeRequestRef ? await tx.get(freeRequestRef) : null;
     buyerId = order.get("buyerId"); sellerId = order.get("sellerId");
     const nextOrderStatus = status === "IN_TRANSIT" ? "SHIPPING" : status === "DELIVERED" ? "DELIVERED" : (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED");
     tx.update(orderRef, { shippingStatus: status, orderStatus: nextOrderStatus,
@@ -732,6 +748,8 @@ exports.simulateShipmentUpdate = onCall(async (request) => {
     tx.update(shipmentRef, { status, ...(location ? { location: { ...location, source: "SIMULATED" } } : {}), updatedAt: FieldValue.serverTimestamp(), events: FieldValue.arrayUnion({ status, description, ...(location ? { location } : {}), createdAt: new Date().toISOString() }) });
     writeOrderEvent(tx, orderRef, order.get("orderStatus"), nextOrderStatus, "SIMULATED_CARRIER", description || status);
     if (status === "RETURNED") {
+      if (freeRequest?.exists && freeRequest.get("status") === "ACCEPTED" && freeRequest.get("orderId") === orderId)
+        tx.update(freeRequestRef, { status: "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
       if (post.exists) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
       if (paymentRef && payment && payment.exists) {
         tx.update(paymentRef, { status: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });
@@ -810,6 +828,9 @@ exports.updateShipmentFromCarrier = onRequest({ secrets: [shipmentWebhookToken] 
       const post = postRef ? await tx.get(postRef) : null;
       const paymentRef = status === "RETURNED" && order.get("paymentId") ? db.collection("payments").doc(order.get("paymentId")) : null;
       const payment = paymentRef ? await tx.get(paymentRef) : null;
+      const freeRequestRef = status === "RETURNED" && order.get("orderType") === "FREE" && order.get("requestId")
+        ? db.doc(`freeRequests/${order.get("requestId")}`) : null;
+      const freeRequest = freeRequestRef ? await tx.get(freeRequestRef) : null;
       const orderStatus = status === "DELIVERED" ? "DELIVERED" : (status === "RETURNED" ? (order.get("orderType") === "PAID" ? "REFUNDED" : "CANCELLED") : "SHIPPING");
       const orderPatch = { shippingStatus: status, orderStatus, updatedAt: FieldValue.serverTimestamp() };
       if (status === "DELIVERED") {
@@ -822,6 +843,8 @@ exports.updateShipmentFromCarrier = onRequest({ secrets: [shipmentWebhookToken] 
       writeOrderEvent(tx, orderRef, order.get("orderStatus"), orderPatch.orderStatus, "MOCK_CARRIER", String(description || status));
       tx.create(eventRef, { orderId: normalizedOrderId, trackingCode, status, createdAt: FieldValue.serverTimestamp() });
       if (status === "RETURNED") {
+        if (freeRequest?.exists && freeRequest.get("status") === "ACCEPTED" && freeRequest.get("orderId") === normalizedOrderId)
+          tx.update(freeRequestRef, { status: "CANCELLED", updatedAt: FieldValue.serverTimestamp() });
         if (post.exists) writeOrderPosts(tx, orderPosts, { status: "ACTIVE", reservedForOrderId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
         if (paymentRef && payment.exists) {
           tx.update(paymentRef, { status: "REFUNDED", updatedAt: FieldValue.serverTimestamp() });

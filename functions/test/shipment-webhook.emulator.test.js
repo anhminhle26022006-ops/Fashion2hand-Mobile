@@ -11,7 +11,7 @@ const { getApp, deleteApp } = require('firebase-admin/app');
 const db = getFirestore();
 after(() => deleteApp(getApp()));
 
-test('carrier webhook authenticates, deduplicates and never reopens a terminal shipment', async () => {
+async function carrierServer() {
   const server = http.createServer(async (req, res) => {
     let text = ''; for await (const chunk of req) text += chunk;
     req.body = text ? JSON.parse(text) : {};
@@ -26,6 +26,11 @@ test('carrier webhook authenticates, deduplicates and never reopens a terminal s
   async function send(body, token = process.env.SHIPMENT_WEBHOOK_TOKEN) {
     return fetch(url, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
   }
+  return { send, close: () => new Promise(resolve => server.close(resolve)) };
+}
+
+test('carrier webhook authenticates, deduplicates and never reopens a terminal shipment', async () => {
+  const { send, close } = await carrierServer();
   const orderId = `carrier-${crypto.randomUUID()}`, trackingCode = `TRACK-${orderId}`;
   await db.doc(`orders/${orderId}`).set({ buyerId: `buyer-${orderId}`, sellerId: `seller-${orderId}`, orderStatus: 'SHIPPING', shippingStatus: 'IN_TRANSIT', orderType: 'FREE' });
   await db.doc(`shipments/${orderId}`).set({ orderId, trackingCode, status: 'IN_TRANSIT', events: [{ status: 'IN_TRANSIT' }] });
@@ -42,5 +47,28 @@ test('carrier webhook authenticates, deduplicates and never reopens a terminal s
     assert.equal((await send({ ...event, eventId: crypto.randomUUID(), status: 'RETURNED' })).status, 404);
     assert.equal((await send({ ...event, orderId: 'different-order' })).status, 404);
     assert.equal((await db.doc(`orders/${orderId}`).get()).get('orderStatus'), 'DELIVERED');
-  } finally { await new Promise(resolve => server.close(resolve)); }
+  } finally { await close(); }
+});
+
+test('carrier return cancels only the request accepted for this order and retries preserve a new request', async () => {
+  const { send, close } = await carrierServer();
+  try {
+    for (const matchingOrder of [true, false]) {
+      const orderId = `return-${crypto.randomUUID()}`, trackingCode = `TRACK-${orderId}`;
+      const postId = `post-${orderId}`, requestId = `request-${orderId}`;
+      const requestRef = db.doc(`freeRequests/${requestId}`);
+      await db.doc(`posts/${postId}`).set({ status: 'RESERVED', reservedForOrderId: orderId });
+      await requestRef.set({ status: 'ACCEPTED', orderId: matchingOrder ? orderId : 'newer-order' });
+      await db.doc(`orders/${orderId}`).set({ postId, requestId, buyerId: `buyer-${orderId}`, sellerId: `seller-${orderId}`, orderStatus: 'SHIPPING', shippingStatus: 'IN_TRANSIT', orderType: 'FREE' });
+      await db.doc(`shipments/${orderId}`).set({ orderId, trackingCode, status: 'IN_TRANSIT', events: [] });
+      const event = { eventId: crypto.randomUUID(), orderId, trackingCode, status: 'RETURNED' };
+      assert.equal((await send(event)).status, 200);
+      assert.equal((await db.doc(`orders/${orderId}`).get()).get('orderStatus'), 'CANCELLED');
+      assert.equal((await db.doc(`posts/${postId}`).get()).get('status'), 'ACTIVE');
+      assert.equal((await requestRef.get()).get('status'), matchingOrder ? 'CANCELLED' : 'ACCEPTED');
+      await requestRef.set({ status: 'PENDING' });
+      for (const eventId of [event.eventId, crypto.randomUUID()]) assert.equal((await send({ ...event, eventId })).status, 200);
+      assert.equal((await requestRef.get()).get('status'), 'PENDING');
+    }
+  } finally { await close(); }
 });

@@ -153,7 +153,9 @@ service cloud.firestore {
     match /reviews/{id} { allow read: if true; allow write: if false; }
     match /reports/{id} { allow create: if signedIn() && request.resource.data.reporterId == request.auth.uid; allow read, update, delete: if false; }
     match /disputes/{id} { allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid); allow write: if false; }
-    match /verificationRequests/{id} { allow create: if signedIn() && request.resource.data.userId == request.auth.uid; allow read, update, delete: if false; }
+    // Identity submissions and their private evidence are created by submitVerification.
+    // Clients read their submission through getAccountData; only Admin callables decide it.
+    match /verificationRequests/{id} { allow read, write: if false; }
     match /shippingTariffs/{id} { allow read: if true; allow write: if false; }
     match /{document=**} { allow read, write: if false; }
   }

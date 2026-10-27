@@ -122,8 +122,17 @@ test('QueryDR recovers lost IPN, enforces ownership/rate limit and shares receip
  const svc=require('../vnpay-payments')({...ctx,provider:()=>queryProvider});
  await assert.rejects(svc.reconcile(req('OUTSIDER',{orderId:f.id})),e=>e.code==='permission-denied');
  assert.equal((await svc.reconcile(req(f.buyer,{orderId:f.id}))).paymentStatus,'PAID');
- await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='resource-exhausted');
+ assert.equal((await svc.reconcile(req(f.buyer,{orderId:f.id}))).paymentStatus,'PAID');
  assert.equal((await apply(f)).RspCode,'02');assert.equal((await db.collection('moneyTransactions').where('orderId','==',f.id).get()).size,1);
+});
+
+test('pending automatic reconciliation is rate limited and cannot manufacture a receipt',async()=>{
+ const f=await fixture();let calls=0;
+ const p=provider();p.query=async()=>{calls++;return {pending:true};};
+ const svc=require('../vnpay-payments')({...ctx,provider:()=>p});
+ assert.equal((await svc.reconcile(req(f.buyer,{orderId:f.id}))).paymentStatus,'PENDING');
+ await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='resource-exhausted');
+ assert.equal(calls,1);assert.equal((await db.doc('moneyTransactions/received_'+f.id).get()).exists,false);
 });
 test('verified prepaid VNPAY can continue GHN staging with zero COD; production stays blocked',async()=>{
  const f=await fixture();await apply(f);const shipping=require('../ghn-shipments')({...ctx,provider:()=>({settings:{environment:'staging'}})});

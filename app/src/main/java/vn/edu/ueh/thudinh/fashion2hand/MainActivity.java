@@ -124,6 +124,8 @@ public class MainActivity extends AppCompatActivity {
     private int verificationRoleGeneration;
     private boolean savingListing;
     private String pendingProductLink = "";
+    private String pendingPaymentOrderId = "";
+    private int pendingNavigationScreen = 0;
     private String viewedSellerId = "";
     private final ArrayList<ListenerRegistration> favoritePostListeners = new ArrayList<>();
     private final ArrayList<DocumentSnapshot> favoritePosts = new ArrayList<>();
@@ -272,6 +274,8 @@ public class MainActivity extends AppCompatActivity {
             phoneResendToken = savedInstanceState.getParcelable("phoneResendToken");
             phoneResendAt = savedInstanceState.getLong("phoneResendAt");
             pendingProductLink = savedInstanceState.getString("pendingProductLink", "");
+            pendingPaymentOrderId = savedInstanceState.getString("pendingPaymentOrderId", "");
+            pendingNavigationScreen = savedInstanceState.getInt("pendingNavigationScreen",0);
             checkoutReturnScreen = savedInstanceState.getInt("checkoutReturnScreen", R.layout.activity_cart);
             orderRoleFilter=savedInstanceState.getString("orderRoleFilter","buyer"); orderStatusFilter=savedInstanceState.getString("orderStatusFilter","all"); orderSearchQuery=savedInstanceState.getString("orderSearchQuery","");
             messageFilter=savedInstanceState.getString("messageFilter","all"); messageSearchQuery=savedInstanceState.getString("messageSearchQuery","");
@@ -304,6 +308,7 @@ public class MainActivity extends AppCompatActivity {
             }, 1200);
         }
 
+        if(savedInstanceState!=null)openIncomingProduct(getIntent());
         // Đăng ký bộ xử lý nút Back theo chuẩn AndroidX mới
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
@@ -355,6 +360,7 @@ public class MainActivity extends AppCompatActivity {
         if(!restoringScreen)restoredForm=null;
         if (transactionScreens.owns(layoutId)) transactionScreens.prepare(layoutId);
         else setContentView(layoutId);
+        bindNavigation();
         applySystemBarInsets();
         if (layoutId == R.layout.activity_contact_required) { bindContactRequired(); return; }
         if (transactionScreens.owns(layoutId)) {
@@ -364,7 +370,6 @@ public class MainActivity extends AppCompatActivity {
         }
         if (layoutId == R.layout.activity_login) bindLogin();
         if (layoutId == R.layout.activity_register) bindRegister();
-        bindNavigation();
         if (layoutId == R.layout.activity_home) bindHome();
         if (layoutId == R.layout.activity_explore) bindExplore();
         if (layoutId == R.layout.activity_favorites) bindFavorites();
@@ -524,6 +529,8 @@ public class MainActivity extends AppCompatActivity {
         state.putString("otpFlow", otpFlow); state.putString("otpTarget", otpTarget);
         state.putString("phoneVerificationId", phoneVerificationId); state.putParcelable("phoneResendToken", phoneResendToken);
         state.putLong("phoneResendAt", phoneResendAt); state.putString("pendingProductLink", pendingProductLink);
+        state.putString("pendingPaymentOrderId",pendingPaymentOrderId);
+        state.putInt("pendingNavigationScreen",pendingNavigationScreen);
         state.putBundle("listingDraft", packMap(listingDraft)); state.putBoolean("editingListing", editingListing);
         state.putString("editingPostId", editingPostId);
         ArrayList<android.os.Parcelable> photos = new ArrayList<>();
@@ -612,25 +619,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applySystemBarInsets() {
-        ViewGroup root = findViewById(android.R.id.content);
-        if (root == null || root.getChildCount() == 0) return;
-        View content = root.getChildAt(0);
-        int initialLeft = content.getPaddingLeft();
-        int initialTop = content.getPaddingTop();
-        int initialRight = content.getPaddingRight();
-        int initialBottom = content.getPaddingBottom();
-        ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            Insets keyboard = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            view.setPadding(
-                    initialLeft + bars.left,
-                    initialTop + bars.top,
-                    initialRight + bars.right,
-                    initialBottom + Math.max(bars.bottom,keyboard.bottom)
-            );
-            return windowInsets;
-        });
-        ViewCompat.requestApplyInsets(content);
+        MainNavigation.applyInsets(this);
     }
 
     private void resetVerificationRole() {
@@ -1074,15 +1063,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindNavigation() {
-        bindClick(R.id.navHome, () -> navigateRoot(R.layout.activity_home));
-        bindClick(R.id.navExplore, () -> navigateRoot(R.layout.activity_explore));
-        bindClick(R.id.navCreate, () -> {
+        MainNavigation.attach(this,currentScreen,this::navigateTab);
+    }
+
+    private void navigateTab(int layout) {
+        if(!MainNavigation.destination(layout)||currentScreen==layout)return;
+        if(layout==R.layout.activity_sell){
             editingListing = false; editingPostId = ""; listingDraft.clear(); selectedListingPhotos.clear();
             selectedListingPhoto = null; capturedListingPhoto = null;
-            showScreen(R.layout.activity_sell);
-        });
-        bindClick(R.id.navMessages, () -> navigateRoot(R.layout.activity_messages));
-        bindClick(R.id.navProfile, () -> navigateRoot(R.layout.activity_profile));
+        }
+        navigateRoot(layout);
     }
 
     private void bindHome() {
@@ -2977,6 +2967,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openIncomingProduct(Intent intent) {
+        if(intent!=null&&intent.hasExtra("navigationScreen")){
+            int destination=intent.getIntExtra("navigationScreen",0);intent.removeExtra("navigationScreen");
+            if(MainNavigation.destination(destination))pendingNavigationScreen=destination;
+            openPendingNavigation();
+        }
+        if(intent!=null&&intent.hasExtra("paymentOrderId")){
+            String id=intent.getStringExtra("paymentOrderId");intent.removeExtra("paymentOrderId");
+            if(VnpayLinks.validOrderId(id)){pendingPaymentOrderId=id;openPendingPaymentOrder();}
+        }
         Uri uri = intent == null ? null : intent.getData();
         if (uri == null || !"fashion2hand".equals(uri.getScheme()) || !"post".equals(uri.getHost())) return;
         if (uri.getPathSegments().size() != 1 || !MarketplaceLinks.validPostId(uri.getLastPathSegment())) {
@@ -2987,6 +2986,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openPendingProduct() {
+        openPendingNavigation();
+        openPendingPaymentOrder();
         if (pendingProductLink.isEmpty() || currentScreen == R.layout.activity_splash || currentScreen == R.layout.activity_login) return;
         String id = pendingProductLink; pendingProductLink = "";
         FirebaseFirestore.getInstance().collection("posts").document(id).get()
@@ -2994,6 +2995,18 @@ public class MainActivity extends AppCompatActivity {
                     if (!post.exists()) Toast.makeText(this, "Bài đăng không còn tồn tại.", Toast.LENGTH_LONG).show();
                     else openProduct(post);
                 }).addOnFailureListener(error -> Toast.makeText(this, "Bài đăng không còn công khai hoặc không thể tải.", Toast.LENGTH_LONG).show());
+    }
+
+    private void openPendingPaymentOrder(){
+        if(pendingPaymentOrderId.isEmpty()||currentScreen==R.layout.activity_splash||currentScreen==R.layout.activity_login||authRepository.getCurrentUser()==null)return;
+        String id=pendingPaymentOrderId;pendingPaymentOrderId="";
+        if(currentScreen==R.layout.activity_order_detail&&id.equals(currentOrderId))return;
+        openTransactionDestination(R.layout.activity_order_detail,()->{currentOrderId=id;activeOrder=null;});
+    }
+
+    private void openPendingNavigation(){
+        if(pendingNavigationScreen==0||currentScreen==R.layout.activity_splash||currentScreen==R.layout.activity_login)return;
+        int destination=pendingNavigationScreen;pendingNavigationScreen=0;navigateTab(destination);
     }
 
     @Override protected void onNewIntent(Intent intent) {

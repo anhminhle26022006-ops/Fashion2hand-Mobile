@@ -4,9 +4,10 @@ process.env.FIRESTORE_EMULATOR_HOST='127.0.0.1:8080';
 process.env.FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099';
 const {initializeApp,deleteApp}=require('firebase-admin/app');
 const {getFirestore}=require('firebase-admin/firestore');
+const {verifyFixture}=require('./verified-fixture');
 const app=initializeApp({projectId:'fashion2hand'},`history-photo-${Date.now()}`),db=getFirestore(app);
 after(()=>deleteApp(app));
-async function user(){const response=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({returnSecureToken:true})});assert.equal(response.status,200);const data=await response.json();await db.doc(`users/${data.localId}`).set({uid:data.localId,role:'USER',accountStatus:'ACTIVE'});return {uid:data.localId,token:data.idToken};}
+async function user(){const response=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:`history-photo-${Date.now()}-${Math.random()}@example.test`,password:'Test-only-123!',returnSecureToken:true})});assert.equal(response.status,200);const data=await response.json();await db.doc(`users/${data.localId}`).set({uid:data.localId,role:'USER',accountStatus:'ACTIVE'});return verifyFixture(app,{uid:data.localId,token:data.idToken},{phone:false});}
 test('reserved and sold history photos are readable only by the seller and buyer',async()=>{
  const seller=await user(),buyer=await user(),outsider=await user();
  const post=db.collection('posts').doc(),order=db.collection('orders').doc();

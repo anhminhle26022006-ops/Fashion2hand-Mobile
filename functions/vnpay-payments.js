@@ -112,7 +112,10 @@ module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provid
     return {orderId:id,orderStatus:order.get('orderStatus'),paymentStatus:order.get('paymentStatus'),provider:payment?.get('provider')||'',environment:payment?.get('environment')||'',attemptId:payment?.get('activeAttemptId')||'',needsReview:order.get('paymentNeedsReview')===true};
   }
   async function reconcile(request) {
-    const state=await status(request),p=provider();
+    const state=await status(request);
+    // An IPN may have committed while the app was returning from the browser.
+    if(state.paymentStatus==='PAID')return state;
+    const p=provider();
     const ref=cleanDocumentId(request.data.attemptId||state.attemptId,'Phiên thanh toán');
     const attempt=await db.runTransaction(async tx=>{
       const doc=await tx.get(db.doc(`paymentAttempts/${ref}`));

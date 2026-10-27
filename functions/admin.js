@@ -18,6 +18,31 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
     : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, json(item)])) : value;
   const row = doc => ({ id: doc.id, ...json(doc.data()) });
   const configDefaults = { shippingFee: 15000, maxPrice: 2000000, requirePhoneBeforeSelling: false, autoHideReported: false, reportThreshold: 5, autoCompleteDays: 3 };
+  async function validateVerificationEvidence(doc, user) {
+    if (user.get("verificationRequestId") !== doc.id || user.get("verificationStatus") !== "PENDING")
+      fail("failed-precondition", "Hồ sơ không phải hồ sơ xác minh hiện tại của người dùng.");
+    const prefix = `${user.id}_`, key = doc.id.startsWith(prefix) ? doc.id.slice(prefix.length) : "";
+    const paths = doc.get("evidencePaths"), bucketName = "fashion2hand.firebasestorage.app";
+    if (!key || key.length > 128 || key.includes("/") || !/^[a-f0-9]{64}$/.test(doc.get("fingerprint") || "")
+        || doc.get("evidenceBucket") !== bucketName || !Array.isArray(paths) || paths.length !== 3)
+      fail("failed-precondition", "Hồ sơ phải được gửi qua luồng xác minh và có đủ ba ảnh.");
+    const bucket = getStorage().bucket(bucketName);
+    await Promise.all(["front", "back", "selfie"].map(async slot => {
+      const pathPrefix = `verificationEvidence/${user.id}/${key}/${slot}-`;
+      const matches = paths.filter(path => typeof path === "string" && path.startsWith(pathPrefix)
+        && /^[a-f0-9]{64}\.jpg$/.test(path.slice(pathPrefix.length)));
+      if (matches.length !== 1) fail("failed-precondition", "Ảnh hồ sơ không đúng loại hoặc không thuộc người dùng.");
+      let metadata;
+      try { [metadata] = await bucket.file(matches[0]).getMetadata(); }
+      catch (error) {
+        if (Number(error.code) !== 404) throw error;
+        fail("failed-precondition", "Ảnh hồ sơ không còn tồn tại. Vui lòng gửi lại hồ sơ.");
+      }
+      if (metadata.contentType !== "image/jpeg" || !Number.isFinite(Number(metadata.size))
+          || Number(metadata.size) < 100 || Number(metadata.size) > 1200000)
+        fail("failed-precondition", "Ảnh hồ sơ không hợp lệ.");
+    }));
+  }
   return {
     adminSession: onCall(async request => {
       const uid = await admin(request); return { uid, email: (await getAuth().getUser(uid)).email || "", role: "ADMIN" };
@@ -130,6 +155,7 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
             if (!data.approve && note.length < 3) fail("invalid-argument", "Nhập lý do từ chối.");
             const userRef = db.doc(`users/${cleanDocumentId(doc.get("userId"), "Người dùng")}`), user = await tx.get(userRef);
             if (!user.exists) fail("not-found", "Không tìm thấy người dùng.");
+            if (data.approve) await validateVerificationEvidence(doc, user);
             tx.update(ref, { status: data.approve ? "APPROVED" : "REJECTED", note, reviewedBy: uid, updatedAt: stamp() });
             tx.update(userRef, { verificationStatus: data.approve ? "VERIFIED" : "UNVERIFIED", updatedAt: stamp() });
             tx.create(db.collection(`users/${user.id}/notifications`).doc(), { type: "VERIFICATION_UPDATED", title: data.approve ? "Hồ sơ xác minh đã được duyệt" : "Hồ sơ xác minh cần gửi lại", body: note || "Danh tính đã được quản trị viên xác minh thủ công.", read: false, createdAt: stamp() });
