@@ -970,6 +970,7 @@ Object.assign(exports, require("./cart-checkout")({ db, onCall, uidOf, cleanDocu
   shippingFeeVnd, validatedAddress, postOwnerId, postType, orderPostSnapshot, writeOrderEvent, requireVerifiedAccount }));
 Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText, cleanDocumentId, writeOrderEvent }));
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));
+Object.assign(exports, require("./moderation")({ onCall, db, FieldValue, requireVerifiedAccount, fail, cleanText, cleanDocumentId, notify }));
 
 require('./ghn-integration')({ exports, db, getAuth, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, cleanText, FieldValue, logger, requireVerifiedAccount, postOwnerId, postType, orderPostSnapshot, writeOrderEvent });
 require('./vnpay-integration')({ exports, db, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, FieldValue, writeOrderEvent });
