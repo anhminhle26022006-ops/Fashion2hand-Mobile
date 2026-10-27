@@ -76,3 +76,15 @@ test('IP discovery failure or invalid response never sends an invented QueryDR I
    await assert.rejects(p.query({reference:'REF'}));assert.equal(calls,1);
  }
 });
+
+test('QueryDR reports only safe timeout and HTTP diagnostics, never signed request contents',async()=>{
+ const p=new VnpayProvider({...fixture,fetchImpl:async()=>{throw Object.assign(new Error('secret transport details'),{cause:{code:'UND_ERR_CONNECT_TIMEOUT'}});}});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.code==='deadline-exceeded'&&error.details.reason==='QUERY_TIMEOUT'&&error.details.networkCode==='UND_ERR_CONNECT_TIMEOUT'&&!JSON.stringify(error).includes('secret transport details'));
+ p.fetch=async()=>({ok:false,status:503,json:async()=>{throw Error('untrusted HTML');}});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.details.reason==='QUERY_HTTP_ERROR'&&error.details.httpStatus===503);
+});
+
+test('unsigned query limit code 94 only delays retry and never provides payment evidence',async()=>{
+ const p=new VnpayProvider({...fixture,fetchImpl:async()=>({ok:true,json:async()=>({vnp_ResponseCode:'94',vnp_TransactionStatus:'00'})})});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.code==='resource-exhausted'&&error.details.reason==='QUERY_RATE_LIMITED'&&error.details.retryAfterSeconds===300);
+});

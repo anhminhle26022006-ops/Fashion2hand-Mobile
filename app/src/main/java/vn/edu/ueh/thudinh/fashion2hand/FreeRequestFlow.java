@@ -25,10 +25,11 @@ final class FreeRequestFlow {
     private int layout;
     private boolean busy;
     private android.app.AlertDialog confirmation;
+    private com.google.firebase.firestore.ListenerRegistration summaryListener;
     private final List<Button> actions = new ArrayList<>();
 
     FreeRequestFlow(AppCompatActivity activity, TransactionScreens.Host host) { this.activity=activity; this.host=host; }
-    void invalidate() { version++; if(confirmation!=null) { confirmation.dismiss(); confirmation=null; } }
+    void invalidate() { version++; if(summaryListener!=null){summaryListener.remove();summaryListener=null;} if(confirmation!=null) { confirmation.dismiss(); confirmation=null; } }
     void save(Bundle state) { state.putString("freeInboxPost",postId);state.putString("freeInboxFilter",filter); }
     void restore(Bundle state) {postId=state.getString("freeInboxPost","");filter=state.getString("freeInboxFilter","Mới nhất");}
     private boolean valid(long token) { return token==version && !activity.isDestroyed() && host.showing(layout); }
@@ -60,7 +61,7 @@ final class FreeRequestFlow {
         LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.bottomMargin=dp(10);parent.addView(button,p);
         button.setOnClickListener(v->{if(!busy)run.run();});actions.add(button);return button;
     }
-    private void clear() {body.removeAllViews();actions.clear();}
+    private void clear() {if(summaryListener!=null){summaryListener.remove();summaryListener=null;}body.removeAllViews();actions.clear();}
     private void failure(String value,Runnable retry) {clear();muted(body,value);action(body,"Thử lại",0,2,retry);}
     void bind(int layout,LinearLayout body,boolean owner) {
         invalidate();this.layout=layout;this.body=body;busy=false;long token=version;
@@ -98,7 +99,7 @@ final class FreeRequestFlow {
     }
     private void products(List<DocumentSnapshot> docs,long token,boolean owner) {
         clear();if(docs.isEmpty()){muted(body,owner?"Chưa có món đồ nào được yêu cầu nhận.":"Bạn chưa gửi yêu cầu nhận đồ.");return;}
-        if(!owner){for(DocumentSnapshot doc:docs){LinearLayout card=product(body,doc.getData(),doc.getString("postId"),token);muted(card,TransactionScreens.label(doc.getString("status")));card.setOnClickListener(v->host.openRequest(doc.getId()));}return;}
+        if(!owner){for(DocumentSnapshot doc:docs){LinearLayout card=product(body,doc.getData(),doc.getString("postId"),token);text(card,"ACCEPTED".equals(doc.getString("status"))?"✓ Bạn đã được chọn nhận đồ":TransactionScreens.label(doc.getString("status")),14,0xFF24634D,true);card.setOnClickListener(v->host.openRequest(doc.getId()));}return;}
         LinkedHashMap<String,List<DocumentSnapshot>> groups=new LinkedHashMap<>();
         for(DocumentSnapshot doc:docs)groups.computeIfAbsent(doc.getString("postId"),id->new ArrayList<>()).add(doc);
         text(body,groups.size()+" món đồ có người yêu cầu",14,0xFF173F34,true);
@@ -182,26 +183,27 @@ final class FreeRequestFlow {
                 .addOnFailureListener(e->{if(valid(token)&&fee.isAttachedToWindow())fee.setText("Chưa tải được phí giao hàng dự kiến.");});
             String status=str(data,"status");
             if(status.equals("PENDING")){
+                text(box(body),"Đang chờ người tặng chọn người nhận",14,0xFF6D6741,true);
                 if(owner){action(body,"Chấp nhận yêu cầu",R.id.btnAcceptFreeRequest,0,()->confirm(doc,true,token));action(body,"Từ chối yêu cầu",R.id.btnRejectFreeRequest,1,()->confirm(doc,false,token));}
                 else action(body,"Hủy yêu cầu",R.id.btnCancelFreeRequest,1,()->{
                     new android.app.AlertDialog.Builder(activity).setTitle("Hủy yêu cầu nhận đồ?").setNegativeButton("Quay lại",null).setPositiveButton("Hủy yêu cầu",(d,w)->mutate(doc,false,true,token)).show();
                 });
             }else{
                 LinearLayout statusCard=box(body);statusCard.setBackground(background(0xFFEDF5EF,0xFFD6E8DC,14));
-                text(statusCard,status.equals("ACCEPTED")?"✓  Người nhận đã được chọn":status.equals("REJECTED")?"Yêu cầu đã bị từ chối":status.equals("UNAVAILABLE")?"Yêu cầu đã đóng · Không được chọn":TransactionScreens.label(status),14,0xFF21533E,true);
+                text(statusCard,status.equals("ACCEPTED")?(owner?"✓ Người nhận đã được chọn":"✓ Bạn đã được chọn nhận đồ"):status.equals("REJECTED")?"Yêu cầu đã bị từ chối":status.equals("UNAVAILABLE")?"Yêu cầu đã đóng · Không được chọn":TransactionScreens.label(status),14,0xFF21533E,true);
                 TextView description=muted(statusCard,status.equals("ACCEPTED")?"Món đồ đã được giữ cho người nhận.":"Yêu cầu này không còn chờ xử lý.");
                 if(status.equals("ACCEPTED"))profile(str(data,"requesterId"),token,p->{if(description.isAttachedToWindow())description.setText("Món đồ đang được giữ cho "+name(p)+".");});
             }
-            if(!owner&&status.equals("PENDING")&&str(data,"shippingProvider").equals("GHN"))action(body,"Cập nhật địa chỉ / xác nhận lại phí GHN",0,2,()->host.requestFree(str(data,"postId"),str(data,"note")));
+            if(!owner&&status.equals("PENDING")&&str(data,"shippingProvider").equals("GHN"))action(body,"Đổi địa chỉ hoặc cập nhật yêu cầu",0,2,()->host.requestFree(str(data,"postId"),str(data,"note")));
             action(body,"Trò chuyện",0,2,()->host.chat(peer,str(data,"postId")));
-            if(!str(data,"orderId").isEmpty())action(body,"Xem đơn miễn phí",0,1,()->host.openOrder(str(data,"orderId")));
+            if(!str(data,"orderId").isEmpty())orderSummary(str(data,"orderId"),token,body);
         }));
     }
     private void confirm(DocumentSnapshot doc,boolean accept,long token){
         Map<String,Object> cached=profiles.getOrDefault(doc.getString("requesterId"),Collections.emptyMap());
         confirmation=new android.app.AlertDialog.Builder(activity)
             .setTitle(accept?"Trao món đồ này cho "+name(cached)+"?":"Từ chối yêu cầu của "+name(cached)+"?")
-            .setMessage(accept?"Bạn chỉ có thể chọn một người nhận. Món đồ sẽ được giữ cho người này và các yêu cầu khác sẽ được đóng.":"Yêu cầu này sẽ được đóng. Bạn vẫn có thể chọn một người khác nhận món đồ.")
+            .setMessage(accept?"Bạn chỉ có thể chọn một người nhận. Hệ thống sẽ tạo vận đơn GHN đến địa chỉ người nhận đã chọn; người nhận trả phí ship đã đồng ý khi gửi yêu cầu. Hãy chuẩn bị món đồ để giao GHN. Các yêu cầu khác sẽ đóng.":"Yêu cầu này sẽ được đóng. Bạn vẫn có thể chọn một người khác nhận món đồ.")
             .setNegativeButton("Hủy",null).setPositiveButton(accept?"Xác nhận người nhận":"Xác nhận từ chối",(d,w)->mutate(doc,accept,false,token)).create();
         confirmation.show();
         if(confirmation.getWindow()!=null)confirmation.getWindow().setBackgroundDrawable(background(0xFFFFFFFF,0,24));
@@ -211,21 +213,25 @@ final class FreeRequestFlow {
         (cancel?repo.cancelFreeRequest(doc.getId()):repo.respondFreeRequest(doc.getId(),accept)).addOnCompleteListener(result->{
             if(!valid(token))return;busy=false;for(Button b:actions)b.setEnabled(true);
             if(!result.isSuccessful()){host.error(result.getException());return;}
+            if(accept&&Boolean.TRUE.equals(map(result.getResult().getData()).get("shipmentPending")))Toast.makeText(activity,"Đã chọn người nhận. GHN chưa hoàn tất vận đơn; mở đơn để tạo / đối soát lại.",Toast.LENGTH_LONG).show();
             // The live request listener replaces the action buttons with the confirmed server state.
         });
     }
     private void orderSummary(String id,long token,LinearLayout parent){
         LinearLayout summary=box(parent);summary.setTag("free-order|"+id);text(summary,"Đơn miễn phí đã được tạo",14,0xFF173B32,true);
         TextView state=muted(summary,"Đang tải đơn…");LinearLayout totals=new LinearLayout(activity);totals.setOrientation(LinearLayout.VERTICAL);summary.addView(totals);
-        // One-shot reads avoid accumulating listeners each time a filter or snapshot redraws the list.
-        com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("orders").document(id).get().addOnSuccessListener(order->{
-            if(!valid(token)||!summary.isAttachedToWindow())return;if(!order.exists()){state.setText("Không tìm thấy đơn.");return;}
-            state.setText("ĐƠN HÀNG: "+TransactionScreens.label(order.getString("orderStatus"))+"\nTHANH TOÁN: Chỉ phí giao hàng\nVẬN CHUYỂN: "+TransactionScreens.label(order.getString("shippingStatus")));
+        if(summaryListener!=null)summaryListener.remove();
+        summaryListener=com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("orders").document(id).addSnapshotListener((order,error)->{
+            if(!valid(token)||!summary.isAttachedToWindow())return;
+            if(error!=null){state.setText("Chưa đồng bộ được đơn. Mở chi tiết để thử lại.");return;}
+            if(order==null||!order.exists()){state.setText("Không tìm thấy đơn.");return;}
+            totals.removeAllViews();String tracking=order.getString("trackingCode");boolean linked=tracking!=null&&!tracking.isEmpty();
+            state.setText("NGƯỜI TẶNG ĐÃ CHẤP NHẬN\nĐƠN HÀNG: "+TransactionScreens.orderLabel(order.getData())+"\nTHANH TOÁN: Người nhận trả phí ship khi nhận hàng\nVẬN CHUYỂN: "+(linked?tracking+" · "+TransactionScreens.shippingLabel(order.getString("shippingStatus"),true):"RETRY_REQUIRED".equals(order.getString("autoShippingStatus"))?"Chưa hoàn tất · người tặng cần tạo / đối soát lại":"Đang chuẩn bị vận đơn GHN"));
             text(totals,"Giá sản phẩm                         0đ — FREE",12,0xFF365B4C,false);
             text(totals,"Phí vận chuyển                  "+amount(order.get("shippingFee")),12,0xFF365B4C,false);
             text(totals,"Tổng thanh toán                "+amount(order.get("shippingFee")),17,0xFFEF765A,true);
             muted(totals,"Không có phí cho sản phẩm. Tổng tiền chỉ bao gồm giao hàng.");
-        }).addOnFailureListener(e->{if(valid(token)&&state.isAttachedToWindow())state.setText("Chưa tải được đơn. Mở chi tiết để thử lại.");});
+        });host.listen(summaryListener);
         action(summary,"Xem đơn hàng",0,2,()->host.openOrder(id));
     }
 }

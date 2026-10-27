@@ -126,6 +126,27 @@ test('QueryDR recovers lost IPN, enforces ownership/rate limit and shares receip
  assert.equal((await apply(f)).RspCode,'02');assert.equal((await db.collection('moneyTransactions').where('orderId','==',f.id).get()).size,1);
 });
 
+test('QueryDR network errors retain pending payment and emit only safe diagnostics',async()=>{
+ const f=await fixture(),logs=[];const p=provider();
+ p.query=async()=>{throw new (require('../vnpay-provider').VnpayError)('unavailable','sensitive test transport text',{reason:'QUERY_NETWORK_ERROR',networkCode:'ECONNRESET'});};
+ const svc=require('../vnpay-payments')({...ctx,provider:()=>p,logger:{warn:(message,data)=>logs.push({message,data})}});
+ await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='unavailable');
+ assert.equal((await f.payment()).get('status'),'PENDING');assert.equal((await db.doc('moneyTransactions/received_'+f.id).get()).exists,false);
+ assert.equal(logs[0].data.reason,'QUERY_NETWORK_ERROR');assert.equal(logs[0].data.referenceHash.length,12);assert.ok(!JSON.stringify(logs).includes('sensitive test transport text'));
+});
+
+test('verified QueryDR after cancellation records late payment for review without reclaiming inventory',async()=>{
+ const f=await fixture(),fields=callback(f),p=provider();
+ await db.doc('orders/'+f.id).update({orderStatus:'CANCELLED',paymentStatus:'EXPIRED'});
+ for(const post of f.posts)await db.doc('posts/'+post).update({status:'ACTIVE',reservedForOrderId:FieldValue.delete()});
+ p.query=async()=>p.normalize(fields,{query:true});
+ const svc=require('../vnpay-payments')({...ctx,provider:()=>p});
+ const result=await svc.reconcile(req(f.buyer,{orderId:f.id}));
+ assert.equal(result.paymentStatus,'PAID');assert.equal(result.orderStatus,'CANCELLED');assert.equal(result.needsReview,true);
+ for(const post of f.posts)assert.equal((await db.doc('posts/'+post).get()).get('status'),'ACTIVE');
+ assert.equal((await db.doc('moneyTransactions/received_'+f.id).get()).get('status'),'REVIEW_REQUIRED');
+});
+
 test('pending automatic reconciliation is rate limited and cannot manufacture a receipt',async()=>{
  const f=await fixture();let calls=0;
  const p=provider();p.query=async()=>{calls++;return {pending:true};};
@@ -133,6 +154,20 @@ test('pending automatic reconciliation is rate limited and cannot manufacture a 
  assert.equal((await svc.reconcile(req(f.buyer,{orderId:f.id}))).paymentStatus,'PENDING');
  await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='resource-exhausted');
  assert.equal(calls,1);assert.equal((await db.doc('moneyTransactions/received_'+f.id).get()).exists,false);
+});
+
+test('provider throttle persists five-minute backoff without accepting unsigned payment evidence',async()=>{
+ const f=await fixture();let calls=0,clock=Date.now();
+ const p=provider();p.query=async()=>{calls++;if(calls===1)throw new (require('../vnpay-provider').VnpayError)('resource-exhausted','Rate limited',{reason:'QUERY_RATE_LIMITED',retryAfterSeconds:300});return {pending:true};};
+ const svc=require('../vnpay-payments')({...ctx,provider:()=>p,now:()=>clock});
+ await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='resource-exhausted');
+ assert.equal((await f.order()).get('paymentQueryRetryAfter').toMillis(),clock+300000);
+ clock+=61000;
+ await assert.rejects(svc.reconcile(req(f.buyer,{orderId:f.id})),e=>e.code==='resource-exhausted');
+ assert.equal(calls,1);
+ clock+=240001;
+ assert.equal((await svc.reconcile(req(f.buyer,{orderId:f.id}))).paymentStatus,'PENDING');
+ assert.equal(calls,2);assert.equal((await db.doc('moneyTransactions/received_'+f.id).get()).exists,false);
 });
 test('verified prepaid VNPAY can continue GHN staging with zero COD; production stays blocked',async()=>{
  const f=await fixture();await apply(f);const shipping=require('../ghn-shipments')({...ctx,provider:()=>({settings:{environment:'staging'}})});

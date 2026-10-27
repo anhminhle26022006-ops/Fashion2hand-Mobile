@@ -995,4 +995,4 @@ Object.assign(exports, require("./admin")({ onCall, db, getAuth, getStorage, Fie
 Object.assign(exports, require("./account")({ onCall, db, getStorage, FieldValue, uidOf, fail, cleanText, cleanDocumentId }));
 
 require('./ghn-integration')({ exports, db, getAuth, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, cleanText, FieldValue, logger, requireVerifiedAccount, postOwnerId, postType, orderPostSnapshot, writeOrderEvent });
-require('./vnpay-integration')({ exports, db, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, FieldValue, writeOrderEvent });
+require('./vnpay-integration')({ exports, db, onCall, onRequest, defineSecret, fail, uidOf, cleanDocumentId, FieldValue, writeOrderEvent, logger });

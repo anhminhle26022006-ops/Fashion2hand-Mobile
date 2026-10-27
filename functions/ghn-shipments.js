@@ -35,6 +35,14 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, writeOrderEven
         tx.set(operationRef,{state:'LINKED',trackingCode:detail.order_code,updatedAt:FieldValue.serverTimestamp()},{merge:true});
         return {trackingCode:detail.order_code,status:old.status,unchanged:true};
       }
+      // A newer provider timestamp alone is not a new shipping state/event.
+      if(prior.exists&&old.providerStatus===detail.status&&old.normalizedStatus===STATUS[detail.status]) {
+        tx.update(shipmentRef,{providerUpdatedAt:detail.updated_date,updatedAt:FieldValue.serverTimestamp(),
+          ...(detail.leadtime?{expectedDeliveryTime:detail.leadtime}:{}),
+          ...(Number.isSafeInteger(detail.total_fee)?{providerFee:detail.total_fee}:{})});
+        tx.set(operationRef,{state:'LINKED',trackingCode:detail.order_code,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+        return {trackingCode:detail.order_code,status:old.status,unchanged:true};
+      }
       const normal=STATUS[detail.status],now=FieldValue.serverTimestamp(),eventKey=hash([op.environment,detail.order_code,detail.status,detail.updated_date]);
       const eventRef=db.doc(`webhookEvents/ghn_${eventKey}`),event=await tx.get(eventRef);
       if(event.exists)return {trackingCode:detail.order_code,status:normal,unchanged:true};
