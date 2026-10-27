@@ -435,6 +435,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void goBack() {
+        if(currentScreen==R.layout.activity_checkout && transactionScreens.backCheckout())return;
         // Preserve listing fields before leaving a step, including toolbar Back.
         if (currentScreen == R.layout.activity_sell_details) captureSellDetails();
         if (currentScreen == R.layout.activity_sell_type) captureSellType();
@@ -1269,14 +1270,14 @@ public class MainActivity extends AppCompatActivity {
         if (!(raw instanceof List) || ((List<?>) raw).size() <= index) return;
         Object url = ((List<?>) raw).get(index);
         if (!(url instanceof String) || ((String) url).isEmpty()) return;
-        target.setVisibility(View.INVISIBLE); fallback.setVisibility(View.VISIBLE);
+        if(fallback!=null){target.setVisibility(View.INVISIBLE);fallback.setVisibility(View.VISIBLE);}
         com.google.firebase.storage.StorageReference image = storageImageReference((String) url);
         if (image == null) return;
         image
                 .getBytes(10 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                    if (bitmap != null) { target.setImageBitmap(bitmap); target.setVisibility(View.VISIBLE); fallback.setVisibility(View.GONE); }
+                    if (bitmap != null) { target.setImageBitmap(bitmap); target.setVisibility(View.VISIBLE); if(fallback!=null)fallback.setVisibility(View.GONE); }
                 });
     }
 
@@ -1476,7 +1477,7 @@ public class MainActivity extends AppCompatActivity {
         ordersLoadError=error==null?"":"Không tải được đơn hàng. Nhấn để thử lại.";
         ordersAwaitingServer=error==null&&(snapshot==null||snapshot.getMetadata().isFromCache());
         activeOrders.clear();
-        if(snapshot!=null&&error==null)activeOrders.addAll(snapshot.getDocuments());
+        if(snapshot!=null&&error==null)for(DocumentSnapshot doc:snapshot)if(!TransactionScreens.sandboxHistoryHidden(doc))activeOrders.add(doc);
         renderOrders();
     }
 
@@ -1509,7 +1510,7 @@ public class MainActivity extends AppCompatActivity {
             card.setLayoutParams(params);
             card.setTag("firebase_order|" + order.getId());
             TextView titleView = new TextView(this);
-            titleView.setText("#" + order.getId() + "  ·  " + orderStatusLabel(status));
+            titleView.setText("#" + order.getId() + "  ·  " + ("GHN".equals(textValue(data,"shippingProvider",""))?TransactionScreens.orderLabel(data):orderStatusLabel(status)));
             titleView.setTextColor(0xFF173B32); titleView.setTextSize(11); titleView.setTypeface(null, android.graphics.Typeface.BOLD);
             TextView productView = new TextView(this);
             productView.setText(title + "  ·  " + String.format(java.util.Locale.getDefault(), "%,d đ", total));
@@ -1923,6 +1924,8 @@ public class MainActivity extends AppCompatActivity {
             if(!post.exists()){setTextIfPresent(R.id.tvPinnedProductName,"Sản phẩm không còn tồn tại");return;}
             currentProductData=post.getData();currentProductName=textValue(currentProductData,"title","Sản phẩm");currentSellerId=textValue(currentProductData,"ownerId","");currentProductIsFree="FREE".equals(textValue(currentProductData,"type","SALE"));
             setTextIfPresent(R.id.tvPinnedProductName,currentProductName);setTextIfPresent(R.id.tvPinnedProductPrice,currentProductIsFree?"Miễn phí":String.format(java.util.Locale.getDefault(),"%,d đ",numberValue(post.get("price"))));
+            ImageView pinned=findViewById(R.id.imgPinnedProduct);
+            if(pinned!=null)loadPostPhoto(currentProductData,0,pinned,null);
             boolean available="ACTIVE".equals(post.getString("status"))&&!currentUid().equals(currentSellerId);cartButton.setEnabled(available&&!currentProductIsFree);buyButton.setEnabled(available);buyButton.setText(currentProductIsFree?"Yêu cầu nhận":"Mua ngay");
             if(currentProductIsFree)bindFreeRequestAction(buyButton,chatPostId,available);
         }).addOnFailureListener(error->{if(currentScreen==R.layout.activity_chat)setTextIfPresent(R.id.tvPinnedProductName,"Không tải được sản phẩm. Quay lại để thử lại.");});
@@ -2635,7 +2638,7 @@ public class MainActivity extends AppCompatActivity {
             failed[side] = snapshot == null;
             Map<String, DocumentSnapshot> target = side == 0 ? buyer : seller;
             target.clear();
-            if (snapshot != null) for (DocumentSnapshot order : snapshot.getDocuments()) target.put(order.getId(), order);
+            if (snapshot != null) for (DocumentSnapshot order : snapshot.getDocuments()) if(!TransactionScreens.sandboxHistoryHidden(order))target.put(order.getId(), order);
             if (!loaded[0] || !loaded[1]) return;
             TextView completedView = findViewById(R.id.txtProfileCompletedCount);
             TextView menu = findViewById(R.id.btnMyCart);
@@ -2732,6 +2735,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     currentChatId = (String) ((Map<?, ?>) data).get("chatId");
                     currentPeerId = peerId;
+                    currentPostId = postId == null ? "" : postId;
                     chatReturnScreen = returnScreen;
                     showScreen(R.layout.activity_chat);
                 }).addOnFailureListener(this::showFirebaseError);
@@ -2843,6 +2847,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         applyProductKindUi();
+        if(!currentPostId.isEmpty()) {
+            final String watchedPost=currentPostId;
+            addScreenListener(memberTwoRepository.listenPost(watchedPost,(post,error)->{
+                if(currentScreen!=R.layout.activity_product_detail||!watchedPost.equals(currentPostId))return;
+                if(error!=null||post==null||!post.exists()||post.getMetadata().isFromCache()) {
+                    Button cart=findViewById(R.id.btnAddToCart),buy=findViewById(R.id.btnBuyNow);
+                    cart.setEnabled(false);buy.setEnabled(false);
+                    String message=error!=null?"Chưa tải được món đồ":post!=null&&!post.getMetadata().isFromCache()&&!post.exists()?"Món đồ không còn":"Đang kiểm tra tồn kho…";
+                    cart.setText(message);buy.setText(message);
+                    if(error!=null)showFirebaseError(error);
+                    return;
+                }
+                currentProductData=new HashMap<>(post.getData());applyProductKindUi();
+            }));
+        }
         if(currentProductIsFree)bindFreeRequestAction(findViewById(R.id.btnRequestFree),currentPostId,"ACTIVE".equals(textValue(currentProductData,"status","ACTIVE"))&&!currentUid().equals(currentSellerId));
     }
 
@@ -2881,7 +2900,13 @@ public class MainActivity extends AppCompatActivity {
         Button requestFree = findViewById(R.id.btnRequestFree);
         View freeNotice = findViewById(R.id.freeProductNotice);
         if (badge == null || chat == null || addToCart == null || buyNow == null || requestFree == null) return;
-        badge.setText(currentProductIsFree ? "TẶNG MIỄN PHÍ" : "ĐANG BÁN");
+        String stockStatus=textValue(currentProductData,"status","");
+        boolean ownPost=!currentUid().isEmpty()&&currentUid().equals(currentSellerId);
+        boolean available="ACTIVE".equals(stockStatus)&&!ownPost;
+        addToCart.setEnabled(available);buyNow.setEnabled(available);
+        addToCart.setText(ownPost?"Tin của bạn":"SOLD".equals(stockStatus)?"Hết hàng":"RESERVED".equals(stockStatus)?"Đang được giữ":"Thêm vào giỏ");
+        buyNow.setText(ownPost?"Tin của bạn":"SOLD".equals(stockStatus)?"Hết hàng":"RESERVED".equals(stockStatus)?"Đang chờ thanh toán":"Mua ngay");
+        badge.setText("SOLD".equals(stockStatus)?"SOLD OUT · HẾT HÀNG":"RESERVED".equals(stockStatus)?"ĐÃ GIỮ CHỖ · CHỜ THANH TOÁN":currentProductIsFree ? "TẶNG MIỄN PHÍ" : "ĐANG BÁN · 1 MÓN");
         badge.setTextColor(currentProductIsFree ? 0xFF23795C : 0xFF9C3D28);
         badge.setBackgroundResource(currentProductIsFree ? R.drawable.bg_green_light_card : R.drawable.bg_product_sale_badge);
         addToCart.setVisibility(currentProductIsFree ? View.GONE : View.VISIBLE);

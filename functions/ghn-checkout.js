@@ -40,7 +40,12 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
     const source = { items, address: address.data(), settings: settings.data(), sellers: {} };
     for (const group of groups.values()) {
       const mapping=await db.doc(`ghnSellerShops/${environment}_${group.sellerId}`).get();
-      if(!mapping.exists || mapping.get('environment')!==environment || mapping.get('enabled')!==true) fail('failed-precondition',`Người bán ${group.sellerId} chưa có điểm lấy hàng GHN được quản trị viên ánh xạ.`);
+      if(!mapping.exists || mapping.get('environment')!==environment || mapping.get('enabled')!==true) {
+        const profile=await db.doc(`users/${group.sellerId}`).get();
+        const rawName=profile.exists?profile.get('name'):'';
+        const name=typeof rawName==='string'&&rawName.trim()?rawName.trim().slice(0,100):'Người bán';
+        fail('failed-precondition',`Điểm lấy hàng GHN của ${name} chưa có liên kết đang hoạt động. Người bán cần kiểm tra ánh xạ shop GHN.`);
+      }
       const data=mapping.data();source.sellers[group.sellerId]=data;
       group.shopId=data.shopId;group.pickup=data.pickup;
       if(!Number.isSafeInteger(group.shopId)||!group.pickup?.ghn||group.pickup.ghn.environment!==environment)fail('failed-precondition','Cấu hình shop/điểm gửi của seller chưa hợp lệ hoặc sai môi trường.');
@@ -134,11 +139,14 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
   async function createFree(request) {
     await requireVerifiedAccount(request);const uid=uidOf(request),q=await loadQuote(request);
     if(q.source.items.length!==1||q.source.items[0].type!=='FREE')fail('failed-precondition','Chọn một món tặng.');
+    if(request.data.acceptShippingFee!==true||request.data.expectedShippingFee!==q.groups[0].shippingFee)
+      fail('failed-precondition','Người nhận cần đồng ý trả đúng phí GHN hiển thị trước khi gửi yêu cầu.');
     const item=q.source.items[0],id= require('node:crypto').createHash('sha256').update(`${uid}:${item.postId}`).digest('hex'),ref=db.doc(`freeRequests/${id}`);
     await db.runTransaction(async tx=>{const old=await tx.get(ref);await assertQuote(tx,q,uid);
       if(old.exists&&old.get('status')==='ACCEPTED')fail('failed-precondition','Yêu cầu đã được chấp nhận.');
       tx.set(ref,{postId:item.postId,postSnapshot:item,requesterId:uid,ownerId:item.sellerId,note:cleanText(request.data.note,500,'Lời nhắn',false),
         addressId:q.addressId,shippingAddress:q.groups[0].shippingAddress,shippingQuote:{...q.groups[0],environment:q.environment,quoteId:q.id,provider:'GHN'},
+        shippingConsent:{accepted:true,payer:'RECEIVER',amount:q.groups[0].shippingFee,currency:'VND',quoteId:q.id,acceptedAt:FieldValue.serverTimestamp()},
         shippingProvider:'GHN',status:'PENDING',createdAt:old.exists&&old.get('status')==='PENDING'?old.get('createdAt'):FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});});
     return {requestId:id};
   }
@@ -146,24 +154,39 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
     const uid=uidOf(request),id=cleanDocumentId(request.data.requestId,'Yêu cầu'),ref=db.doc(`freeRequests/${id}`),old=await ref.get();
     if(!old.exists||old.get('ownerId')!==uid)fail('permission-denied','Không có quyền xử lý yêu cầu.');
     if(old.get('status')==='ACCEPTED')return {orderId:old.get('orderId')};
-    const saved=old.get('shippingQuote');if(!saved)fail('failed-precondition','Người nhận cần xác nhận báo giá GHN mới.');
-    // Requester explicitly accepted this fee; recheck inputs and current fee without silently increasing it.
-    const q=await loadQuote({auth:{uid:old.get('requesterId')},data:{quoteId:saved.quoteId,addressId:old.get('addressId')}},{allowExpired:true});
+    const originalQuote=old.get('shippingQuote')||null,consent=old.get('shippingConsent')||null;
+    let saved=originalQuote;
+    const staging=env()==='staging';
+    if(staging) {
+      // Demo requests, including pre-GHN records, get a fresh server quote at acceptance.
+      // Keep the recipient's selected address; never invent consent or default to another address.
+      if(!old.get('addressId'))fail('failed-precondition','Yêu cầu chưa có địa chỉ nhận hàng. Bổ sung địa chỉ nhận hàng trước khi gửi GHN.');
+      const fresh=await quote({auth:{uid:old.get('requesterId')},data:{postId:old.get('postId'),addressId:old.get('addressId')}});
+      const stored=await db.doc(`shippingQuotes/${fresh.quoteId}`).get();
+      saved={...stored.get('groups')[0],provider:'GHN',environment:'staging',quoteId:fresh.quoteId};
+    } else {
+      if(!saved||!consent?.accepted||consent.payer!=='RECEIVER'||consent.amount!==saved.shippingFee||consent.quoteId!==saved.quoteId)
+        fail('failed-precondition','Đơn vận chuyển thật cần sự đồng ý phí ship hợp lệ.');
+    }
+    const q=await loadQuote({auth:{uid:old.get('requesterId')},data:{quoteId:saved.quoteId,addressId:old.get('addressId')}},{allowExpired:!staging});
+    if(q.source.items.length!==1||q.source.items[0].type!=='FREE'||q.groups[0].sellerId!==uid)
+      fail('failed-precondition','Yêu cầu không khớp món tặng và người tặng.');
     const orderRef=db.collection('orders').doc();
     await db.runTransaction(async tx=>{
       const current=await tx.get(ref),post=await tx.get(db.doc(`posts/${old.get('postId')}`));
       const pending=await tx.get(db.collection('freeRequests').where('postId','==',old.get('postId')).where('status','==','PENDING').limit(450));
-      if(current.get('status')!=='PENDING'||hash(current.get('shippingQuote'))!==hash(saved)||!post.exists||post.get('status')!=='ACTIVE'||post.get('reservedForOrderId'))fail('failed-precondition','Yêu cầu hoặc món đã đổi.');
+      if(current.get('status')!=='PENDING'||hash(current.data())!==hash(old.data())||!post.exists||post.get('status')!=='ACTIVE'||post.get('reservedForOrderId'))fail('failed-precondition','Yêu cầu hoặc món đã đổi.');
       // Freeze the same address/config/product versions atomically; original five-minute quote expiry is intentionally waived only for this existing free request.
       const group=q.groups[0],address=await tx.get(db.doc(`users/${q.buyerId}/addresses/${q.addressId}`)),settings=await tx.get(db.doc(`shippingConfig/ghn_${q.environment}`)),seller=await tx.get(db.doc(`ghnSellerShops/${q.environment}_${group.sellerId}`));
       if(!address.exists||hash({items:[view(post)],address:address.data(),settings:settings.data(),sellers:{[group.sellerId]:seller.data()}})!==q.sourceHash)fail('failed-precondition','Người nhận cần cập nhật báo giá/địa chỉ.');
       const now=FieldValue.serverTimestamp();
+      const authorization={source:staging?'STAGING_SERVER_QUOTE':'REQUESTER_CONSENT',payer:'RECEIVER',amount:group.shippingFee,currency:'VND',environment:q.environment};
       tx.create(orderRef,{orderType:'FREE',buyerId:q.buyerId,sellerId:uid,postId:post.id,postSnapshot:view(post),requestId:id,
         price:0,shippingFee:group.shippingFee,shippingAddress:group.shippingAddress,pickupAddress:group.pickup,shippingQuote:saved,
-        shippingProvider:'GHN',shippingEnvironment:q.environment,paymentMode:'SIMULATED',orderStatus:'CONFIRMED',paymentStatus:'NOT_REQUIRED',shippingStatus:'READY',trackingCode:'',createdAt:now,updatedAt:now});
-      tx.update(ref,{status:'ACCEPTED',orderId:orderRef.id,updatedAt:now});tx.update(post.ref,{status:'RESERVED',reservedForOrderId:orderRef.id,updatedAt:now});
+        shippingProvider:'GHN',shippingEnvironment:q.environment,shippingConsent:consent,shippingAuthorization:authorization,autoShippingStatus:'PENDING',paymentMode:'SIMULATED',orderStatus:'READY_TO_SHIP',paymentStatus:'NOT_REQUIRED',shippingStatus:'READY',trackingCode:'',createdAt:now,updatedAt:now});
+      tx.update(ref,{status:'ACCEPTED',shippingQuoteAtRequest:old.get('shippingQuoteAtRequest')||originalQuote,shippingQuote:saved,shippingAuthorization:authorization,orderId:orderRef.id,updatedAt:now});tx.update(post.ref,{status:'RESERVED',reservedForOrderId:orderRef.id,updatedAt:now});
       for(const doc of pending.docs)if(doc.id!==id)tx.update(doc.ref,{status:'UNAVAILABLE',updatedAt:now});
-      writeOrderEvent(tx,orderRef,'','CONFIRMED',uid,'Đã chọn người nhận; phí GHN do người nhận trả khi giao.');
+      writeOrderEvent(tx,orderRef,'','READY_TO_SHIP',uid,staging?'Đã chọn người nhận; server lấy báo giá staging và tự tạo vận đơn thử nghiệm, người nhận trả phí khi giao.':'Đã chọn người nhận; tự tạo vận đơn GHN theo phí người nhận đã đồng ý.');
       for(const recipient of new Set([q.buyerId,...pending.docs.map(d=>d.get('requesterId'))]))tx.create(db.collection(`users/${recipient}/notifications`).doc(),{type:recipient===q.buyerId?'FREE_REQUEST_ACCEPTED':'FREE_REQUEST_UNAVAILABLE',title:'Cập nhật yêu cầu nhận đồ',body:recipient===q.buyerId?'Bạn đã được chọn nhận đồ.':'Món đồ đã có người nhận.',orderId:orderRef.id,requestId:id,read:false,createdAt:now});
     });return {orderId:orderRef.id};
   }

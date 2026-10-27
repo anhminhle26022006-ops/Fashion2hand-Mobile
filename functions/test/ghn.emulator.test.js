@@ -22,20 +22,21 @@ async function fixture(label,{free=false}={}){
  await db.doc(`users/${buyer}/addresses/home`).set({...pickup,recipient:'Buyer',street:'Buyer address'});
  await db.doc(`posts/${post}`).set({ownerId:seller,type:free?'FREE':'SALE',status:'ACTIVE',title:'Test clothing',price:free?0:100000});
  let creates=0,fee=25000,createError=null,persisted=false,status='ready_to_pick',at='2026-10-26T10:00:00Z';const tracking=`TEST-${hash(id).slice(0,10)}`;
- let createGate=null;
+ let createGate=null,persistedReference='';
  const provider={settings:{environment:'staging'},shops:async()=>({shops:[{_id:10,district_id:2,ward_code:'3',address:'Shop address'}]}),address:async(_,a)=>({...a,ghn:{...a.ghn}}),services:async()=>[{service_id:20,service_type_id:2}],fee:async()=>({total:fee}),
-   create:async(_,payload)=>{creates++;persisted=true;if(createGate)await createGate;if(createError)throw createError;return {order_code:tracking};},
+   create:async(_,payload)=>{creates++;persisted=true;persistedReference=payload.client_order_code;if(createGate)await createGate;if(createError)throw createError;return {order_code:tracking};},
    byReference:async(_,reference)=>{if(!persisted)throw new GhnError('unavailable','Not created yet');return detail(reference);},
-   detail:async()=>detail(shipping.reference(orderId)),cancel:async()=>{status='cancel';at='2026-10-26T11:00:00Z';return [];} };
+   detail:async()=>detail(persistedReference||shipping.reference(orderId)),cancel:async()=>{status='cancel';at='2026-10-26T11:00:00Z';return [];} };
  let orderId='';const detail=reference=>({order_code:tracking,client_order_code:reference,shop_id:10,status,updated_date:at,cod_amount:0,payment_type_id:free?2:1,total_fee:fee});
  const context={...ctx,provider:()=>provider};const checkout=require('../ghn-checkout')(context),shipping=require('../ghn-shipments')(context);
  async function createOrder(){
    const q=await checkout.quote(req(buyer,{postId:post,addressId:'home'}));
-   if(free){const request=await checkout.createFree(req(buyer,{postId:post,addressId:'home',quoteId:q.quoteId,note:'Please'}));orderId=(await checkout.acceptFree(req(seller,{requestId:request.requestId,accept:true}))).orderId;}
+   if(free){const request=await checkout.createFree(req(buyer,{postId:post,addressId:'home',quoteId:q.quoteId,note:'Please',acceptShippingFee:true,expectedShippingFee:q.shippingFee}));orderId=(await checkout.acceptFree(req(seller,{requestId:request.requestId,accept:true}))).orderId;}
    else orderId=(await checkout.createOrders(req(buyer,{postId:post,addressId:'home',quoteId:q.quoteId,idempotencyKey:'checkout'}),true)).orderId;
    await db.doc(`orders/${orderId}`).update({orderStatus:'READY_TO_SHIP',paymentStatus:free?'NOT_REQUIRED':'PAID'});if(!free){await db.doc(`payments/${orderId}`).update({status:'PAID'});await db.doc(`moneyTransactions/received_${orderId}`).set({orderId,status:'HOLDING',mode:'SIMULATED'});}return q;
  }
- return {seller,buyer,post,checkout,shipping,provider,createOrder,detail,tracking,
+ const acceptAndShip=require('../free-shipping')({checkout,shipment:shipping,db,FieldValue});
+ return {seller,buyer,post,checkout,shipping,acceptAndShip,provider,createOrder,detail,tracking,
    get orderId(){return orderId;},get creates(){return creates;},setFee:n=>fee=n,setCreateError:e=>createError=e,setGate:g=>createGate=g,setStatus:(s,t)=>{status=s;at=t;},pickup};
 }
 test('multi-seller quote charges once per seller and validates input/address/expiry; checkout replay stable',async()=>{
@@ -59,11 +60,117 @@ test('multi-seller quote charges once per seller and validates input/address/exp
  for(const id of results[0].orderIds){const order=await db.doc(`orders/${id}`).get();assert.equal(order.get('shippingFee'),25000);assert.equal(order.get('shippingQuote.environment'),'staging');}
  await assert.rejects(f.checkout.quote(req('outsider',{postId:f.post,addressId:'home'})),/tài khoản/);
 });
+test('two buyers competing for one item create exactly one reserved order',async()=>{
+ const f=await fixture('single-stock'),other=`${f.buyer}-other`;
+ await db.doc(`users/${other}/addresses/home`).set({...f.pickup,recipient:'Other buyer'});
+ const q1=await f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'}));
+ const q2=await f.checkout.quote(req(other,{postId:f.post,addressId:'home'}));
+ const results=await Promise.allSettled([
+   f.checkout.createOrders(req(f.buyer,{postId:f.post,addressId:'home',quoteId:q1.quoteId,idempotencyKey:'first'}),true),
+   f.checkout.createOrders(req(other,{postId:f.post,addressId:'home',quoteId:q2.quoteId,idempotencyKey:'second'}),true)
+ ]);
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ const winner=results.find(r=>r.status==='fulfilled').value.orderId;
+ const post=await db.doc(`posts/${f.post}`).get();
+ assert.equal(post.get('status'),'RESERVED');assert.equal(post.get('reservedForOrderId'),winner);
+ const loser=results[0].status==='fulfilled'?other:f.buyer;
+ await assert.rejects(f.checkout.quote(req(loser,{postId:f.post,addressId:'home'})));
+});
+
+test('free request consents once, acceptance updates recipient and automatically creates one receiver-paid shipment',async()=>{
+ const f=await fixture('free-auto',{free:true});
+ const q=await f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'}));
+ const data={postId:f.post,addressId:'home',quoteId:q.quoteId,note:'Please'};
+ await assert.rejects(f.checkout.createFree(req(f.buyer,data)),/đồng ý/);
+ await assert.rejects(f.checkout.createFree(req(f.buyer,{...data,acceptShippingFee:true,expectedShippingFee:1})),/đồng ý/);
+ const requested=await f.checkout.createFree(req(f.buyer,{...data,acceptShippingFee:true,expectedShippingFee:q.shippingFee}));
+ await db.doc(`shippingQuotes/${q.quoteId}`).update({expiresAt:new Date(0)});
+ const accepted=await f.acceptAndShip(req(f.seller,{requestId:requested.requestId,accept:true}));
+ assert.equal(accepted.shipmentPending,false);assert.equal(f.creates,1);
+ assert.equal((await db.doc(`freeRequests/${requested.requestId}`).get()).get('status'),'ACCEPTED');
+ const order=await db.doc(`orders/${accepted.orderId}`).get();
+ assert.equal(order.get('buyerId'),f.buyer);assert.equal(order.get('trackingCode'),f.tracking);
+ assert.equal(order.get('paymentStatus'),'NOT_REQUIRED');assert.equal(order.get('shippingConsent.amount'),q.shippingFee);
+ const operation=await db.doc(`ghnOperations/${f.shipping.reference(accepted.orderId)}`).get();
+ assert.equal(operation.get('payload.payment_type_id'),2);assert.equal(operation.get('payload.cod_amount'),0);
+ const repeated=await f.acceptAndShip(req(f.seller,{requestId:requested.requestId,accept:true}));
+ assert.equal(repeated.orderId,accepted.orderId);assert.equal(f.creates,1);
+});
+
+test('uncertain auto shipment keeps accepted request and reconciles without duplicate create',async()=>{
+ const f=await fixture('free-auto-timeout',{free:true});
+ const q=await f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'}));
+ const requested=await f.checkout.createFree(req(f.buyer,{postId:f.post,addressId:'home',quoteId:q.quoteId,note:'Please',acceptShippingFee:true,expectedShippingFee:q.shippingFee}));
+ f.setCreateError(new GhnError('unavailable','Timeout',true));
+ const accepted=await f.acceptAndShip(req(f.seller,{requestId:requested.requestId,accept:true}));
+ assert.equal(accepted.shipmentPending,true);assert.equal(f.creates,1);
+ assert.equal((await db.doc(`freeRequests/${requested.requestId}`).get()).get('status'),'ACCEPTED');
+ assert.equal((await db.doc(`orders/${accepted.orderId}`).get()).get('autoShippingStatus'),'RETRY_REQUIRED');
+ const recovered=await f.acceptAndShip(req(f.seller,{requestId:requested.requestId,accept:true}));
+ assert.equal(recovered.shipmentPending,false);assert.equal(f.creates,1);
+});
+
+test('staging acceptance refreshes fee on server without a second requester confirmation',async()=>{
+ const f=await fixture('free-fee-change',{free:true});
+ const q=await f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'}));
+ const requested=await f.checkout.createFree(req(f.buyer,{postId:f.post,addressId:'home',quoteId:q.quoteId,note:'Please',acceptShippingFee:true,expectedShippingFee:q.shippingFee}));
+ f.setFee(q.shippingFee+1000);
+ const accepted=await f.acceptAndShip(req(f.seller,{requestId:requested.requestId,accept:true}));
+ assert.equal(accepted.shipmentPending,false);assert.equal(f.creates,1);
+ const order=await db.doc(`orders/${accepted.orderId}`).get();
+ assert.equal(order.get('shippingFee'),q.shippingFee+1000);
+ assert.equal(order.get('shippingConsent.amount'),q.shippingFee);
+ assert.equal(order.get('shippingAuthorization.source'),'STAGING_SERVER_QUOTE');
+ assert.equal((await db.doc(`freeRequests/${requested.requestId}`).get()).get('status'),'ACCEPTED');
+});
+
+test('legacy staging request without quote auto-books using its selected address, without fabricated consent',async()=>{
+ const f=await fixture('legacy-free',{free:true}),id=`${f.post}-legacy`;
+ await db.doc(`freeRequests/${id}`).set({postId:f.post,requesterId:f.buyer,ownerId:f.seller,addressId:'home',note:'Old request',status:'PENDING'});
+ await assert.rejects(f.acceptAndShip(req('outsider',{requestId:id,accept:true})),/quyền/);
+ const accepted=await f.acceptAndShip(req(f.seller,{requestId:id,accept:true}));
+ assert.equal(accepted.shipmentPending,false);assert.equal(f.creates,1);
+ const order=await db.doc(`orders/${accepted.orderId}`).get();
+ assert.equal(order.get('shippingConsent'),null);assert.equal(order.get('shippingAddress.recipient'),'Buyer');
+ assert.equal(order.get('shippingAuthorization.source'),'STAGING_SERVER_QUOTE');
+ assert.equal(order.get('trackingCode'),f.tracking);
+});
+
+test('legacy production request stays blocked; missing recipient address never selects an arbitrary address',async()=>{
+ const f=await fixture('legacy-no-address',{free:true}),id=`${f.post}-legacy`;
+ const ref=db.doc(`freeRequests/${id}`);
+ await ref.set({postId:f.post,requesterId:f.buyer,ownerId:f.seller,note:'Old request',status:'PENDING'});
+ await assert.rejects(f.acceptAndShip(req(f.seller,{requestId:id,accept:true})),/địa chỉ nhận hàng/);
+ f.provider.settings.environment='production';
+ await assert.rejects(f.acceptAndShip(req(f.seller,{requestId:id,accept:true})),/vận chuyển thật/);
+ assert.equal((await ref.get()).get('status'),'PENDING');assert.equal(f.creates,0);
+});
+
 test('missing seller mapping and legacy address are blocked without a mock fee',async()=>{
  const f=await fixture('config');await db.doc(`ghnSellerShops/staging_${f.seller}`).delete();
  await assert.rejects(f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'})),/ánh xạ/);
  assert.equal(f.creates,0);
 });
+test('repeated GHN refresh with newer time updates metadata without duplicate events or notifications',async()=>{
+ const f=await fixture('refresh-same-state');await f.createOrder();
+ await f.shipping.create(req(f.seller,{orderId:f.orderId}));
+ const shipmentRef=db.doc(`shipments/${f.orderId}`),orderRef=db.doc(`orders/${f.orderId}`);
+ const eventsBefore=(await orderRef.collection('statusEvents').get()).size;
+ const notificationsBefore=(await db.collection(`users/${f.buyer}/notifications`).get()).size;
+ f.setStatus('ready_to_pick','2026-10-26T10:01:00Z');
+ const unchanged=await f.shipping.refresh(req(f.buyer,{orderId:f.orderId}));
+ assert.equal(unchanged.unchanged,true);assert.equal(unchanged.trackingCode,f.tracking);
+ assert.equal((await shipmentRef.get()).get('events').length,1);
+ assert.equal((await shipmentRef.get()).get('providerUpdatedAt'),'2026-10-26T10:01:00Z');
+ assert.equal((await orderRef.collection('statusEvents').get()).size,eventsBefore);
+ assert.equal((await db.collection(`users/${f.buyer}/notifications`).get()).size,notificationsBefore);
+ f.setStatus('picking','2026-10-26T10:02:00Z');
+ const changed=await f.shipping.refresh(req(f.seller,{orderId:f.orderId}));
+ assert.equal(changed.status,'PICKING');assert.equal((await shipmentRef.get()).get('events').length,2);
+ assert.equal((await orderRef.collection('statusEvents').get()).size,eventsBefore+1);
+ assert.equal(f.creates,1);
+});
+
 test('one create lease under concurrent requests; no extra COD on prepaid; unauthorized read/create/cancel blocked',async()=>{
  const f=await fixture('race');await f.createOrder();
  await assert.rejects(f.shipping.create(req('outsider',{orderId:f.orderId})),/người bán/);

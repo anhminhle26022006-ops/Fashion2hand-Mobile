@@ -17,6 +17,7 @@ final class GhnAddressPicker {
     private final boolean pickup;
     private final Runnable saved;
     private AlertDialog dialog;
+    private Map<String,Object> address = new HashMap<>();
     GhnAddressPicker(AppCompatActivity activity,String addressId,BooleanSupplier active,Consumer<Exception> failure) {
         this(activity,addressId,active,failure,false,()->{});
     }
@@ -24,15 +25,31 @@ final class GhnAddressPicker {
         this.activity=activity;this.addressId=addressId;this.active=active;this.failure=failure;
         this.pickup=pickup;this.saved=saved;
     }
-    void open(){choose("provinces",0,pickup?"Tỉnh/thành lấy hàng · Người bán":"Tỉnh/thành nhận hàng · Người mua",province->choose("districts",integer(province,"ProvinceID"),pickup?"Quận/huyện lấy hàng · Người bán":"Quận/huyện nhận hàng · Người mua",district->
+    void open(){
+        String uid=com.google.firebase.auth.FirebaseAuth.getInstance().getUid();
+        if(uid==null)return;
+        com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("users").document(uid).collection("addresses").document(addressId).get(com.google.firebase.firestore.Source.SERVER).addOnCompleteListener(result->{
+            if(!active.getAsBoolean())return;
+            if(!result.isSuccessful()){failure.accept(result.getException());return;}
+            if(!result.getResult().exists()){failure.accept(new IllegalStateException("Địa chỉ không còn tồn tại."));return;}
+            address=result.getResult().getData();chooseLocation();
+        });
+    }
+    private void chooseLocation(){choose("provinces",0,pickup?"Tỉnh/thành lấy hàng · Người bán":"Tỉnh/thành nhận hàng · Người mua",province->choose("districts",integer(province,"ProvinceID"),pickup?"Quận/huyện lấy hàng · Người bán":"Quận/huyện nhận hàng · Người mua",district->
         choose("wards",integer(district,"DistrictID"),pickup?"Phường/xã lấy hàng · Người bán":"Phường/xã nhận hàng · Người mua",ward->{
             if(!active.getAsBoolean())return;
             final String selected=ward.get("WardName")+", "+district.get("DistrictName")+", "+province.get("ProvinceName");
+            android.widget.LinearLayout form=new android.widget.LinearLayout(activity);form.setOrientation(1);form.setPadding(32,8,32,8);
+            String[] keys={"recipient","phone","street"},hints={"Họ tên liên hệ","Số điện thoại","Số nhà, đường (có thể sửa)"};
+            android.widget.EditText[] fields=new android.widget.EditText[3];
+            for(int i=0;i<3;i++){fields[i]=new android.widget.EditText(activity);fields[i].setHint(hints[i]);fields[i].setText(String.valueOf(address.getOrDefault(keys[i],"")));form.addView(fields[i]);}
+            fields[1].setInputType(android.text.InputType.TYPE_CLASS_PHONE);
             new AlertDialog.Builder(activity).setTitle(pickup?"Địa chỉ lấy hàng của người bán":"Địa chỉ nhận hàng của người mua")
-                .setMessage(selected+"\n\n"+(pickup?"Đây là nơi GHN đến lấy hàng từ người bán khi tạo vận đơn. ":"Đây là nơi GHN giao hàng cho người nhận. ")+"Giữ nguyên tên, điện thoại và số nhà/đường đã lưu. Kiểm tra đúng tỉnh, quận và phường trước khi xác nhận.")
+                .setMessage(selected+"\n\n"+(pickup?"Đây là nơi GHN đến lấy hàng. Khi đổi điểm gửi, shop GHN phải được cập nhật và Admin liên kết lại trước khi đặt đơn.":"Đây là nơi GHN giao hàng cho người nhận.")).setView(form)
                 .setNegativeButton("Hủy",null).setPositiveButton(pickup?"Lưu địa chỉ lấy hàng":"Lưu địa chỉ nhận hàng",(d,w)->{
                     AlertDialog progress=new AlertDialog.Builder(activity).setMessage("Đang xác minh địa chỉ GHN…").setCancelable(false).show();
-                    repo.saveGhnAddress(addressId,integer(province,"ProvinceID"),integer(district,"DistrictID"),String.valueOf(ward.get("WardCode")))
+                    Map<String,Object> contact=new HashMap<>();for(int i=0;i<3;i++)contact.put(keys[i],fields[i].getText().toString());
+                    repo.saveGhnAddress(addressId,integer(province,"ProvinceID"),integer(district,"DistrictID"),String.valueOf(ward.get("WardCode")),contact)
                         .addOnCompleteListener(result->{
                             progress.dismiss();if(!active.getAsBoolean())return;
                             if(!result.isSuccessful()){failure.accept(result.getException());return;}

@@ -22,6 +22,8 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     private int polls=0; private long generation=0;
     private boolean autoStart=false,paymentOpened=false,navigated=false;
     private long lastQueryAt=-60000;
+    private long providerRetryAfter=0;
+    private String queryIssue="";private boolean forceQuery=false;
     private TextView status; private Button open, complete;
     private final Runnable poll=()->{if(visible&&!busy&&polls++<24)refresh();};
     @Override public void onCreate(Bundle state) {
@@ -39,8 +41,10 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
         attemptId=state==null?"":state.getString("attemptId","");
         autoStart=getIntent().getBooleanExtra("startPayment",false);
         paymentOpened=state!=null&&state.getBoolean("paymentOpened");
+        queryIssue=state==null?"":state.getString("queryIssue","");
+        providerRetryAfter=state==null?0:state.getLong("providerRetryAfter",0);
         open.setOnClickListener(v->startPayment());
-        findViewById(R.id.vnpayRefresh).setOnClickListener(v->{polls=0;refresh();});
+        findViewById(R.id.vnpayRefresh).setOnClickListener(v->{polls=0;forceQuery=true;status.setText("Đang kiểm tra và đối soát kết quả từ VNPAY…");refresh();});
         complete.setOnClickListener(v->{if(VnpayLinks.validOrderId(orderId))openOrder();else finish();});
     }
     private static String readOrder(Intent intent) {
@@ -51,7 +55,7 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     }
     @Override protected void onNewIntent(Intent intent){
         super.onNewIntent(intent);setIntent(intent);generation++;handler.removeCallbacks(poll);
-        orderId=readOrder(intent);attemptId="";busy=false;polls=0;
+        orderId=readOrder(intent);attemptId="";busy=false;polls=0;queryIssue="";forceQuery=false;providerRetryAfter=0;
         autoStart=intent.getBooleanExtra("startPayment",false);paymentOpened=false;navigated=false;lastQueryAt=-60000;
         status.setText("Đang xác nhận thanh toán…");status.setTextColor(0xFF173B32);complete.setText("Quay lại đơn hàng");
         open.setVisibility(View.VISIBLE);findViewById(R.id.vnpayRefresh).setVisibility(View.VISIBLE);
@@ -60,7 +64,7 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     @Override protected void onResume(){super.onResume();visible=true;polls=0;refresh();}
     @Override protected void onPause(){visible=false;handler.removeCallbacks(poll);super.onPause();}
     @Override protected void onDestroy(){generation++;handler.removeCallbacksAndMessages(null);super.onDestroy();}
-    @Override protected void onSaveInstanceState(Bundle state){state.putString("orderId",orderId);state.putString("attemptId",attemptId);state.putBoolean("paymentOpened",paymentOpened);super.onSaveInstanceState(state);}
+    @Override protected void onSaveInstanceState(Bundle state){state.putString("orderId",orderId);state.putString("attemptId",attemptId);state.putBoolean("paymentOpened",paymentOpened);state.putString("queryIssue",queryIssue);state.putLong("providerRetryAfter",providerRetryAfter);super.onSaveInstanceState(state);}
     private boolean ready(){
         if(orderId.isEmpty()){status.setText("Liên kết đơn hàng không hợp lệ.");open.setEnabled(false);return false;}
         if(FirebaseAuth.getInstance().getCurrentUser()==null){status.setText("Hãy đăng nhập Fashion2hand rồi mở lại đơn hàng để kiểm tra thanh toán.");open.setEnabled(false);return false;}
@@ -68,7 +72,15 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     }
     private void loading(boolean value){busy=value;findViewById(R.id.vnpayProgress).setVisibility(value?View.VISIBLE:View.GONE);open.setEnabled(!value);findViewById(R.id.vnpayRefresh).setEnabled(!value);}
     @SuppressWarnings("unchecked") private Map<String,Object> map(Object value){return value instanceof Map?(Map<String,Object>)value:java.util.Collections.emptyMap();}
-    private void failed(Exception error){status.setText("Chưa thể xác nhận kết quả thanh toán. Ứng dụng sẽ kiểm tra lại. Bạn có thể xem đơn hàng bên dưới.");schedulePoll();}
+    private void failed(Exception error){
+        String code="UNKNOWN",reason="";
+        if(error instanceof com.google.firebase.functions.FirebaseFunctionsException){
+            com.google.firebase.functions.FirebaseFunctionsException failure=(com.google.firebase.functions.FirebaseFunctionsException)error;code=failure.getCode().name();
+            Map<String,Object> details=map(failure.getDetails());reason=String.valueOf(details.getOrDefault("reason",""));
+            if("QUERY_RATE_LIMITED".equals(reason)){Object seconds=details.get("retryAfterSeconds");long delay=seconds instanceof Number?Math.max(1,Math.min(300,((Number)seconds).longValue())):300;providerRetryAfter=System.currentTimeMillis()+delay*1000;}
+        }
+        queryIssue=VnpayUi.queryFailure(code,reason);status.setText(queryIssue);schedulePoll();
+    }
     private void schedulePoll(){handler.removeCallbacks(poll);if(visible&&polls<24)handler.postDelayed(poll,5000);}
     static boolean confirmed(Map<String,Object> data){
         return "PAID".equals(data.get("paymentStatus"))&&!Boolean.TRUE.equals(data.get("needsReview"))
@@ -80,11 +92,14 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     }
     private void openOrder(){if(navigated)return;navigated=true;handler.removeCallbacks(poll);startActivity(orderIntent(this,orderId));finish();}
     private void acceptStatus(Map<String,Object> data,boolean mayQuery){
+        boolean manual=forceQuery;forceQuery=false;
         render(data);
         if(confirmed(data)){if(visible)openOrder();return;}
-        if(!"PENDING_PAYMENT".equals(data.get("orderStatus"))||"PAID".equals(data.get("paymentStatus"))||Boolean.TRUE.equals(data.get("needsReview")))return;
+        if("PAID".equals(data.get("paymentStatus"))||Boolean.TRUE.equals(data.get("needsReview")))return;
+        if(System.currentTimeMillis()<providerRetryAfter){schedulePoll();return;}
+        if(!"PENDING_PAYMENT".equals(data.get("orderStatus"))){if(manual&&mayQuery&&!attemptId.isEmpty())reconcile();return;}
         if(autoStart&&!paymentOpened){autoStart=false;startPayment();return;}
-        if(mayQuery&&!attemptId.isEmpty()&&android.os.SystemClock.elapsedRealtime()-lastQueryAt>=60000){reconcile();return;}
+        if(mayQuery&&!attemptId.isEmpty()&&(manual||android.os.SystemClock.elapsedRealtime()-lastQueryAt>=60000)){reconcile();return;}
         schedulePoll();
     }
     private void refresh(){
@@ -100,7 +115,9 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
         attemptId=String.valueOf(data.getOrDefault("attemptId",""));
         boolean paid="PAID".equals(payment),pending="PENDING_PAYMENT".equals(order)&&!paid;
         boolean confirmed=confirmed(data);
-        status.setText(Boolean.TRUE.equals(data.get("needsReview"))?"Kết quả thanh toán đang được kiểm tra. Vui lòng xem lại đơn hàng sau.":confirmed?"Thanh toán thành công.\nBạn đã hoàn tất đặt hàng.":pending?"Đang chờ xác nhận thanh toán. Kết quả sẽ tự cập nhật khi bạn quay lại ứng dụng.":"Đơn hàng chưa hoàn tất thanh toán. Xem chi tiết đơn để tiếp tục.");
+        status.setText(VnpayUi.message(confirmed,pending,Boolean.TRUE.equals(data.get("needsReview")),queryIssue));
+        if(paid&&Boolean.TRUE.equals(data.get("needsReview")))status.setText(java.util.Arrays.asList("CANCELLED","EXPIRED").contains(order)?"Đã xác minh thanh toán, nhưng đơn đã bị hủy hoặc hết hạn giữ hàng. Khoản thanh toán cần đối soát; đừng thanh toán lại.":"Đã xác minh khoản thanh toán. Đơn cần được đối soát trước khi xử lý tiếp; đừng thanh toán lại.");
+        if(!pending&&!paid&&!attemptId.isEmpty()&&queryIssue.isEmpty()&&java.util.Arrays.asList("CANCELLED","EXPIRED").contains(order))status.setText("Đơn đã hết hạn hoặc bị hủy. Nếu VNPAY đã báo thành công, bấm Kiểm tra lại để đối soát; đừng thanh toán lại.");
         status.setTextColor(confirmed?0xFF1F6B48:0xFF173B32);
         complete.setText(confirmed?"Xem đơn hàng":"Quay lại đơn hàng");
         open.setVisibility(confirmed?View.GONE:View.VISIBLE);
@@ -124,6 +141,6 @@ public final class VnpayPaymentActivity extends AppCompatActivity {
     private void reconcile(){
         if(busy||!ready())return;loading(true);long token=generation;
         lastQueryAt=android.os.SystemClock.elapsedRealtime();
-        repo.reconcileVnpay(orderId,attemptId).addOnCompleteListener(task->{if(isDestroyed()||generation!=token)return;loading(false);if(task.isSuccessful())acceptStatus(map(task.getResult().getData()),false);else failed(task.getException());});
+        repo.reconcileVnpay(orderId,attemptId).addOnCompleteListener(task->{if(isDestroyed()||generation!=token)return;loading(false);if(task.isSuccessful()){queryIssue="";acceptStatus(map(task.getResult().getData()),false);}else failed(task.getException());});
     }
 }

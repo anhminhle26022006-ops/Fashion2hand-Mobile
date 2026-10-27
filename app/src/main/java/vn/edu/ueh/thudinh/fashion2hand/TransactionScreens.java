@@ -57,8 +57,13 @@ final class TransactionScreens {
     private long quoteRequest;
     private boolean quoteLoading;
     private String quoteError = "", quotedAddressVersion = "";
+    private boolean checkoutReview = false, freeShippingAccepted = false;
     private String checkoutContext = "", checkoutKey = "", addressId = "", freeNote = "";
     private ArrayList<String> cartCheckoutIds = new ArrayList<>();
+    private final CartSelection cartSelection=new CartSelection();
+    private String cartSelectionUid="";
+    private final Map<String,String> memberNames=new HashMap<>();
+    private final Map<String,List<Consumer<String>>> pendingNames=new HashMap<>();
     void selectCartCheckout(java.util.List<String> ids) { cartCheckoutIds = new ArrayList<>(ids); Collections.sort(cartCheckoutIds); }
     void selectFreeRequestDraft(String postId,String note) { checkoutContext=host.uid()+":"+postId;checkoutKey=UUID.randomUUID().toString();freeNote=note;addressId="";quote.clear(); }
     private boolean groupedCheckout() { return host.postId().isEmpty() && !cartCheckoutIds.isEmpty(); }
@@ -134,6 +139,12 @@ final class TransactionScreens {
         }
     }
 
+    static String shippingLabel(String status,boolean linked) {return "READY".equals(status)?ShipmentUi.ready(linked):label(status);}
+    static String orderLabel(Map<String,Object> data) {
+        String status=text(data,"orderStatus");
+        if("READY_TO_SHIP".equals(status)&&!text(data,"trackingCode").isEmpty()&&Arrays.asList("READY","PICKING").contains(text(data,"shippingStatus")))return shippingLabel(text(data,"shippingStatus"),true);
+        return "FREE".equals(text(data,"orderType"))&&"CONFIRMED".equals(status)?"Người tặng đã chấp nhận":label(status);
+    }
     void prepare(int layout) {
         screen = layout; generation++; busy = false; buttons.clear();
         if (layout == R.layout.activity_transactions || layout == R.layout.activity_transaction_history || layout == R.layout.activity_free_requests || layout == R.layout.activity_free_request_people || layout == R.layout.activity_request_status) {
@@ -175,7 +186,7 @@ final class TransactionScreens {
         input.setMinHeight(dp(48)); parent.addView(input, new LinearLayout.LayoutParams(-1, -2)); return input;
     }
     private void setBusy(boolean value) { busy = value; for (Button button : buttons) button.setEnabled(!value);
-        if(screen==R.layout.activity_checkout||screen==R.layout.activity_requestfree){View submit=a.findViewById(screen==R.layout.activity_checkout?R.id.btnPlaceOrder:R.id.btnSubmitFreeRequest);if(submit!=null)submit.setEnabled(!value&&!quoteLoading&&!quote.isEmpty()&&!addressId.isEmpty());}
+        if(screen==R.layout.activity_checkout||screen==R.layout.activity_requestfree){View submit=a.findViewById(screen==R.layout.activity_checkout?R.id.btnPlaceOrder:R.id.btnSubmitFreeRequest);if(submit!=null)submit.setEnabled(!value&&!quoteLoading&&!quote.isEmpty()&&!addressId.isEmpty()&&(screen!=R.layout.activity_requestfree||freeShippingAccepted));}
     }
     private void error(Exception error) { host.error(error); }
     private void failure(String message, Runnable retry) { reset(); info(content, message); button(content, 0, "Thử lại", retry); }
@@ -272,16 +283,16 @@ final class TransactionScreens {
             setLabel(R.id.statShippingOrders, loaded[1]?String.valueOf(orders.stream().filter(doc->"SHIPPING".equals(doc.getString("orderStatus"))).count()):"—");
             setLabel(R.id.statDeliveredOrders, loaded[1]?String.valueOf(orders.stream().filter(doc->Arrays.asList("DELIVERED","COMPLETED").contains(doc.getString("orderStatus"))).count()):"—");
             setLabel(R.id.txtRequestCount, String.valueOf(pending));
-            DocumentSnapshot request = requests.stream().filter(doc->"PENDING".equals(doc.getString("status"))).findFirst().orElse(requests.isEmpty()?null:requests.get(0));
+            DocumentSnapshot request = requests.stream().filter(doc->(owner?"PENDING":"ACCEPTED").equals(doc.getString("status"))).findFirst().orElse(requests.isEmpty()?null:requests.get(0));
             setLabel(R.id.txtRequestPreview,request==null?"Chưa có yêu cầu nhận đồ":title(request.getData()));
-            setLabel(R.id.txtRequestPreviewStatus,request==null?"Các yêu cầu sẽ xuất hiện tại đây":label(request.getString("status")) + " · " + requests.size() + " yêu cầu");
+            setLabel(R.id.txtRequestPreviewStatus,request==null?"Các yêu cầu sẽ xuất hiện tại đây":(!owner&&"ACCEPTED".equals(request.getString("status"))?"Bạn đã được chọn nhận đồ":label(request.getString("status"))) + " · " + requests.size() + " yêu cầu");
             buttons.clear(); requestList.removeAllViews();
             if (requests.isEmpty()) info(requestList,loaded[0]?"Chưa có yêu cầu nhận đồ.":"Đang tải yêu cầu…");
 
             setLabel(R.id.txtPurchaseCount,String.valueOf(orders.size()));
             DocumentSnapshot latest = orders.isEmpty()?null:orders.get(0);
             setLabel(R.id.txtPurchasePreview,latest==null?"Chưa có đơn hàng":title(latest.getData()));
-            setLabel(R.id.txtPurchasePreviewStatus,latest==null?(owner?"Xem đơn bán và tặng đồ":"Xem đơn mua và nhận đồ"):label(latest.getString("orderStatus")));
+            setLabel(R.id.txtPurchasePreviewStatus,latest==null?(owner?"Xem đơn bán và tặng đồ":"Xem đơn mua và nhận đồ"):orderLabel(latest.getData()));
             long issues = orders.stream().filter(doc->Arrays.asList("OPEN","WAITING_EVIDENCE").contains(doc.getString("disputeStatus"))).count();
             setLabel(R.id.txtIssueCount,String.valueOf(issues));
             setLabel(R.id.txtIssuePreview,issues==0?"Không có tranh chấp đang mở":"Tranh chấp đang xem xét");
@@ -296,70 +307,93 @@ final class TransactionScreens {
         com.google.firebase.firestore.EventListener<QuerySnapshot> orderListener = (snapshot,error) -> {
             if(!valid(token))return;
             errors[1]=error==null?"":"Không tải được đơn hàng.";
-            if(snapshot!=null){orders.clear();orders.addAll(snapshot.getDocuments());cached[1]=snapshot.getMetadata().isFromCache();loaded[1]=!cached[1]||!snapshot.isEmpty();}
+            if(snapshot!=null){orders.clear();for(DocumentSnapshot doc:snapshot)if(!sandboxHistoryHidden(doc))orders.add(doc);cached[1]=snapshot.getMetadata().isFromCache();loaded[1]=!cached[1]||!snapshot.isEmpty();}
             render.run();
         };
         host.listen(owner?repo.listenFreeRequestsAsOwner(host.uid(),requestListener):repo.listenFreeRequestsAsRequester(host.uid(),requestListener));
         host.listen(owner?repo.listenOrdersAsSeller(host.uid(),orderListener):repo.listenOrdersAsBuyer(host.uid(),orderListener));
         render.run();
     }
+    private void memberName(TextView view,String uid,String prefix) {
+        long token=generation;view.setTag("member|"+uid);
+        if(uid.isEmpty()){view.setText(prefix+"Thành viên");return;}
+        if(memberNames.containsKey(uid)){view.setText(prefix+memberNames.get(uid));return;}
+        view.setText(prefix+"Đang tải tên…");
+        List<Consumer<String>> waiting=pendingNames.computeIfAbsent(uid,key->new ArrayList<>());
+        waiting.add(name->{if(valid(token)&&view.isAttachedToWindow()&&("member|"+uid).equals(view.getTag()))view.setText(prefix+name);});
+        if(waiting.size()>1)return;
+        com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(Collections.singletonMap("sellerId",uid)).addOnCompleteListener(task->{
+            String name=task.isSuccessful()?text(map(task.getResult().getData()),"name").trim():"";
+            if(!name.isEmpty())memberNames.put(uid,name);else name="Thành viên";
+            List<Consumer<String>> callbacks=pendingNames.remove(uid);if(callbacks!=null)for(Consumer<String> callback:callbacks)callback.accept(name);
+        });
+    }
     private void bindCart() {
-        heading("Giỏ hàng"); info(content, "Chọn các món để đặt hàng. Backend tự tách đơn theo người bán, mỗi món có số lượng 1.");
-        Set<String> selected = new HashSet<>();
-        Button checkoutSelected = button(content, R.id.btnCheckout, "Thanh toán các món đã chọn", () -> {
-            if (!selected.isEmpty()) host.checkoutCart(new ArrayList<>(selected));
-        }); checkoutSelected.setEnabled(false);
-        TextView total = info(content, "Đang tải tổng tiền…");
-        LinearLayout list = new LinearLayout(a); list.setOrientation(LinearLayout.VERTICAL); content.addView(list); long token = generation;
-        Map<String, ListenerRegistration> postListeners = new HashMap<>();
-        Map<String, Long> prices = new HashMap<>();
-        Runnable sum = () -> { long amount = 0; for (String id : selected) amount += prices.getOrDefault(id, 0L);
-            total.setText("Đã chọn " + selected.size() + " món: " + money(amount) + " · Phí giao được tính tại checkout.");
-            checkoutSelected.setEnabled(!busy && !selected.isEmpty()); };
-        host.listen(repo.listenCart(host.uid(), (snapshot, error) -> {
-            if (!valid(token)) return;
-            for (ListenerRegistration listener : postListeners.values()) listener.remove();
-            postListeners.clear(); prices.clear(); list.removeAllViews();
-            Set<String> remaining = new HashSet<>(); if (snapshot != null) for (DocumentSnapshot item : snapshot) remaining.add(item.getId());
-            selected.retainAll(remaining); sum.run();
-            if (error != null) { failure("Không tải được giỏ hàng.", () -> host.open(screen)); return; }
-            if (snapshot != null && snapshot.getMetadata().isFromCache()) {
-                info(list,"Đang chờ kết nối với server; dữ liệu trên thiết bị có thể chưa cập nhật.");
-                if (snapshot.isEmpty()) return;
-            }
-            if (snapshot == null || snapshot.isEmpty()) { info(list, "Giỏ hàng đang trống."); return; }
-            for (DocumentSnapshot item : snapshot.getDocuments()) {
-                LinearLayout card = card(list); card.setTag("cart|" + item.getId());
-                TextView title = info(card, text(item.getData(), "title")); title.setTextSize(18);
-                TextView detail = info(card, "Đang kiểm tra bài đăng…");
-                CheckBox choose = new CheckBox(a); choose.setText("Chọn món này"); choose.setEnabled(false); card.addView(choose);
-                choose.setChecked(selected.contains(item.getId()));
-                choose.setOnCheckedChangeListener((view, checked) -> { if (checked) selected.add(item.getId()); else selected.remove(item.getId()); sum.run(); });
-                Button checkout = button(card, 0, "Thanh toán món này", () -> host.checkout(item.getId())); checkout.setEnabled(false);
-                button(card, 0, "Xóa khỏi giỏ", () -> execute(repo.removeCartItem(host.uid(), item.getId()), value -> { }));
-                ListenerRegistration registration = repo.listenPost(item.getId(), (post, postError) -> {
-                    if (!valid(token) || !card.isAttachedToWindow()) return;
-                    boolean available = postError == null && post != null && post.exists()
-                            && "ACTIVE".equals(post.getString("status"))
-                            && !host.uid().equals(post.getString("ownerId"))
-                            && Arrays.asList("SALE", "FOR_SALE").contains(post.getString("type") == null ? post.getString("listingType") : post.getString("type"))
-                            && number(post.get("price")) > 0;
-                    if (available) {
-                        title.setText(text(post.getData(), "title"));
-                        detail.setText("Giá hiện tại: " + money(post.get("price")) + " · Người bán: " + text(item.getData(), "sellerId"));
-                        prices.put(item.getId(), number(post.get("price")));
-                    } else { detail.setText("Món đồ không còn khả dụng hoặc chưa tải được bài đăng."); prices.remove(item.getId()); selected.remove(item.getId()); choose.setChecked(false); }
-                    choose.setEnabled(available && !post.getMetadata().isFromCache());
-                    checkout.setEnabled(available && !busy && !post.getMetadata().isFromCache()); sum.run();
-                });
-                postListeners.put(item.getId(), registration); host.listen(registration);
+        heading("Giỏ hàng");
+        if(!host.uid().equals(cartSelectionUid)){cartSelection.restore(Collections.emptyList());cartSelectionUid=host.uid();}
+        long token=generation;
+        LinearLayout root=(LinearLayout)((View)content.getParent()).getParent();
+        View footer=a.getLayoutInflater().inflate(R.layout.view_cart_footer,root,false);root.addView(footer);
+        CheckBox all=footer.findViewById(R.id.cartSelectAll);
+        Button checkout=footer.findViewById(R.id.btnCheckout);buttons.add(checkout);
+        TextView total=footer.findViewById(R.id.cartTotalAmount);
+        LinearLayout list=new LinearLayout(a);list.setOrientation(LinearLayout.VERTICAL);content.addView(list);
+        Map<String,ListenerRegistration> postListeners=new HashMap<>();Map<String,CheckBox> choices=new HashMap<>();
+        boolean[] syncing={false},cartReady={false};
+        Runnable sum=()->{
+            syncing[0]=true;
+            for(Map.Entry<String,CheckBox> row:choices.entrySet()){row.getValue().setChecked(cartSelection.checked(row.getKey()));row.getValue().setEnabled(!busy&&cartReady[0]&&cartSelection.available(row.getKey()));}
+            all.setChecked(cartSelection.allChecked());all.setEnabled(!busy&&cartReady[0]&&cartSelection.availableCount()>0);
+            int count=cartSelection.selectedIds().size();total.setText(money(cartSelection.total()));checkout.setText("Thanh toán ("+count+")");
+            checkout.setEnabled(!busy&&cartReady[0]&&count>0);syncing[0]=false;
+        };
+        all.setOnCheckedChangeListener((button,checked)->{if(!syncing[0]){cartSelection.chooseAll(checked);sum.run();}});
+        checkout.setOnClickListener(view->{if(!busy&&cartReady[0]&&!cartSelection.selectedIds().isEmpty())host.checkoutCart(cartSelection.selectedIds());});
+        sum.run();
+        host.listen(repo.listenCart(host.uid(),(snapshot,error)->{
+            if(!valid(token))return;
+            for(ListenerRegistration listener:postListeners.values())listener.remove();postListeners.clear();choices.clear();list.removeAllViews();cartSelection.invalidate();
+            cartReady[0]=error==null&&snapshot!=null&&!snapshot.getMetadata().isFromCache()&&!snapshot.getMetadata().hasPendingWrites();
+            Set<String> remaining=new HashSet<>();if(snapshot!=null)for(DocumentSnapshot item:snapshot)remaining.add(item.getId());
+            if(cartReady[0])cartSelection.retain(remaining);sum.run();
+            if(error!=null){info(list,"Không tải được giỏ hàng.");button(list,0,"Thử lại",()->host.open(screen));return;}
+            if(!cartReady[0])info(list,"Đang đồng bộ giỏ hàng…");
+            if(snapshot==null||snapshot.isEmpty()){if(cartReady[0])info(list,"Giỏ hàng đang trống. Thêm món đồ bạn thích để bắt đầu.");return;}
+            for(DocumentSnapshot item:snapshot.getDocuments()) {
+                String id=item.getId();View row=a.getLayoutInflater().inflate(R.layout.view_cart_item,list,false);row.setTag("cart|"+id);
+                LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.bottomMargin=dp(12);list.addView(row,params);
+                CheckBox choose=row.findViewById(R.id.cartItemChecked);choices.put(id,choose);
+                TextView title=row.findViewById(R.id.cartItemTitle),seller=row.findViewById(R.id.cartItemSeller),detail=row.findViewById(R.id.cartItemDetail),price=row.findViewById(R.id.cartItemPrice),state=row.findViewById(R.id.cartItemState);
+                ImageView photo=row.findViewById(R.id.cartItemImage);photo.setTag(id);
+                title.setText(text(item.getData(),"title"));seller.setText("Đang tải người bán…");state.setText("Đang kiểm tra món đồ…");
+                choose.setChecked(cartSelection.checked(id));choose.setEnabled(false);
+                choose.setContentDescription("Chọn "+title.getText());
+                choose.setOnCheckedChangeListener((button,checked)->{if(!syncing[0]){cartSelection.choose(id,checked);sum.run();}});
+                View remove=row.findViewById(R.id.cartItemRemove);remove.setContentDescription("Xóa "+title.getText()+" khỏi giỏ");
+                remove.setOnClickListener(view->{if(!busy)execute(repo.removeCartItem(host.uid(),id),value->sum.run());});
+                String[] imageKey={""};
+                ListenerRegistration listener=repo.listenPost(id,(post,postError)->{
+                    if(!valid(token)||!row.isAttachedToWindow())return;
+                    boolean exists=postError==null&&post!=null&&post.exists();
+                    boolean verified=postError==null&&post!=null&&!post.getMetadata().isFromCache()&&!post.getMetadata().hasPendingWrites();
+                    Map<String,Object> data=exists?post.getData():Collections.emptyMap();
+                    String owner=text(data,"ownerId");if(owner.isEmpty())owner=text(data,"userId");
+                    String type=text(data,"type");if(type.isEmpty())type=text(data,"listingType");
+                    boolean available=exists&&"ACTIVE".equals(text(data,"status"))&&text(data,"reservedForOrderId").isEmpty()&&!host.uid().equals(owner)&&Arrays.asList("SALE","FOR_SALE").contains(type)&&number(data.get("price"))>0;
+                    if(verified)cartSelection.update(id,number(data.get("price")),available);else cartSelection.pending(id);
+                    if(exists){title.setText(text(data,"title"));memberName(seller,owner,"Người bán: ");detail.setText("Số lượng: 1"+(text(data,"size").isEmpty()?"":" · "+text(data,"size")));price.setText(money(data.get("price")));
+                        String images=String.valueOf(data.get("imageUrls"));if(!images.equals(imageKey[0])){imageKey[0]=images;host.photo(data,photo);}}
+                    else seller.setText("Người bán: Thành viên");
+                    state.setText(postError!=null?"Chưa tải được món đồ hoặc không còn khả dụng":!verified?"Đang xác minh tồn kho…":available?"":"SOLD".equals(text(data,"status"))?"Đã bán hết":"RESERVED".equals(text(data,"status"))?"Đang được giữ cho đơn khác":"Món đồ không còn khả dụng");
+                    sum.run();
+                });postListeners.put(id,listener);host.listen(listener);
             }
         }));
     }
     private void bindCheckout(boolean free) {
         heading(free ? "Gửi yêu cầu nhận đồ" : "Thanh toán");
         String context = host.uid() + ":" + (groupedCheckout() ? cartCheckoutIds.toString() : host.postId());
-        if (!context.equals(checkoutContext)) { checkoutContext = context; checkoutKey = UUID.randomUUID().toString(); quote.clear(); addressId = ""; freeNote = ""; }
+        if (!context.equals(checkoutContext)) { checkoutReview=false; checkoutContext = context; checkoutKey = UUID.randomUUID().toString(); quote.clear(); addressId = ""; freeNote = ""; }
         long token = generation;
         quote.clear(); quoteError=""; quoteLoading=false; quotedAddressVersion="";
         capabilities(() -> { if(valid(token))renderCheckout(free); });
@@ -374,13 +408,13 @@ final class TransactionScreens {
             }
             String addressVersion="";
             for(DocumentSnapshot address:addresses)if(address.getId().equals(addressId))addressVersion=addressId+address.getData().toString();
-            if(!addressVersion.equals(quotedAddressVersion)){quotedAddressVersion=addressVersion;loadCheckoutQuote(free);}
+            if(!addressVersion.equals(quotedAddressVersion)){if(!quotedAddressVersion.isEmpty())checkoutReview=false;quotedAddressVersion=addressVersion;loadCheckoutQuote(free);}
             else renderCheckout(free);
         }));
     }
     private void loadCheckoutQuote(boolean free) {
         final long token=generation, request=++quoteRequest;
-        quote.clear();quoteError="";quoteLoading=!addressId.isEmpty();renderCheckout(free);
+        quote.clear();freeShippingAccepted=false;quoteError="";quoteLoading=!addressId.isEmpty();renderCheckout(free);
         if(addressId.isEmpty())return;
         repo.quoteShipping(host.postId(),groupedCheckout()?cartCheckoutIds:Collections.emptyList(),addressId).addOnCompleteListener(result->{
             if(!valid(token)||request!=quoteRequest)return;quoteLoading=false;
@@ -394,9 +428,21 @@ final class TransactionScreens {
     }
     private String addressLabel(DocumentSnapshot address) {
         Map<String, Object> data = address.getData(); if (data == null) return address.getId();
-        return text(data, "recipient") + " · " + text(data, "phone") + "\n" + AddressPicker.format(data);
+        String location=AddressPicker.format(data);
+        if(data.get("ghnDisplay") instanceof Map) {
+            Map<String,Object> display=map(data.get("ghnDisplay"));
+            location=text(data,"street")+", "+text(display,"ward")+", "+text(display,"district")+", "+text(display,"province");
+        }
+        return text(data, "recipient") + " · " + text(data, "phone") + "\n" + location;
+    }
+    boolean backCheckout() {
+        if(screen==R.layout.activity_checkout && checkoutReview && !busy) {
+            checkoutReview=false;renderCheckout(false);return true;
+        }
+        return false;
     }
     private void renderCheckout(boolean free) {
+        heading(free?"Gửi yêu cầu nhận đồ":checkoutReview?"Thanh toán":"Địa chỉ nhận hàng");
         reset(); LinearLayout summary = card(content); section(summary, text(quote, "title"));
         if(!quote.isEmpty()) {
         info(summary, "Giá món đồ: " + money(quote.get("price")));
@@ -405,7 +451,7 @@ final class TransactionScreens {
         info(summary, free ? ("GHN".equals(text(quote,"provider"))?"Món tặng miễn phí. Người nhận thanh toán phí giao hàng trực tiếp cho GHN; app không thu khoản này.":"Món đồ được tặng miễn phí. Phí vận chuyển hiển thị để tham khảo; app chưa thu phí này.")
                 : "VNPAY".equals(text(capabilities,"paymentProvider"))?"VNPAY Sandbox – thanh toán thử nghiệm từng đơn theo người bán. Một đơn thành công không có nghĩa cả giỏ đã thanh toán.":"Thanh toán mô phỏng. Các món cùng người bán được gộp trong một đơn; phí giao tính cho từng đơn.");
         if (quote.get("groups") instanceof List) for (Object raw : (List<?>) quote.get("groups")) {
-            Map<String, Object> group = map(raw); section(summary, "Người bán: " + text(group, "sellerId"));
+            Map<String, Object> group = map(raw);TextView sellerName=info(summary,"");sellerName.setTextSize(16);sellerName.setTypeface(null,1);memberName(sellerName,text(group,"sellerId"),"Người bán: ");
             for (Object item : (List<?>) group.get("items")) { Map<String, Object> data = map(item); info(summary, text(data, "title") + " × 1 · " + money(data.get("price"))); }
             info(summary, "Phí giao đơn này: " + money(group.get("shippingFee")));
         }
@@ -417,7 +463,11 @@ final class TransactionScreens {
         if(!quoteError.isEmpty())info(summary,quoteError);
         if(!addressId.isEmpty())button(summary,0,"Lấy lại báo giá",()->loadCheckoutQuote(free)).setEnabled(!busy&&!quoteLoading);
         LinearLayout destination = card(content); section(destination, "Địa chỉ nhận hàng");
-        if (addresses.isEmpty()) info(destination, "Chưa có địa chỉ. Thêm địa chỉ để tiếp tục.");
+        if (!free && checkoutReview) {
+            for(DocumentSnapshot address:addresses)if(address.getId().equals(addressId))info(destination,addressLabel(address));
+            info(destination,"Muốn thay đổi địa chỉ, vui lòng quay lại bước trước.");
+            button(destination,0,"Quay lại bước địa chỉ",()->{checkoutReview=false;renderCheckout(false);});
+        } else if (addresses.isEmpty()) info(destination, "Chưa có địa chỉ. Thêm địa chỉ để tiếp tục.");
         else {
             Spinner spinner = new Spinner(a); spinner.setId(R.id.addressChoice);
             ArrayList<String> choices = new ArrayList<>(); int selected = 0;
@@ -431,12 +481,19 @@ final class TransactionScreens {
                 } }
             });
         }
-        button(destination, R.id.btnNewCheckoutAddress, "Thêm địa chỉ", this::newAddress);
-        if("GHN".equals(text(capabilities,"shippingProvider"))&&!addressId.isEmpty())button(destination,0,"Chọn / cập nhật địa chỉ nhận hàng GHN",()->{
+        if(free || !checkoutReview)button(destination, R.id.btnNewCheckoutAddress, "Thêm địa chỉ", this::newAddress);
+        if((free || !checkoutReview)&&"GHN".equals(text(capabilities,"shippingProvider"))&&!addressId.isEmpty())button(destination,0,"Chọn / cập nhật địa chỉ nhận hàng GHN",()->{
             long pickerToken=generation;new GhnAddressPicker(a,addressId,()->valid(pickerToken),this::error,false,()->{if(valid(pickerToken))host.open(screen);}).open();
         });
         for(DocumentSnapshot address:addresses)if(address.getId().equals(addressId)&&address.get("ghnDisplay") instanceof Map){Map<String,Object> display=map(address.get("ghnDisplay"));info(destination,"Địa chỉ theo GHN: "+text(display,"ward")+", "+text(display,"district")+", "+text(display,"province"));}
+        if(!free && !checkoutReview) {
+            button(content,R.id.btnPlaceOrder,"Tiếp tục đến thanh toán",()->{checkoutReview=true;renderCheckout(false);}).setEnabled(!busy&&!quoteLoading&&!quote.isEmpty()&&!addressId.isEmpty());
+            restoreDialog();return;
+        }
         if (free) {
+            CheckBox consent=new CheckBox(a);consent.setText("Tôi đồng ý trả phí giao hàng GHN "+money(quote.get("shippingFee"))+" khi nhận hàng. Người tặng chấp nhận sẽ tự tạo vận đơn.");
+            consent.setChecked(freeShippingAccepted);consent.setEnabled(!busy&&!quote.isEmpty());content.addView(consent);
+            consent.setOnCheckedChangeListener((view,checked)->{freeShippingAccepted=checked;View send=a.findViewById(R.id.btnSubmitFreeRequest);if(send!=null)send.setEnabled(checked&&!busy&&!quoteLoading&&!quote.isEmpty()&&!addressId.isEmpty());});
             EditText note = input(content, R.id.edtFreeRequestNote, "Lời nhắn cho người tặng", freeNote);
             note.addTextChangedListener(new TextWatcher() {
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
@@ -445,7 +502,7 @@ final class TransactionScreens {
             });
         }
         Button submit = button(content, free ? R.id.btnSubmitFreeRequest : R.id.btnPlaceOrder, free ? "Gửi yêu cầu nhận đồ" : "Tạo đơn — tiếp tục thanh toán", () -> {
-            if (addressId.isEmpty()) return;
+            if (addressId.isEmpty() || free&&!freeShippingAccepted) return;
             if (free) execute(repo.requestFreeWithQuote(host.postId(), freeNote, addressId, quote), value -> host.openRequest(text(map(value), "requestId")));
             else if (groupedCheckout()) {
                 execute(repo.checkoutShipping("", cartCheckoutIds, checkoutKey, addressId, quote), value -> {
@@ -463,7 +520,7 @@ final class TransactionScreens {
                     host.openOrder(id);
                 });
             }
-        }); submit.setEnabled(!busy && !quoteLoading && !quote.isEmpty() && !addressId.isEmpty());restoreDialog();
+        }); submit.setEnabled(!busy && !quoteLoading && !quote.isEmpty() && !addressId.isEmpty() && (!free||freeShippingAccepted));restoreDialog();
     }
     private void newAddress() {
         LinearLayout form = new LinearLayout(a); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(8), dp(16), 0);
@@ -558,7 +615,7 @@ final class TransactionScreens {
         if (order.get("items") instanceof List) for (Object raw : (List<?>) order.get("items")) {
             Map<String, Object> item = map(raw); info(content, text(item, "title") + " × 1 · " + money(item.get("price")));
         }
-        info(content, label(status) + " · " + date(order.get("createdAt")));
+        info(content, orderLabel(order) + " · " + date(order.get("createdAt")));
         if (order.get("inspectionDeadline") != null && "DELIVERED".equals(status))
             info(content, "Hạn kiểm tra và mở tranh chấp: " + date(order.get("inspectionDeadline")) + ("VNPAY".equals(text(order,"paymentProvider"))?". Hết hạn, đơn có thể hoàn tất; trả tiền người bán vẫn chờ đối soát.":". Hết hạn, backend chỉ giải ngân mô phỏng khi không có tranh chấp."));
         LinearLayout paymentCard = card(content); section(paymentCard, "Thanh toán");
@@ -573,7 +630,7 @@ final class TransactionScreens {
             info(paymentCard, "Bạn đã hoàn tất đặt hàng. Người bán sẽ tiếp tục xử lý đơn.");
             button(paymentCard, R.id.btnPaymentComplete, "Hoàn tất", () -> host.orders(false));
         }
-        info(paymentCard, "FREE".equals(text(order, "orderType")) ? "Món tặng không thu tiền qua app; phí giao hàng chưa được thu."
+        info(paymentCard, "FREE".equals(text(order, "orderType")) ? "Món đồ miễn phí. Người nhận trả phí giao hàng cho GHN khi nhận hàng; không thanh toán qua app."
                 : "VNPAY".equals(text(order,"paymentProvider")) ? "VNPAY Sandbox – thanh toán thử nghiệm. Hoàn tiền và trả người bán cần đối soát, chưa tự động chuyển tiền." : "THANH TOÁN MÔ PHỎNG — không chuyển tiền thật.");
         if(Boolean.TRUE.equals(order.get("paymentNeedsReview"))||!text(order,"refundStatus").isEmpty())info(paymentCard,"Thanh toán/hoàn tiền cần đối soát: "+text(order,"refundStatus"));
         if (order.get("paymentDeadline") != null && "PENDING_PAYMENT".equals(status)) info(paymentCard, "Hạn thanh toán: " + date(order.get("paymentDeadline")));
@@ -589,8 +646,14 @@ final class TransactionScreens {
         }
         LinearLayout events = card(content); events.setId(R.id.liveOrderTimeline); section(events, "Timeline đơn hàng");
         if (timeline.isEmpty()) info(events, "Chưa có sự kiện được ghi nhận.");
-        for (DocumentSnapshot event : timeline) {
-            Map<String, Object> data = event.getData(); info(events, date(data.get("createdAt")) + " · " + label(text(data, "to")) + "\n" + text(data, "reason"));
+        List<Map<String,Object>> orderEvents=new ArrayList<>();for(DocumentSnapshot event:timeline)orderEvents.add(event.getData());
+        for (Map<String,Object> data : ShipmentUi.compact(orderEvents,"to","reason",true)) {
+            String eventLabel=label(text(data,"to")),reason=text(data,"reason");
+            if("GHN".equals(text(data,"actorId"))) {
+                if(reason.startsWith("GHN đã xác minh: ready_to_pick"))eventLabel=ShipmentUi.ready(true);
+                else if(reason.startsWith("GHN đã xác minh: picking")||reason.startsWith("GHN đã xác minh: money_collect_picking"))eventLabel=label("PICKING");
+            }
+            info(events, date(data.get("createdAt")) + " · " + eventLabel + "\n" + reason);
         }
         if (!ledger.isEmpty()) {
             LinearLayout money = card(content); money.setId(R.id.liveMoneyEvents); section(money, "Lịch sử thanh toán");
@@ -598,16 +661,17 @@ final class TransactionScreens {
         }
         LinearLayout shipping = card(content); section(shipping, "Vận chuyển");
         if (shipment.isEmpty()) {
-            info(shipping, "Chưa có vận đơn.");
+            info(shipping, text(order,"trackingCode").isEmpty()?"Chưa có vận đơn.":"Đang tải vận đơn "+text(order,"trackingCode")+"…");
             button(shipping, R.id.btnOpenDeliveryMap, "Xem bản đồ điểm gửi – nhận", () -> host.open(R.layout.activity_delivery_map));
         } else {
-            info(shipping, text(shipment, "trackingCode") + " · " + label(text(shipment, "status")));
+            info(shipping, text(shipment, "trackingCode") + " · " + shippingLabel(text(shipment,"status"),!text(shipment,"trackingCode").isEmpty()));
             button(shipping, R.id.btnTrackShipping, "Chi tiết vận đơn và lịch sử", () -> host.open(R.layout.activity_delivery));
         }
         Map<String, Object> address = map(order.get("shippingAddress"));
+        if("RETRY_REQUIRED".equals(text(order,"autoShippingStatus"))&&text(shipment,"trackingCode").isEmpty())info(shipping,"Người tặng đã chấp nhận. Vận đơn GHN chưa hoàn tất; người tặng cần tạo / đối soát lại. Không cần xác nhận phí lần nữa nếu phí không đổi.");
         info(shipping, address.isEmpty() ? "Đơn cũ chưa lưu địa chỉ." : text(address, "recipient") + " · " + text(address, "phone") + "\n" + AddressPicker.format(address));
         if("GHN".equals(text(order,"shippingProvider"))&&!text(shipment,"trackingCode").isEmpty())
-            button(shipping,R.id.btnRefreshGhnShipment,"Cập nhật vận chuyển",()->execute(repo.refreshOrder(host.orderId()),value->{}));
+            button(shipping,R.id.btnRefreshGhnShipment,"Cập nhật vận chuyển",()->ghnAction(false));
         if (!buyer) {
             if ("CONFIRMED".equals(status)) button(content, R.id.btnSellerConfirm, "Xác nhận đơn và chuẩn bị hàng", () -> execute(repo.updateOrderStatus(host.orderId(), "PREPARING"), value -> { }));
             if ("PREPARING".equals(status)) button(content, R.id.btnSellerReady, "Đã chuẩn bị — sẵn sàng giao", () -> execute(repo.updateOrderStatus(host.orderId(), "READY_TO_SHIP"), value -> { }));
@@ -615,7 +679,8 @@ final class TransactionScreens {
             if ("READY_TO_SHIP".equals(status)) {
                 if (Boolean.TRUE.equals(capabilities.get("simulatedShipping"))) button(content, R.id.btnCreateShipment, "Tạo vận đơn mô phỏng", () -> execute(shippingService.create(host.orderId()), value -> { }));
                 else if("GHN".equals(text(capabilities,"shippingProvider"))) {
-                    if(!"CANCELLED".equals(text(shipment,"status")))button(content,R.id.btnCreateShipment,"Tạo / đối soát vận đơn GHN",()->execute(shippingService.create(host.orderId()),value->{}));
+                    if(!text(order,"trackingCode").isEmpty()||!text(shipment,"trackingCode").isEmpty())info(content,"Đã có mã vận đơn. Bấm Cập nhật vận chuyển để tra cứu trạng thái mới nhất từ GHN.");
+                    else if(!"CANCELLED".equals(text(shipment,"status")))button(content,R.id.btnCreateShipment,"Tạo / đối soát vận đơn GHN",()->ghnAction(true));
                     else info(content,"Vận đơn GHN đã hủy. Đơn cần được đối soát trước khi xử lý tiếp.");
                 } else info(content, "Chưa cấu hình hãng vận chuyển.");
             }
@@ -649,6 +714,15 @@ final class TransactionScreens {
             if(Boolean.TRUE.equals(order.get("shippingNeedsReview")))info(content,"Vận chuyển cần đối soát. Chưa tự đóng đơn hoặc hoàn tiền do sự cố giao/hoàn/hủy.");
         }
         restoreDialog();
+    }
+    private void ghnAction(boolean create) {
+        Toast.makeText(a,create?"Đang tạo / đối soát vận đơn GHN…":"Đang kiểm tra trạng thái từ GHN…",Toast.LENGTH_SHORT).show();
+        execute(create?shippingService.create(host.orderId()):repo.refreshOrder(host.orderId()),value->{
+            Map<String,Object> response=map(value),result=response.get("ghn") instanceof Map?map(response.get("ghn")):response;
+            String tracking=text(result,"trackingCode"),status=text(result,"status");
+            String message=tracking.isEmpty()?"Chưa có vận đơn GHN đã liên kết. Người tặng cần tạo / đối soát vận đơn.":"GHN: "+tracking+" · "+shippingLabel(status,true)+(Boolean.TRUE.equals(result.get("unchanged"))?". Chưa có trạng thái mới.":". Đã cập nhật.");
+            Toast.makeText(a,message,Toast.LENGTH_LONG).show();
+        });
     }
     private void selectGhnPickupAddress() {
         long token=generation;
@@ -713,9 +787,10 @@ final class TransactionScreens {
                 info(content, "Môi trường GHN: " + text(data, "environment") + " · " + text(data, "providerStatus"));
                 if (data.get("expectedDeliveryTime") != null) info(content, "Giao dự kiến: " + date(data.get("expectedDeliveryTime")));
                 info(content, "Phí báo giá: " + money(data.get("quotedFee")) + (data.get("providerFee") instanceof Number ? " · Phí hãng: " + money(data.get("providerFee")) : ""));
-                button(content, 0, "Làm mới từ GHN", () -> execute(repo.refreshOrder(host.orderId()), value -> { }));
+                button(content, 0, "Làm mới từ GHN", () -> ghnAction(false));
             }
-            TextView status = info(content, label(text(data, "status"))); status.setId(R.id.txtLiveShipmentState);
+            boolean linked=!text(data,"trackingCode").isEmpty();
+            TextView status = info(content, shippingLabel(text(data,"status"),linked)); status.setId(R.id.txtLiveShipmentState);
             Map<String,Object> location = map(data.get("location"));
             if (mapPage) {
                 Map<String,Object> pickup = map(data.get("pickupAddress")), delivery = map(data.get("deliveryAddress"));
@@ -734,13 +809,14 @@ final class TransactionScreens {
                 }
             } else button(content, R.id.btnOpenDeliveryMap, "Xem bản đồ điểm gửi – nhận và lịch sử", () -> host.open(R.layout.activity_delivery_map));
             LinearLayout events = card(content); events.setId(R.id.liveShipmentEvents); section(events, "Lịch sử vận chuyển");
-            List<?> records = data.get("events") instanceof List ? (List<?>)data.get("events") : Collections.emptyList();
+            List<?> records = data.get("events") instanceof List?(List<?>)data.get("events"):Collections.emptyList();
+            if("GHN".equals(text(data,"provider")))records=ShipmentUi.compact(records,"status","description",false);
             if (records.isEmpty()) info(events, "Chưa có sự kiện vận chuyển.");
             for (int i = records.size() - 1; i >= 0; i--) {
                 Map<String,Object> event = map(records.get(i));
                 LinearLayout row = new LinearLayout(a); row.setOrientation(LinearLayout.VERTICAL); row.setPadding(dp(12), dp(8), dp(12), dp(8));
                 row.setBackgroundResource(R.drawable.bg_transaction_card); events.addView(row);
-                section(row, (i == records.size() - 1 ? "● " : "○ ") + label(text(event, "status")));
+                section(row, (i == records.size() - 1 ? "● " : "○ ") + shippingLabel(text(event,"status"),linked));
                 info(row, date(event.get("createdAt")) + (simulated ? " · Mô phỏng" : ""));
                 if (!text(event, "description").isEmpty()) info(row, text(event, "description"));
                 if (!text(event, "warehouse").isEmpty()) info(row, "Điểm xử lý: " + text(event, "warehouse"));
@@ -788,7 +864,7 @@ final class TransactionScreens {
     }
     private void historyChanged(Map<String, DocumentSnapshot> target, QuerySnapshot snapshot, Exception error, long token) {
         if(error!=null){historyError="Không tải được lịch sử. Nhấn để thử lại.";renderHistory();return;}
-        target.clear();if(snapshot!=null)for(DocumentSnapshot doc:snapshot)target.put(doc.getId(),doc);
+        target.clear();if(snapshot!=null)for(DocumentSnapshot doc:snapshot)if(!sandboxHistoryHidden(doc))target.put(doc.getId(),doc);
         Map<String,DocumentSnapshot> all=new HashMap<>(historyBuyer);all.putAll(historySeller);
         for(String id:new ArrayList<>(moneyListeners.keySet()))if(!all.containsKey(id)){moneyListeners.remove(id).remove();historyMoney.remove(id);}
         for(String id:all.keySet())if(!moneyListeners.containsKey(id)){
@@ -799,6 +875,9 @@ final class TransactionScreens {
             });moneyListeners.put(id,listener);host.listen(listener);
         }
         renderHistory();
+    }
+    static boolean sandboxHistoryHidden(DocumentSnapshot doc){
+        return Boolean.TRUE.equals(doc.getBoolean("sandboxHistoryHidden"))&&"sandbox".equals(doc.getString("paymentEnvironment"))&&"CANCELLED".equals(doc.getString("orderStatus"));
     }
     private String historyBadge(Map<String,Object> data,List<DocumentSnapshot> events){
         if("FREE".equals(text(data,"orderType")))return "Chia sẻ miễn phí";
@@ -903,14 +982,15 @@ final class TransactionScreens {
     Bundle save() {
         if(activeDialog!=null && activeDialog.isShowing() && dialogForm!=null)dialogDraft=UiFormState.capture(dialogForm);
         Bundle state = new Bundle(); freeRequests.save(state); state.putString("context", checkoutContext); state.putString("key", checkoutKey); state.putString("address", addressId); state.putString("note", freeNote);
-        state.putString("dialogType",dialogType);state.putBundle("dialogDraft",dialogDraft);state.putString("newAddressKey",newAddressKey);
-        state.putStringArrayList("cartCheckoutIds", cartCheckoutIds);
+        state.putBoolean("checkoutReview",checkoutReview);state.putString("dialogType",dialogType);state.putBundle("dialogDraft",dialogDraft);state.putString("newAddressKey",newAddressKey);
+        state.putStringArrayList("cartCheckoutIds", cartCheckoutIds);state.putStringArrayList("cartSelected",new ArrayList<>(cartSelection.savedIds()));state.putString("cartSelectionUid",cartSelectionUid);
         state.putInt("historyFilter", historyFilter); state.putBoolean("owner", ownerView); state.putString("disputeOrder", disputeOrder); state.putString("uploadKey", uploadKey); state.putStringArrayList("evidence", uploadedEvidence); return state;
     }
     void restore(Bundle state) {
         if (state == null) return; freeRequests.restore(state); checkoutContext = state.getString("context", ""); checkoutKey = state.getString("key", ""); addressId = state.getString("address", ""); freeNote = state.getString("note", "");
-        dialogType=state.getString("dialogType","");dialogDraft=state.getBundle("dialogDraft");newAddressKey=state.getString("newAddressKey","");
+        checkoutReview=state.getBoolean("checkoutReview",false);dialogType=state.getString("dialogType","");dialogDraft=state.getBundle("dialogDraft");newAddressKey=state.getString("newAddressKey","");
         ArrayList<String> cartIds = state.getStringArrayList("cartCheckoutIds"); cartCheckoutIds = cartIds == null ? new ArrayList<>() : cartIds;
+        cartSelection.restore(state.getStringArrayList("cartSelected"));cartSelectionUid=state.getString("cartSelectionUid","");
         historyFilter = state.getInt("historyFilter",0); ownerView = state.getBoolean("owner"); disputeOrder = state.getString("disputeOrder", ""); uploadKey = state.getString("uploadKey", "");
         ArrayList<String> evidence = state.getStringArrayList("evidence"); uploadedEvidence = evidence == null ? new ArrayList<>() : evidence;
     }
