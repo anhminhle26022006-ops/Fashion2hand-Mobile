@@ -6,7 +6,7 @@ module.exports=ctx=>{
   const options={secrets:[tmn,secret],timeoutSeconds:60};
   const provider=()=>new VnpayProvider({tmnCode:tmn.value(),secret:secret.value()});
   const service=require('./vnpay-payments')({...ctx,provider});
-  const safe=fn=>async r=>{try{return await fn(r);}catch(e){if(e instanceof VnpayError)fail(e.code,e.message);throw e;}};
+  const safe=fn=>async r=>{try{return await fn(r);}catch(e){if(e instanceof VnpayError)fail(e.code,e.message,e.details);throw e;}};
   endpoints.createVnpayPayment=onCall(options,safe(service.create));
   endpoints.getVnpayPaymentStatus=onCall(service.status);
   endpoints.reconcileVnpayPayment=onCall(options,safe(service.reconcile));

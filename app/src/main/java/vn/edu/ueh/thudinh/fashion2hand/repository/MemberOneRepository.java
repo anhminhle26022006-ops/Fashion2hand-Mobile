@@ -124,7 +124,8 @@ public final class MemberOneRepository {
             else {
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 avatarBitmap.compress(Bitmap.CompressFormat.JPEG, 88, output);
-                upload = ref.putBytes(output.toByteArray());
+                upload = ref.putBytes(output.toByteArray(), new com.google.firebase.storage.StorageMetadata.Builder()
+                        .setContentType("image/jpeg").build());
             }
             avatarTask = upload.continueWithTask(task -> {
                 if (!task.isSuccessful()) throw task.getException();

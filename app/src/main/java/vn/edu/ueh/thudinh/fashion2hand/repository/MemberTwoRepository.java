@@ -113,13 +113,16 @@ public final class MemberTwoRepository {
         return call(ids.isEmpty()?"createPaidOrder":"createCartOrders",data);
     }
     public Task<HttpsCallableResult> requestFreeWithQuote(String postId,String note,String addressId,Map<String,Object> quote) {
-        return call("createFreeRequest",payload("postId",postId,"note",note,"addressId",addressId,"quoteId",quote.get("quoteId")));
+        return call("createFreeRequest",payload("postId",postId,"note",note,"addressId",addressId,"quoteId",quote.get("quoteId"),"acceptShippingFee",true,"expectedShippingFee",quote.get("shippingFee")));
     }
     public Task<HttpsCallableResult> ghnCatalog(String kind,int parentId) {
         return call("ghnAddressCatalog",payload("kind",kind,"provinceId",parentId,"districtId",parentId));
     }
     public Task<HttpsCallableResult> saveGhnAddress(String addressId,int provinceId,int districtId,String wardCode) {
         return call("saveGhnAddress",payload("addressId",addressId,"ghn",payload("provinceId",provinceId,"districtId",districtId,"wardCode",wardCode)));
+    }
+    public Task<HttpsCallableResult> saveGhnAddress(String addressId,int provinceId,int districtId,String wardCode,Map<String,Object> contact) {
+        return call("saveGhnAddress",payload("addressId",addressId,"contact",contact,"ghn",payload("provinceId",provinceId,"districtId",districtId,"wardCode",wardCode)));
     }
     public Task<HttpsCallableResult> cancelGhnShipment(String orderId) { return call("cancelGhnShipment",payload("orderId",orderId)); }
     public Task<HttpsCallableResult> refreshOrder(String orderId) { return call("refreshOrder", payload("orderId", orderId)); }

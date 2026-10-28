@@ -126,6 +126,34 @@ test("buyer/seller paid lifecycle writes real timeline, shipment and money histo
   assert.equal((await read(`moneyTransactions/received_${orderId}`, seller)).status, 200); assert.equal((await read(`moneyTransactions/received_${orderId}`, outsider)).status, 403);
 });
 
+test('shipment endpoints snapshot the default sender and order recipient without exposing contacts', async () => {
+  const seller = await account('tracking-seller'), buyer = await account('tracking-buyer');
+  const pickup = { recipient: 'Private sender', phone: '0909876543', street: '59C Nguyễn Đình Chiểu', ward: 'Võ Thị Sáu', district: 'Quận 3', province: 'TP.HCM', isDefault: true };
+  await db.doc(`users/${seller.uid}/addresses/work`).set(pickup);
+  const { orderId } = await paid(seller, buyer);
+  for (const status of ['PREPARING', 'READY_TO_SHIP']) await ok('updateOrderStatus', { orderId, status }, seller);
+  await ok('createShipment', { orderId, pickupAddress: { street: 'Spoofed address' } }, seller);
+  const ref = db.doc(`shipments/${orderId}`), initial = (await ref.get()).data();
+  assert.deepEqual(initial.pickupAddress, { street: pickup.street, ward: pickup.ward, district: pickup.district, province: pickup.province });
+  assert.equal(initial.deliveryAddress.street, '1 Đường kiểm thử');
+  for (const endpoint of [initial.pickupAddress, initial.deliveryAddress]) {
+    assert.equal(endpoint.phone, undefined); assert.equal(endpoint.recipient, undefined);
+  }
+  await db.doc(`users/${seller.uid}/addresses/work`).update({ street: 'Changed after pickup' });
+  await db.doc(`users/${buyer.uid}/addresses/home`).update({ street: 'Changed after checkout' });
+  await ok('createShipment', { orderId }, seller);
+  assert.deepEqual((await ref.get()).get('pickupAddress'), initial.pickupAddress);
+  assert.deepEqual((await ref.get()).get('deliveryAddress'), initial.deliveryAddress);
+  assert.equal((await read(`shipments/${orderId}`, buyer)).status, 200);
+
+  const legacySeller = await account('tracking-no-address'), secondBuyer = await account('tracking-legacy-buyer');
+  await db.doc(`users/${legacySeller.uid}/addresses/home`).delete();
+  const next = await paid(legacySeller, secondBuyer);
+  for (const status of ['PREPARING', 'READY_TO_SHIP']) await ok('updateOrderStatus', { orderId: next.orderId, status }, legacySeller);
+  await ok('createShipment', { orderId: next.orderId }, legacySeller);
+  assert.equal((await db.doc(`shipments/${next.orderId}`).get()).get('pickupAddress'), null);
+});
+
 test("rejection, buyer cancellation, payment failure and return release the correct reservation", async () => {
   const seller = await account("seller-cancel"), buyer = await account("buyer-cancel");
   for (const method of ["cancelOrder", "rejectOrder"]) {
@@ -233,6 +261,24 @@ test("settlement verifies delivery/payment, is idempotent and honors the three-d
 async function cart(buyer, postIds) {
   const batch = db.batch(); for (const postId of postIds) batch.set(db.doc(`users/${buyer.uid}/cartItems/${postId}`), { postId, addedAt: Timestamp.now() }); await batch.commit();
 }
+test('returned free shipment closes its accepted request and lets the buyer request again', async () => {
+  const seller = await account('free-return-seller'), buyer = await account('free-return-buyer');
+  const postId = await listing(seller, 'FREE');
+  const { requestId } = await ok('createFreeRequest', { postId, addressId: 'home', note: 'Xin nhận món đồ' }, buyer);
+  const { orderId } = await ok('respondFreeRequest', { requestId, accept: true }, seller);
+  for (const status of ['PREPARING', 'READY_TO_SHIP']) await ok('updateOrderStatus', { orderId, status }, seller);
+  await ok('createShipment', { orderId }, seller);
+  await ok('simulateShipmentUpdate', { orderId, status: 'RETURNED' }, seller);
+  assert.equal((await db.doc(`orders/${orderId}`).get()).get('orderStatus'), 'CANCELLED');
+  assert.equal((await db.doc(`posts/${postId}`).get()).get('status'), 'ACTIVE');
+  assert.equal((await db.doc(`freeRequests/${requestId}`).get()).get('status'), 'CANCELLED');
+  const retried = await ok('createFreeRequest', { postId, addressId: 'home', note: 'Xin nhận lại' }, buyer);
+  assert.equal(retried.requestId, requestId);
+  const request = await db.doc(`freeRequests/${requestId}`).get();
+  assert.equal(request.get('status'), 'PENDING'); assert.equal(request.get('orderId'), undefined);
+  const next = await ok('respondFreeRequest', { requestId, accept: true }, seller);
+  assert.notEqual(next.orderId, orderId);
+});
 async function grouped(seller, buyer, count = 2) {
   const postIds = []; for (let i=0;i<count;i++) postIds.push(await listing(seller)); await cart(buyer,postIds);
   const quote = await ok('getCartCheckoutQuote',{postIds},buyer);

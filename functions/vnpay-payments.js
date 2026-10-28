@@ -6,7 +6,7 @@ const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const millis=value=>value?.toMillis?.()??(value instanceof Date?value.getTime():0);
 const messages={'00':'Confirm Success','01':'Order not found','02':'Order already confirmed','04':'Invalid amount','97':'Invalid signature','99':'Unknown error'};
 const ack=code=>({RspCode:code,Message:messages[code]});
-module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provider,now=()=>Date.now()})=>{
+module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provider,logger,now=()=>Date.now()})=>{
   const stamp=()=>FieldValue.serverTimestamp();
   const merchant=p=>hash(p.tmnCode);
   function checkAmount(order,payment) {
@@ -112,16 +112,27 @@ module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provid
     return {orderId:id,orderStatus:order.get('orderStatus'),paymentStatus:order.get('paymentStatus'),provider:payment?.get('provider')||'',environment:payment?.get('environment')||'',attemptId:payment?.get('activeAttemptId')||'',needsReview:order.get('paymentNeedsReview')===true};
   }
   async function reconcile(request) {
-    const state=await status(request),p=provider();
+    const state=await status(request);
+    // An IPN may have committed while the app was returning from the browser.
+    if(state.paymentStatus==='PAID')return state;
+    const p=provider();
     const ref=cleanDocumentId(request.data.attemptId||state.attemptId,'Phiên thanh toán');
     const attempt=await db.runTransaction(async tx=>{
       const doc=await tx.get(db.doc(`paymentAttempts/${ref}`));
       if(!doc.exists||doc.get('orderId')!==state.orderId||doc.get('merchantFingerprint')!==merchant(p))fail('permission-denied','Phiên không thuộc đơn/merchant.');
       const order=await tx.get(db.doc(`orders/${state.orderId}`));
+      const retryAt=millis(order.get('paymentQueryRetryAfter'));
+      if(retryAt>now())fail('resource-exhausted','VNPAY đang giới hạn tra cứu. Chờ hết thời gian rồi kiểm tra lại.',{reason:'QUERY_RATE_LIMITED',retryAfterSeconds:Math.ceil((retryAt-now())/1000)});
       if(millis(order.get('lastPaymentQueryAt'))>now()-60000)fail('resource-exhausted','Chờ 60 giây trước lần QueryDR tiếp theo.');
       tx.update(order.ref,{lastPaymentQueryAt:new Date(now())});return doc.data();
     });
-    const result=await p.query(attempt);
+    let result;
+    try {result=await p.query(attempt);}
+    catch(error){
+      if(error instanceof require('./vnpay-provider').VnpayError&&error.details?.reason==='QUERY_RATE_LIMITED')await db.doc(`orders/${state.orderId}`).update({paymentQueryRetryAfter:new Date(now()+300000)});
+      if(logger&&error instanceof require('./vnpay-provider').VnpayError)logger.warn('VNPAY QueryDR outcome',{referenceHash:hash(ref).slice(0,12),code:error.code,...error.details});
+      throw error;
+    }
     if(!result.pending)await apply(result,p);
     return status(request);
   }
