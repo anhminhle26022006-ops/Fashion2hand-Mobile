@@ -11,6 +11,7 @@
     "test:admin": "node --test test/admin.emulator.test.js",
     "test:transactions": "node --test test/transactions.emulator.test.js",
     "test:marketplace": "node --test test/marketplace.emulator.test.js",
+    "test:moderation": "node --test test/moderation.emulator.test.js",
     "serve": "firebase emulators:start --only functions,firestore",
     "serve:team": "firebase emulators:start --only auth,firestore,functions,storage --export-on-exit=../emulator-data",
     "seed:emulator": "node seed-emulator.js",
