@@ -18,6 +18,9 @@
             android:layout_marginTop="8dp" android:textSize="14sp" android:textColor="#75857F" />
         <TextView android:id="@+id/txtSellerBio" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:textSize="15sp" android:textColor="#173B32" />
+        <TextView android:id="@+id/btnReportSeller" android:layout_width="wrap_content" android:layout_height="48dp"
+            android:gravity="center_vertical" android:text="⚑ Báo cáo người dùng này" android:textSize="14sp"
+            android:textColor="#B95242" android:visibility="gone" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="24dp" android:text="Bài đăng đang hoạt động" android:textSize="18sp"
             android:textStyle="bold" android:textColor="#173B32" />

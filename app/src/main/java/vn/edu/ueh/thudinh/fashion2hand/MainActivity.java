@@ -31,6 +31,8 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.content.Intent;
 import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminLoginActivity;
+import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminMainActivity;
+import vn.edu.ueh.thudinh.fashion2hand.ui.report.ReportDialog;
 import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -298,6 +300,12 @@ public class MainActivity extends AppCompatActivity {
             openIncomingProduct(getIntent());
             new android.os.Handler(getMainLooper()).postDelayed(() -> {
                 if (!isFinishing() && !isDestroyed() && currentScreen == R.layout.activity_splash) {
+                    FirebaseUser signedIn = authRepository.getCurrentUser();
+                    if (signedIn != null && AdminRepository.getInstance().isAdminEmail(signedIn.getEmail())) {
+                        startActivity(new Intent(this, AdminMainActivity.class));
+                        finish();
+                        return;
+                    }
                     showScreen(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
                     openPendingProduct();
                 }
@@ -760,7 +768,7 @@ public class MainActivity extends AppCompatActivity {
                             () -> {
                                 showScreen(R.layout.activity_home);
                                 result.getUser().sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
-                                        "Đã gửi email xác minh. Kiểm tra hộp thư và thư rác, rồi quay lại bấm kiểm tra.", Toast.LENGTH_LONG).show())
+                                                "Đã gửi email xác minh. Kiểm tra hộp thư và thư rác, rồi quay lại bấm kiểm tra.", Toast.LENGTH_LONG).show())
                                         .addOnFailureListener(this::showFirebaseError);
                             }))
                     .addOnFailureListener(this::showFirebaseError)
@@ -881,8 +889,8 @@ public class MainActivity extends AppCompatActivity {
         setTextIfPresent(R.id.txtOtpDescription, emailChange
                 ? "Mở liên kết trong email mới, sau đó quay lại nhấn kiểm tra."
                 : BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS
-                        ? "OTP mô phỏng được hiển thị trên thanh thông báo. Nhập mã 6 chữ số để tiếp tục:"
-                        : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
+                  ? "OTP mô phỏng được hiển thị trên thanh thông báo. Nhập mã 6 chữ số để tiếp tục:"
+                  : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
         setTextIfPresent(R.id.txtOtpTarget, otpTarget);
         findViewById(R.id.edtOtpCode).setVisibility(emailChange ? View.GONE : View.VISIBLE);
         setTextIfPresent(R.id.btnSubmitOtp, emailChange ? "Tôi đã xác nhận — kiểm tra" : "Xác nhận");
@@ -1030,7 +1038,7 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.btnSendVerificationEmail, () -> {
             View button = findViewById(R.id.btnSendVerificationEmail); button.setEnabled(false);
             user.sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
-                    "Đã gửi liên kết. Mở email xác minh rồi bấm kiểm tra lại.", Toast.LENGTH_LONG).show())
+                            "Đã gửi liên kết. Mở email xác minh rồi bấm kiểm tra lại.", Toast.LENGTH_LONG).show())
                     .addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done -> { if (currentScreen == R.layout.activity_contact_required) button.setEnabled(true); });
         });
@@ -1038,16 +1046,16 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.btnRefreshContactVerification, () -> {
             View button = findViewById(R.id.btnRefreshContactVerification); button.setEnabled(false);
             user.reload().continueWithTask(task -> {
-                if (!task.isSuccessful()) throw task.getException();
-                return user.getIdToken(true);
-            }).addOnSuccessListener(result -> {
-                if (!isFinishing() && currentScreen == R.layout.activity_contact_required) {
-                    if (user.isEmailVerified()) {
-                        syncVerifiedContact();
-                        showScreen(R.layout.activity_home);
-                    } else Toast.makeText(this, "Email chưa được xác minh. Mở liên kết trong thư rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
-                }
-            }).addOnFailureListener(this::showFirebaseError)
+                        if (!task.isSuccessful()) throw task.getException();
+                        return user.getIdToken(true);
+                    }).addOnSuccessListener(result -> {
+                        if (!isFinishing() && currentScreen == R.layout.activity_contact_required) {
+                            if (user.isEmailVerified()) {
+                                syncVerifiedContact();
+                                showScreen(R.layout.activity_home);
+                            } else Toast.makeText(this, "Email chưa được xác minh. Mở liên kết trong thư rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
+                        }
+                    }).addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done -> button.setEnabled(true));
         });
         bindClick(R.id.btnRequiredSignOut, () -> { authRepository.signOut(); navigateRoot(R.layout.activity_login); });
@@ -1963,8 +1971,8 @@ public class MainActivity extends AppCompatActivity {
                 });
                 setTextIfPresent(R.id.tvMessageState, state.error != null ? "Không tải được tin nhắn. Nhấn để thử lại."
                         : state.loading ? "Đang tải tin nhắn…"
-                        : state.fromCache ? "Dữ liệu đã lưu trên máy · đang chờ kết nối"
-                        : state.messages.isEmpty() ? "Chưa có tin nhắn. Hãy bắt đầu cuộc trò chuyện." : "");
+                          : state.fromCache ? "Dữ liệu đã lưu trên máy · đang chờ kết nối"
+                            : state.messages.isEmpty() ? "Chưa có tin nhắn. Hãy bắt đầu cuộc trò chuyện." : "");
                 findViewById(R.id.tvMessageState).setOnClickListener(view -> {
                     if (state.error != null) bindOrderChat();
                 });
@@ -2822,6 +2830,9 @@ public class MainActivity extends AppCompatActivity {
                     }).addOnFailureListener(this::showFirebaseError);
         });
         bindClick(R.id.btnProductShare, this::shareCurrentProduct);
+        View reportPost = findViewById(R.id.btnProductReport);
+        if (reportPost != null) reportPost.setVisibility(currentSellerId.equals(currentUid()) ? View.GONE : View.VISIBLE);
+        bindClick(R.id.btnProductReport, () -> ReportDialog.show(this, ReportDialog.TARGET_POST, currentPostId));
         bindClick(R.id.btnProductChat, () -> startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_product_detail));
         bindClick(R.id.btnAddToCart, () -> {
             if (currentPostId.isEmpty() || !requireSignedIn()) return;
@@ -2946,6 +2957,9 @@ public class MainActivity extends AppCompatActivity {
         if (viewedSellerId.isEmpty() || !requireSignedIn()) return;
         final String sellerId = viewedSellerId;
         bindClick(R.id.btnRetrySeller, () -> showScreen(R.layout.activity_seller_profile));
+        View reportSeller = findViewById(R.id.btnReportSeller);
+        if (reportSeller != null) reportSeller.setVisibility(sellerId.equals(currentUid()) ? View.GONE : View.VISIBLE);
+        bindClick(R.id.btnReportSeller, () -> ReportDialog.show(this, ReportDialog.TARGET_USER, sellerId));
         Map<String, Object> args = new HashMap<>(); args.put("sellerId", sellerId);
         FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(args)
                 .addOnSuccessListener(result -> {

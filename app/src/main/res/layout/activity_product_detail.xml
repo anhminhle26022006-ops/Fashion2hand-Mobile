@@ -13,6 +13,7 @@
                 <LinearLayout android:layout_width="match_parent" android:layout_height="54dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="12dp">
                     <TextView android:id="@+id/btnProductBack" android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="28sp" />
                     <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                    <TextView android:id="@+id/btnProductReport" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginEnd="7dp" android:background="@drawable/bg_white_card_rounded" android:contentDescription="Báo cáo bài đăng" android:gravity="center" android:text="⚑" android:textColor="#B95242" android:textSize="18sp" />
                     <TextView android:id="@+id/btnProductShare" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginEnd="7dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="↗" android:textColor="#173B32" android:textSize="19sp" />
                     <TextView android:id="@+id/btnProductLike" android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="♡" android:textColor="#E97859" android:textSize="22sp" />
                 </LinearLayout>
