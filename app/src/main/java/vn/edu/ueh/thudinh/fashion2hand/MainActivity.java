@@ -31,6 +31,9 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.content.Intent;
 import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminLoginActivity;
+import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminMainActivity;
+import vn.edu.ueh.thudinh.fashion2hand.ui.report.ReportDialog;
+import vn.edu.ueh.thudinh.fashion2hand.ui.local.RecentHistoryUi;
 import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -124,6 +127,8 @@ public class MainActivity extends AppCompatActivity {
     private int verificationRoleGeneration;
     private boolean savingListing;
     private String pendingProductLink = "";
+    private String pendingPaymentOrderId = "";
+    private int pendingNavigationScreen = 0;
     private String viewedSellerId = "";
     private final ArrayList<ListenerRegistration> favoritePostListeners = new ArrayList<>();
     private final ArrayList<DocumentSnapshot> favoritePosts = new ArrayList<>();
@@ -272,6 +277,8 @@ public class MainActivity extends AppCompatActivity {
             phoneResendToken = savedInstanceState.getParcelable("phoneResendToken");
             phoneResendAt = savedInstanceState.getLong("phoneResendAt");
             pendingProductLink = savedInstanceState.getString("pendingProductLink", "");
+            pendingPaymentOrderId = savedInstanceState.getString("pendingPaymentOrderId", "");
+            pendingNavigationScreen = savedInstanceState.getInt("pendingNavigationScreen",0);
             checkoutReturnScreen = savedInstanceState.getInt("checkoutReturnScreen", R.layout.activity_cart);
             orderRoleFilter=savedInstanceState.getString("orderRoleFilter","buyer"); orderStatusFilter=savedInstanceState.getString("orderStatusFilter","all"); orderSearchQuery=savedInstanceState.getString("orderSearchQuery","");
             messageFilter=savedInstanceState.getString("messageFilter","all"); messageSearchQuery=savedInstanceState.getString("messageSearchQuery","");
@@ -298,12 +305,19 @@ public class MainActivity extends AppCompatActivity {
             openIncomingProduct(getIntent());
             new android.os.Handler(getMainLooper()).postDelayed(() -> {
                 if (!isFinishing() && !isDestroyed() && currentScreen == R.layout.activity_splash) {
+                    FirebaseUser signedIn = authRepository.getCurrentUser();
+                    if (signedIn != null && AdminRepository.getInstance().isAdminEmail(signedIn.getEmail())) {
+                        startActivity(new Intent(this, AdminMainActivity.class));
+                        finish();
+                        return;
+                    }
                     showScreen(authRepository.getCurrentUser() == null ? R.layout.activity_login : R.layout.activity_home);
                     openPendingProduct();
                 }
             }, 1200);
         }
 
+        if(savedInstanceState!=null)openIncomingProduct(getIntent());
         // Đăng ký bộ xử lý nút Back theo chuẩn AndroidX mới
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
@@ -355,6 +369,7 @@ public class MainActivity extends AppCompatActivity {
         if(!restoringScreen)restoredForm=null;
         if (transactionScreens.owns(layoutId)) transactionScreens.prepare(layoutId);
         else setContentView(layoutId);
+        bindNavigation();
         applySystemBarInsets();
         if (layoutId == R.layout.activity_contact_required) { bindContactRequired(); return; }
         if (transactionScreens.owns(layoutId)) {
@@ -364,7 +379,6 @@ public class MainActivity extends AppCompatActivity {
         }
         if (layoutId == R.layout.activity_login) bindLogin();
         if (layoutId == R.layout.activity_register) bindRegister();
-        bindNavigation();
         if (layoutId == R.layout.activity_home) bindHome();
         if (layoutId == R.layout.activity_explore) bindExplore();
         if (layoutId == R.layout.activity_favorites) bindFavorites();
@@ -430,6 +444,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void goBack() {
+        if(currentScreen==R.layout.activity_checkout && transactionScreens.backCheckout())return;
         // Preserve listing fields before leaving a step, including toolbar Back.
         if (currentScreen == R.layout.activity_sell_details) captureSellDetails();
         if (currentScreen == R.layout.activity_sell_type) captureSellType();
@@ -524,6 +539,8 @@ public class MainActivity extends AppCompatActivity {
         state.putString("otpFlow", otpFlow); state.putString("otpTarget", otpTarget);
         state.putString("phoneVerificationId", phoneVerificationId); state.putParcelable("phoneResendToken", phoneResendToken);
         state.putLong("phoneResendAt", phoneResendAt); state.putString("pendingProductLink", pendingProductLink);
+        state.putString("pendingPaymentOrderId",pendingPaymentOrderId);
+        state.putInt("pendingNavigationScreen",pendingNavigationScreen);
         state.putBundle("listingDraft", packMap(listingDraft)); state.putBoolean("editingListing", editingListing);
         state.putString("editingPostId", editingPostId);
         ArrayList<android.os.Parcelable> photos = new ArrayList<>();
@@ -612,25 +629,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applySystemBarInsets() {
-        ViewGroup root = findViewById(android.R.id.content);
-        if (root == null || root.getChildCount() == 0) return;
-        View content = root.getChildAt(0);
-        int initialLeft = content.getPaddingLeft();
-        int initialTop = content.getPaddingTop();
-        int initialRight = content.getPaddingRight();
-        int initialBottom = content.getPaddingBottom();
-        ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
-            Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-            Insets keyboard = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-            view.setPadding(
-                    initialLeft + bars.left,
-                    initialTop + bars.top,
-                    initialRight + bars.right,
-                    initialBottom + Math.max(bars.bottom,keyboard.bottom)
-            );
-            return windowInsets;
-        });
-        ViewCompat.requestApplyInsets(content);
+        MainNavigation.applyInsets(this);
     }
 
     private void resetVerificationRole() {
@@ -760,7 +759,7 @@ public class MainActivity extends AppCompatActivity {
                             () -> {
                                 showScreen(R.layout.activity_home);
                                 result.getUser().sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
-                                        "Đã gửi email xác minh. Kiểm tra hộp thư và thư rác, rồi quay lại bấm kiểm tra.", Toast.LENGTH_LONG).show())
+                                                "Đã gửi email xác minh. Kiểm tra hộp thư và thư rác, rồi quay lại bấm kiểm tra.", Toast.LENGTH_LONG).show())
                                         .addOnFailureListener(this::showFirebaseError);
                             }))
                     .addOnFailureListener(this::showFirebaseError)
@@ -881,8 +880,8 @@ public class MainActivity extends AppCompatActivity {
         setTextIfPresent(R.id.txtOtpDescription, emailChange
                 ? "Mở liên kết trong email mới, sau đó quay lại nhấn kiểm tra."
                 : BuildConfig.DEBUG && BuildConfig.USE_FIREBASE_EMULATORS
-                        ? "OTP mô phỏng được hiển thị trên thanh thông báo. Nhập mã 6 chữ số để tiếp tục:"
-                        : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
+                  ? "OTP mô phỏng được hiển thị trên thanh thông báo. Nhập mã 6 chữ số để tiếp tục:"
+                  : "Nhập mã OTP 6 chữ số được gửi qua SMS:");
         setTextIfPresent(R.id.txtOtpTarget, otpTarget);
         findViewById(R.id.edtOtpCode).setVisibility(emailChange ? View.GONE : View.VISIBLE);
         setTextIfPresent(R.id.btnSubmitOtp, emailChange ? "Tôi đã xác nhận — kiểm tra" : "Xác nhận");
@@ -1030,7 +1029,7 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.btnSendVerificationEmail, () -> {
             View button = findViewById(R.id.btnSendVerificationEmail); button.setEnabled(false);
             user.sendEmailVerification().addOnSuccessListener(unused -> Toast.makeText(this,
-                    "Đã gửi liên kết. Mở email xác minh rồi bấm kiểm tra lại.", Toast.LENGTH_LONG).show())
+                            "Đã gửi liên kết. Mở email xác minh rồi bấm kiểm tra lại.", Toast.LENGTH_LONG).show())
                     .addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done -> { if (currentScreen == R.layout.activity_contact_required) button.setEnabled(true); });
         });
@@ -1038,16 +1037,16 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.btnRefreshContactVerification, () -> {
             View button = findViewById(R.id.btnRefreshContactVerification); button.setEnabled(false);
             user.reload().continueWithTask(task -> {
-                if (!task.isSuccessful()) throw task.getException();
-                return user.getIdToken(true);
-            }).addOnSuccessListener(result -> {
-                if (!isFinishing() && currentScreen == R.layout.activity_contact_required) {
-                    if (user.isEmailVerified()) {
-                        syncVerifiedContact();
-                        showScreen(R.layout.activity_home);
-                    } else Toast.makeText(this, "Email chưa được xác minh. Mở liên kết trong thư rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
-                }
-            }).addOnFailureListener(this::showFirebaseError)
+                        if (!task.isSuccessful()) throw task.getException();
+                        return user.getIdToken(true);
+                    }).addOnSuccessListener(result -> {
+                        if (!isFinishing() && currentScreen == R.layout.activity_contact_required) {
+                            if (user.isEmailVerified()) {
+                                syncVerifiedContact();
+                                showScreen(R.layout.activity_home);
+                            } else Toast.makeText(this, "Email chưa được xác minh. Mở liên kết trong thư rồi kiểm tra lại.", Toast.LENGTH_LONG).show();
+                        }
+                    }).addOnFailureListener(this::showFirebaseError)
                     .addOnCompleteListener(done -> button.setEnabled(true));
         });
         bindClick(R.id.btnRequiredSignOut, () -> { authRepository.signOut(); navigateRoot(R.layout.activity_login); });
@@ -1074,15 +1073,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bindNavigation() {
-        bindClick(R.id.navHome, () -> navigateRoot(R.layout.activity_home));
-        bindClick(R.id.navExplore, () -> navigateRoot(R.layout.activity_explore));
-        bindClick(R.id.navCreate, () -> {
+        MainNavigation.attach(this,currentScreen,this::navigateTab);
+    }
+
+    private void navigateTab(int layout) {
+        if(!MainNavigation.destination(layout)||currentScreen==layout)return;
+        if(layout==R.layout.activity_sell){
             editingListing = false; editingPostId = ""; listingDraft.clear(); selectedListingPhotos.clear();
             selectedListingPhoto = null; capturedListingPhoto = null;
-            showScreen(R.layout.activity_sell);
-        });
-        bindClick(R.id.navMessages, () -> navigateRoot(R.layout.activity_messages));
-        bindClick(R.id.navProfile, () -> navigateRoot(R.layout.activity_profile));
+        }
+        navigateRoot(layout);
     }
 
     private void bindHome() {
@@ -1146,6 +1146,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
         bindClick(R.id.btnOpenFilterSheet, this::showExploreFilterSheet);
+        RecentHistoryUi.bind(this, currentUid(), this::openProduct);
         listenForActivePosts();
         applyExploreFilter(selectedCategory);
     }
@@ -1279,14 +1280,14 @@ public class MainActivity extends AppCompatActivity {
         if (!(raw instanceof List) || ((List<?>) raw).size() <= index) return;
         Object url = ((List<?>) raw).get(index);
         if (!(url instanceof String) || ((String) url).isEmpty()) return;
-        target.setVisibility(View.INVISIBLE); fallback.setVisibility(View.VISIBLE);
+        if(fallback!=null){target.setVisibility(View.INVISIBLE);fallback.setVisibility(View.VISIBLE);}
         com.google.firebase.storage.StorageReference image = storageImageReference((String) url);
         if (image == null) return;
         image
                 .getBytes(10 * 1024 * 1024).addOnSuccessListener(bytes -> {
                     if (!target.isAttachedToWindow()) return;
                     android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-                    if (bitmap != null) { target.setImageBitmap(bitmap); target.setVisibility(View.VISIBLE); fallback.setVisibility(View.GONE); }
+                    if (bitmap != null) { target.setImageBitmap(bitmap); target.setVisibility(View.VISIBLE); if(fallback!=null)fallback.setVisibility(View.GONE); }
                 });
     }
 
@@ -1486,7 +1487,7 @@ public class MainActivity extends AppCompatActivity {
         ordersLoadError=error==null?"":"Không tải được đơn hàng. Nhấn để thử lại.";
         ordersAwaitingServer=error==null&&(snapshot==null||snapshot.getMetadata().isFromCache());
         activeOrders.clear();
-        if(snapshot!=null&&error==null)activeOrders.addAll(snapshot.getDocuments());
+        if(snapshot!=null&&error==null)for(DocumentSnapshot doc:snapshot)if(!TransactionScreens.sandboxHistoryHidden(doc))activeOrders.add(doc);
         renderOrders();
     }
 
@@ -1519,7 +1520,7 @@ public class MainActivity extends AppCompatActivity {
             card.setLayoutParams(params);
             card.setTag("firebase_order|" + order.getId());
             TextView titleView = new TextView(this);
-            titleView.setText("#" + order.getId() + "  ·  " + orderStatusLabel(status));
+            titleView.setText("#" + order.getId() + "  ·  " + ("GHN".equals(textValue(data,"shippingProvider",""))?TransactionScreens.orderLabel(data):orderStatusLabel(status)));
             titleView.setTextColor(0xFF173B32); titleView.setTextSize(11); titleView.setTypeface(null, android.graphics.Typeface.BOLD);
             TextView productView = new TextView(this);
             productView.setText(title + "  ·  " + String.format(java.util.Locale.getDefault(), "%,d đ", total));
@@ -1933,6 +1934,8 @@ public class MainActivity extends AppCompatActivity {
             if(!post.exists()){setTextIfPresent(R.id.tvPinnedProductName,"Sản phẩm không còn tồn tại");return;}
             currentProductData=post.getData();currentProductName=textValue(currentProductData,"title","Sản phẩm");currentSellerId=textValue(currentProductData,"ownerId","");currentProductIsFree="FREE".equals(textValue(currentProductData,"type","SALE"));
             setTextIfPresent(R.id.tvPinnedProductName,currentProductName);setTextIfPresent(R.id.tvPinnedProductPrice,currentProductIsFree?"Miễn phí":String.format(java.util.Locale.getDefault(),"%,d đ",numberValue(post.get("price"))));
+            ImageView pinned=findViewById(R.id.imgPinnedProduct);
+            if(pinned!=null)loadPostPhoto(currentProductData,0,pinned,null);
             boolean available="ACTIVE".equals(post.getString("status"))&&!currentUid().equals(currentSellerId);cartButton.setEnabled(available&&!currentProductIsFree);buyButton.setEnabled(available);buyButton.setText(currentProductIsFree?"Yêu cầu nhận":"Mua ngay");
             if(currentProductIsFree)bindFreeRequestAction(buyButton,chatPostId,available);
         }).addOnFailureListener(error->{if(currentScreen==R.layout.activity_chat)setTextIfPresent(R.id.tvPinnedProductName,"Không tải được sản phẩm. Quay lại để thử lại.");});
@@ -1963,8 +1966,8 @@ public class MainActivity extends AppCompatActivity {
                 });
                 setTextIfPresent(R.id.tvMessageState, state.error != null ? "Không tải được tin nhắn. Nhấn để thử lại."
                         : state.loading ? "Đang tải tin nhắn…"
-                        : state.fromCache ? "Dữ liệu đã lưu trên máy · đang chờ kết nối"
-                        : state.messages.isEmpty() ? "Chưa có tin nhắn. Hãy bắt đầu cuộc trò chuyện." : "");
+                          : state.fromCache ? "Dữ liệu đã lưu trên máy · đang chờ kết nối"
+                            : state.messages.isEmpty() ? "Chưa có tin nhắn. Hãy bắt đầu cuộc trò chuyện." : "");
                 findViewById(R.id.tvMessageState).setOnClickListener(view -> {
                     if (state.error != null) bindOrderChat();
                 });
@@ -2645,7 +2648,7 @@ public class MainActivity extends AppCompatActivity {
             failed[side] = snapshot == null;
             Map<String, DocumentSnapshot> target = side == 0 ? buyer : seller;
             target.clear();
-            if (snapshot != null) for (DocumentSnapshot order : snapshot.getDocuments()) target.put(order.getId(), order);
+            if (snapshot != null) for (DocumentSnapshot order : snapshot.getDocuments()) if(!TransactionScreens.sandboxHistoryHidden(order))target.put(order.getId(), order);
             if (!loaded[0] || !loaded[1]) return;
             TextView completedView = findViewById(R.id.txtProfileCompletedCount);
             TextView menu = findViewById(R.id.btnMyCart);
@@ -2721,6 +2724,7 @@ public class MainActivity extends AppCompatActivity {
         currentProductIsFree = "FREE".equalsIgnoreCase(type);
         long price = numberValue(currentProductData.get("price"));
         currentProductPrice = currentProductIsFree ? "0 đ" : String.format(java.util.Locale.getDefault(), "%,d đ", price);
+        RecentHistoryUi.recordView(this, currentUid(), currentPostId, currentProductName, currentProductPrice);
         backStack.push(origin);
         restoringScreen = true;
         showScreen(R.layout.activity_product_detail);
@@ -2742,6 +2746,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     currentChatId = (String) ((Map<?, ?>) data).get("chatId");
                     currentPeerId = peerId;
+                    currentPostId = postId == null ? "" : postId;
                     chatReturnScreen = returnScreen;
                     showScreen(R.layout.activity_chat);
                 }).addOnFailureListener(this::showFirebaseError);
@@ -2822,6 +2827,9 @@ public class MainActivity extends AppCompatActivity {
                     }).addOnFailureListener(this::showFirebaseError);
         });
         bindClick(R.id.btnProductShare, this::shareCurrentProduct);
+        View reportPost = findViewById(R.id.btnProductReport);
+        if (reportPost != null) reportPost.setVisibility(currentSellerId.equals(currentUid()) ? View.GONE : View.VISIBLE);
+        bindClick(R.id.btnProductReport, () -> ReportDialog.show(this, ReportDialog.TARGET_POST, currentPostId));
         bindClick(R.id.btnProductChat, () -> startChatWithPeer(currentSellerId, currentPostId, R.layout.activity_product_detail));
         bindClick(R.id.btnAddToCart, () -> {
             if (currentPostId.isEmpty() || !requireSignedIn()) return;
@@ -2853,6 +2861,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         applyProductKindUi();
+        if(!currentPostId.isEmpty()) {
+            final String watchedPost=currentPostId;
+            addScreenListener(memberTwoRepository.listenPost(watchedPost,(post,error)->{
+                if(currentScreen!=R.layout.activity_product_detail||!watchedPost.equals(currentPostId))return;
+                if(error!=null||post==null||!post.exists()||post.getMetadata().isFromCache()) {
+                    Button cart=findViewById(R.id.btnAddToCart),buy=findViewById(R.id.btnBuyNow);
+                    cart.setEnabled(false);buy.setEnabled(false);
+                    String message=error!=null?"Chưa tải được món đồ":post!=null&&!post.getMetadata().isFromCache()&&!post.exists()?"Món đồ không còn":"Đang kiểm tra tồn kho…";
+                    cart.setText(message);buy.setText(message);
+                    if(error!=null)showFirebaseError(error);
+                    return;
+                }
+                currentProductData=new HashMap<>(post.getData());applyProductKindUi();
+            }));
+        }
         if(currentProductIsFree)bindFreeRequestAction(findViewById(R.id.btnRequestFree),currentPostId,"ACTIVE".equals(textValue(currentProductData,"status","ACTIVE"))&&!currentUid().equals(currentSellerId));
     }
 
@@ -2891,7 +2914,13 @@ public class MainActivity extends AppCompatActivity {
         Button requestFree = findViewById(R.id.btnRequestFree);
         View freeNotice = findViewById(R.id.freeProductNotice);
         if (badge == null || chat == null || addToCart == null || buyNow == null || requestFree == null) return;
-        badge.setText(currentProductIsFree ? "TẶNG MIỄN PHÍ" : "ĐANG BÁN");
+        String stockStatus=textValue(currentProductData,"status","");
+        boolean ownPost=!currentUid().isEmpty()&&currentUid().equals(currentSellerId);
+        boolean available="ACTIVE".equals(stockStatus)&&!ownPost;
+        addToCart.setEnabled(available);buyNow.setEnabled(available);
+        addToCart.setText(ownPost?"Tin của bạn":"SOLD".equals(stockStatus)?"Hết hàng":"RESERVED".equals(stockStatus)?"Đang được giữ":"Thêm vào giỏ");
+        buyNow.setText(ownPost?"Tin của bạn":"SOLD".equals(stockStatus)?"Hết hàng":"RESERVED".equals(stockStatus)?"Đang chờ thanh toán":"Mua ngay");
+        badge.setText("SOLD".equals(stockStatus)?"SOLD OUT · HẾT HÀNG":"RESERVED".equals(stockStatus)?"ĐÃ GIỮ CHỖ · CHỜ THANH TOÁN":currentProductIsFree ? "TẶNG MIỄN PHÍ" : "ĐANG BÁN · 1 MÓN");
         badge.setTextColor(currentProductIsFree ? 0xFF23795C : 0xFF9C3D28);
         badge.setBackgroundResource(currentProductIsFree ? R.drawable.bg_green_light_card : R.drawable.bg_product_sale_badge);
         addToCart.setVisibility(currentProductIsFree ? View.GONE : View.VISIBLE);
@@ -2946,6 +2975,9 @@ public class MainActivity extends AppCompatActivity {
         if (viewedSellerId.isEmpty() || !requireSignedIn()) return;
         final String sellerId = viewedSellerId;
         bindClick(R.id.btnRetrySeller, () -> showScreen(R.layout.activity_seller_profile));
+        View reportSeller = findViewById(R.id.btnReportSeller);
+        if (reportSeller != null) reportSeller.setVisibility(sellerId.equals(currentUid()) ? View.GONE : View.VISIBLE);
+        bindClick(R.id.btnReportSeller, () -> ReportDialog.show(this, ReportDialog.TARGET_USER, sellerId));
         Map<String, Object> args = new HashMap<>(); args.put("sellerId", sellerId);
         FirebaseFunctions.getInstance().getHttpsCallable("getSellerProfile").call(args)
                 .addOnSuccessListener(result -> {
@@ -2977,6 +3009,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openIncomingProduct(Intent intent) {
+        if(intent!=null&&intent.hasExtra("navigationScreen")){
+            int destination=intent.getIntExtra("navigationScreen",0);intent.removeExtra("navigationScreen");
+            if(MainNavigation.destination(destination))pendingNavigationScreen=destination;
+            openPendingNavigation();
+        }
+        if(intent!=null&&intent.hasExtra("paymentOrderId")){
+            String id=intent.getStringExtra("paymentOrderId");intent.removeExtra("paymentOrderId");
+            if(VnpayLinks.validOrderId(id)){pendingPaymentOrderId=id;openPendingPaymentOrder();}
+        }
         Uri uri = intent == null ? null : intent.getData();
         if (uri == null || !"fashion2hand".equals(uri.getScheme()) || !"post".equals(uri.getHost())) return;
         if (uri.getPathSegments().size() != 1 || !MarketplaceLinks.validPostId(uri.getLastPathSegment())) {
@@ -2987,6 +3028,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void openPendingProduct() {
+        openPendingNavigation();
+        openPendingPaymentOrder();
         if (pendingProductLink.isEmpty() || currentScreen == R.layout.activity_splash || currentScreen == R.layout.activity_login) return;
         String id = pendingProductLink; pendingProductLink = "";
         FirebaseFirestore.getInstance().collection("posts").document(id).get()
@@ -2994,6 +3037,18 @@ public class MainActivity extends AppCompatActivity {
                     if (!post.exists()) Toast.makeText(this, "Bài đăng không còn tồn tại.", Toast.LENGTH_LONG).show();
                     else openProduct(post);
                 }).addOnFailureListener(error -> Toast.makeText(this, "Bài đăng không còn công khai hoặc không thể tải.", Toast.LENGTH_LONG).show());
+    }
+
+    private void openPendingPaymentOrder(){
+        if(pendingPaymentOrderId.isEmpty()||currentScreen==R.layout.activity_splash||currentScreen==R.layout.activity_login||authRepository.getCurrentUser()==null)return;
+        String id=pendingPaymentOrderId;pendingPaymentOrderId="";
+        if(currentScreen==R.layout.activity_order_detail&&id.equals(currentOrderId))return;
+        openTransactionDestination(R.layout.activity_order_detail,()->{currentOrderId=id;activeOrder=null;});
+    }
+
+    private void openPendingNavigation(){
+        if(pendingNavigationScreen==0||currentScreen==R.layout.activity_splash||currentScreen==R.layout.activity_login)return;
+        int destination=pendingNavigationScreen;pendingNavigationScreen=0;navigateTab(destination);
     }
 
     @Override protected void onNewIntent(Intent intent) {
