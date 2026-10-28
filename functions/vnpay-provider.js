@@ -5,7 +5,7 @@ const PAYMENT_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
 const QUERY_URL = 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction';
 const RETURN_URL = 'https://us-central1-fashion2hand.cloudfunctions.net/vnpayReturn';
 class VnpayError extends Error {
-  constructor(code, message) { super(message); this.code = code; }
+  constructor(code, message, details) { super(message); this.code = code;this.details=details; }
 }
 function settings(env = process.env) {
   if (env.PAYMENT_PROVIDER !== 'VNPAY' || env.VNPAY_ENV !== 'sandbox')
@@ -96,16 +96,36 @@ class VnpayProvider {
       failed:fields.vnp_TransactionStatus==='02',source:query?'QUERYDR':'IPN'};
   }
   async query(attempt) {
-    const ip=this.env.VNPAY_QUERY_IP;
-    if(!isIP(ip||''))throw new VnpayError('failed-precondition','Cấu hình VNPAY_QUERY_IP bằng IP outbound thực tế của server để QueryDR.');
+    // Cloud Run uses dynamic egress unless a fixed NAT has been configured.
+    // Discover the public server IP for sandbox QueryDR; never use the mobile IP.
+    let ip=this.env.VNPAY_QUERY_IP;
+    if(!ip&&this.env.K_SERVICE){
+      try{
+        const response=await this.fetch('https://api.ipify.org',{redirect:'error',signal:AbortSignal.timeout(4000)});
+        if(!response.ok)throw new Error('IP lookup failed');
+        ip=(await response.text()).trim();
+      }catch{throw new VnpayError('unavailable','Chưa thể kiểm tra kết quả thanh toán. Vui lòng thử lại.',{reason:'QUERY_IP_DISCOVERY_FAILED'});}
+    }
+    if(!isIP(ip||''))throw new VnpayError('failed-precondition','Cấu hình VNPAY_QUERY_IP bằng IP outbound thực tế của server để QueryDR.',{reason:'QUERY_IP_NOT_CONFIGURED'});
     const body={vnp_RequestId:crypto.randomBytes(16).toString('hex'),vnp_Version:'2.1.0',vnp_Command:'querydr',vnp_TmnCode:this.tmnCode,
       vnp_TxnRef:attempt.reference,vnp_TransactionDate:attempt.createDate,vnp_CreateDate:dateVn(new Date()),vnp_IpAddr:ip,vnp_OrderInfo:`Query ${attempt.reference}`};
     body.vnp_SecureHash=hmac(this.secret,pipeData(body,QUERY_REQUEST_FIELDS));
     let response,data;
-    try {response=await this.fetch(QUERY_URL,{method:'POST',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});data=await response.json();}
-    catch(error){throw new VnpayError(error.name==='TimeoutError'?'deadline-exceeded':'unavailable','QueryDR chưa có kết quả; không suy luận thanh toán thất bại.');}
-    if(!response.ok)throw new VnpayError('unavailable','QueryDR HTTP không thành công.');
-    if(!sameHash(data?.vnp_SecureHash,hmac(this.secret,pipeData(data,QUERY_RESPONSE_FIELDS))))throw new VnpayError('data-loss','Chữ ký QueryDR không hợp lệ.');
+    try {
+      const options={method:'POST',redirect:'error',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)};
+      response=await this.fetch(QUERY_URL,options);
+      if(!response.ok)throw new VnpayError('unavailable','QueryDR HTTP không thành công.',{reason:'QUERY_HTTP_ERROR',httpStatus:response.status});
+      data=await response.json();
+    } catch(error){
+      if(error instanceof VnpayError)throw error;
+      const code=error.cause?.code||error.code;
+      const networkCode=['ETIMEDOUT','ECONNRESET','ECONNREFUSED','ENOTFOUND','EAI_AGAIN','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_SOCKET','ABORT_ERR'].includes(code)?code:undefined;
+      const timeout=error.name==='TimeoutError'||error.name==='AbortError'||['ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','ABORT_ERR'].includes(networkCode);
+      throw new VnpayError(timeout?'deadline-exceeded':'unavailable','QueryDR chưa có kết quả; không suy luận thanh toán thất bại.',{reason:timeout?'QUERY_TIMEOUT':error.name==='SyntaxError'?'QUERY_RESPONSE_UNREADABLE':'QUERY_NETWORK_ERROR',...(networkCode?{networkCode}:{})});
+    }
+    // An unsigned API throttle error is never payment evidence; it can only postpone a retry.
+    if(data?.vnp_ResponseCode==='94')throw new VnpayError('resource-exhausted','VNPAY giới hạn tra cứu. Chờ 5 phút trước lần kiểm tra tiếp theo.',{reason:'QUERY_RATE_LIMITED',retryAfterSeconds:300});
+    if(!sameHash(data?.vnp_SecureHash,hmac(this.secret,pipeData(data,QUERY_RESPONSE_FIELDS))))throw new VnpayError('data-loss','Chữ ký QueryDR không hợp lệ.',{reason:'QUERY_SIGNATURE_INVALID'});
     if(data.vnp_TmnCode!==this.tmnCode||data.vnp_TxnRef!==attempt.reference||data.vnp_Command!=='querydr'||!/^[A-Za-z0-9]{1,32}$/.test(data.vnp_ResponseId||''))
       throw new VnpayError('data-loss','QueryDR không khớp giao dịch.');
     if(data.vnp_ResponseCode!=='00')return {pending:true};

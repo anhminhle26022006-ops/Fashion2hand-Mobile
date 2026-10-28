@@ -82,6 +82,52 @@ test("Identity submission stores private evidence, survives retries and reaches 
   const imageResponse = await fetch(`http://127.0.0.1:9199/v0/b/${stored.get("evidenceBucket")}/o/${encodeURIComponent(stored.get("evidencePaths")[0])}?alt=media`, { headers: { authorization: `Bearer ${other.token}` } }); assert.equal(imageResponse.status, 403);
 });
 
+test("Verification rules deny direct access and approval rejects forged, stale or incomplete evidence", async () => {
+  const owner = await user(), other = await user(), admin = await user(true);
+  const docs = "http://127.0.0.1:8080/v1/projects/fashion2hand/databases/(default)/documents/verificationRequests";
+  const direct = { fields: { userId: { stringValue: owner.uid }, status: { stringValue: "PENDING" } } };
+  // No client may create or query private identity submissions, including an Admin client.
+  for (const actor of [null, owner, other, admin]) {
+    const headers = actor ? { authorization: `Bearer ${actor.token}` } : {};
+    assert.equal((await fetch(docs, { headers })).status, 403);
+    assert.equal((await http(`${docs}/${owner.uid}_forged`, direct, actor?.token, "PATCH")).status, 403);
+  }
+  const forged = db.doc(`verificationRequests/${owner.uid}_forged`);
+  await forged.set({ userId: owner.uid, status: "PENDING", evidencePaths: [] });
+  await db.doc(`users/${owner.uid}`).update({ verificationRequestId: forged.id, verificationStatus: "PENDING" });
+  await denied("adminMutate", { action: "verification", id: forged.id, requestId: "empty-evidence", value: { approve: true } }, admin);
+  assert.equal((await db.doc(`users/${owner.uid}`).get()).get("verificationStatus"), "PENDING");
+  for (const actor of [owner, other, admin]) {
+    assert.equal((await fetch(`${docs}/${forged.id}`, { headers: { authorization: `Bearer ${actor.token}` } })).status, 403);
+    assert.equal((await http(`${docs}/${forged.id}`, { fields: { status: { stringValue: "APPROVED" } } }, actor.token, "PATCH")).status, 403);
+    assert.equal((await fetch(`${docs}/${forged.id}`, { method: "DELETE", headers: { authorization: `Bearer ${actor.token}` } })).status, 403);
+  }
+  await db.doc(`users/${owner.uid}`).update({ verificationStatus: "UNVERIFIED" });
+  const bytes = Buffer.alloc(128); bytes.set([0xff, 0xd8, 0xff]); bytes.set([0xff, 0xd9], 126);
+  const image = bytes.toString("base64");
+  const submitted = await ok("submitVerification", { requestId: "evidence-check", legalName: "Evidence fixture", birthDate: "01/01/2000", documentType: "CCCD gắn chip", identityNumber: "012345678901", accurate: true, consent: true, photos: { front: image, back: image, selfie: image } }, owner);
+  const ref = db.doc(`verificationRequests/${submitted.id}`), original = (await ref.get()).data();
+  let attempt = 0;
+  const rejectApproval = async () => {
+    await denied("adminMutate", { action: "verification", id: ref.id, requestId: `bad-evidence-${attempt++}`, value: { approve: true } }, admin);
+    assert.equal((await ref.get()).get("status"), "PENDING");
+    assert.equal((await db.doc(`users/${owner.uid}`).get()).get("verificationStatus"), "PENDING");
+  };
+  await db.doc(`users/${owner.uid}`).update({ verificationRequestId: forged.id }); await rejectApproval();
+  await db.doc(`users/${owner.uid}`).update({ verificationRequestId: ref.id });
+  for (const evidencePaths of [[], [original.evidencePaths[0], original.evidencePaths[0], original.evidencePaths[2]], original.evidencePaths.map(p => p.replace(owner.uid, other.uid))]) {
+    await ref.update({ evidencePaths }); await rejectApproval();
+  }
+  await ref.set(original);
+  const file = getStorage(app).bucket(original.evidenceBucket).file(original.evidencePaths[0]);
+  await file.setMetadata({ contentType: "application/octet-stream" }); await rejectApproval();
+  await file.setMetadata({ contentType: "image/jpeg" });
+  await file.delete(); await rejectApproval();
+  await file.save(bytes, { resumable: false, metadata: { contentType: "image/jpeg" } });
+  await ok("adminMutate", { action: "verification", id: ref.id, requestId: "complete-evidence", value: { approve: true } }, admin);
+  assert.equal((await db.doc(`users/${owner.uid}`).get()).get("verificationStatus"), "VERIFIED");
+});
+
 test("Support tickets are idempotent, visible to Admin and return actual resolutions to their owner", async () => {
   const owner = await user(), admin = await user(true), other = await user();
   const request = { requestId: "support", title: "Cần hỗ trợ kiểm thử", description: "Nội dung yêu cầu hỗ trợ kiểm thử từ emulator." };

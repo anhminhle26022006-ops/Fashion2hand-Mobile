@@ -53,3 +53,38 @@ test('QueryDR timeout/network/not-found remains unknown, never fabricates failur
 test('signed callback cannot change VND currency',()=>{
  const p=new VnpayProvider(fixture);assert.throws(()=>p.normalize({vnp_CurrCode:'USD'}),/currency/);
 });
+
+test('Cloud Run sandbox discovers server IP when QueryDR IP is unset and verifies the response',async()=>{
+ const calls=[];
+ const p=new VnpayProvider({...fixture,env:{...env,K_SERVICE:'sandbox-reconcile',VNPAY_QUERY_IP:''},fetchImpl:async(url,options)=>{
+   calls.push(url);
+   if(url==='https://api.ipify.org')return {ok:true,text:async()=> '203.0.113.19\n'};
+   const body=JSON.parse(options.body);assert.equal(body.vnp_IpAddr,'203.0.113.19');
+   const data=queryResponse();data.vnp_SecureHash=hmac(fixture.secret,pipeData(data,QUERY_RESPONSE_FIELDS));
+   return {ok:true,json:async()=>data};
+ }});
+ assert.equal((await p.query({reference:'REF',createDate:'20261027120000'})).success,true);
+ assert.deepEqual(calls,['https://api.ipify.org','https://sandbox.vnpayment.vn/merchant_webapi/api/transaction']);
+});
+
+test('IP discovery failure or invalid response never sends an invented QueryDR IP',async()=>{
+ for(const result of [null,'not-an-ip']){
+   let calls=0;
+   const p=new VnpayProvider({...fixture,env:{...env,K_SERVICE:'sandbox-reconcile',VNPAY_QUERY_IP:''},fetchImpl:async()=>{
+     calls++;if(result===null)throw Error('lookup unavailable');return {ok:true,text:async()=>result};
+   }});
+   await assert.rejects(p.query({reference:'REF'}));assert.equal(calls,1);
+ }
+});
+
+test('QueryDR reports only safe timeout and HTTP diagnostics, never signed request contents',async()=>{
+ const p=new VnpayProvider({...fixture,fetchImpl:async()=>{throw Object.assign(new Error('secret transport details'),{cause:{code:'UND_ERR_CONNECT_TIMEOUT'}});}});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.code==='deadline-exceeded'&&error.details.reason==='QUERY_TIMEOUT'&&error.details.networkCode==='UND_ERR_CONNECT_TIMEOUT'&&!JSON.stringify(error).includes('secret transport details'));
+ p.fetch=async()=>({ok:false,status:503,json:async()=>{throw Error('untrusted HTML');}});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.details.reason==='QUERY_HTTP_ERROR'&&error.details.httpStatus===503);
+});
+
+test('unsigned query limit code 94 only delays retry and never provides payment evidence',async()=>{
+ const p=new VnpayProvider({...fixture,fetchImpl:async()=>({ok:true,json:async()=>({vnp_ResponseCode:'94',vnp_TransactionStatus:'00'})})});
+ await assert.rejects(p.query({reference:'REF',createDate:'20261027120000'}),error=>error.code==='resource-exhausted'&&error.details.reason==='QUERY_RATE_LIMITED'&&error.details.retryAfterSeconds===300);
+});

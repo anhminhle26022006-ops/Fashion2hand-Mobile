@@ -123,7 +123,8 @@ public class TransactionFlowTest {
             openOrderFromProfile(scenario, title, true); click(scenario, R.id.btnSellerConfirm); status(id, "PREPARING");
             click(scenario, R.id.btnSellerReady); status(id, "READY_TO_SHIP"); click(scenario, R.id.btnCreateShipment); status(id, "SHIPPING");
             click(scenario, R.id.btnTrackShipping); waitFor(scenario, R.id.liveShipmentEvents);
-            click(scenario, R.id.btnOpenDeliveryMap); waitText(scenario, "Chưa có vị trí từ backend");
+            click(scenario, R.id.btnOpenDeliveryMap); waitFor(scenario, R.id.shipmentPickupAddress); waitFor(scenario, R.id.shipmentDeliveryAddress);
+            waitFor(scenario, R.id.liveShipmentEvents); waitFor(scenario, R.id.btnShipmentDirections);
             scenario.onActivity(a -> assertNull(a.findViewById(R.id.btnOpenTrackingMap)));
             click(scenario, R.id.btnTransactionBack); click(scenario, R.id.btnTransactionBack);
             await(repo.simulateShipmentLocation(id, 10.77, 106.7));

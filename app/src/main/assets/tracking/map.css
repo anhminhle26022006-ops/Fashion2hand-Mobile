@@ -1,0 +1,7 @@
+html, body, #map { width: 100%; height: 100%; margin: 0; background: #edf2ed; font-family: sans-serif; }
+.tracking-pin { border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 7px #0004; text-align: center; color: white; line-height: 28px; font-weight: bold; }
+.pickup { background: #185b42; }
+.delivery { background: #d66a42; }
+.checkpoint { background: #526bc0; }
+.leaflet-control-attribution { font-size: 10px; }
+#mapNotice { position: absolute; z-index: 1000; left: 45px; right: 8px; top: 8px; padding: 8px; border-radius: 8px; background: white; color: #6b4934; font-size: 12px; }

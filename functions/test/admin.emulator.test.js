@@ -86,10 +86,13 @@ test("Settings validate, persist, reject stale saves and deduplicate identical r
 test("Reports, warnings and verification decisions persist and cannot be overwritten", async () => {
  const admin = await user("ADMIN", true), target = await user(); const report = db.collection("reports").doc(), verification = db.collection("verificationRequests").doc();
  await report.set({ reporterId: target.uid, targetType: "USER", targetId: target.uid, reason: "Spam", description: "Test", status: "PENDING" });
- await verification.set({ userId: target.uid, status: "PENDING", requestType: "IDENTITY", evidencePaths: [] });
+ const bytes = Buffer.alloc(128); bytes.set([0xff, 0xd8, 0xff]); bytes.set([0xff, 0xd9], 126);
+ const image = bytes.toString("base64");
+ const submitted = await ok("submitVerification", { requestId: verification.id, legalName: "Admin review fixture", birthDate: "01/01/2000", documentType: "CCCD gắn chip", identityNumber: "012345678901", accurate: true, consent: true, photos: { front: image, back: image, selfie: image } }, target);
+ const submittedRef = db.doc(`verificationRequests/${submitted.id}`);
  await mutate(admin, "report", report.id, { status: "RESOLVED" }); assert.equal((await report.get()).get("status"), "RESOLVED");
- await mutate(admin, "verification", verification.id, { approve: true }); assert.equal((await db.doc(`users/${target.uid}`).get()).get("verificationStatus"), "VERIFIED");
- await denied("adminMutate", { action: "verification", id: verification.id, value: { approve: false }, note: "Thử thay đổi", requestId: "second-decision" }, admin);
+ await mutate(admin, "verification", submittedRef.id, { approve: true }); assert.equal((await db.doc(`users/${target.uid}`).get()).get("verificationStatus"), "VERIFIED");
+ await denied("adminMutate", { action: "verification", id: submittedRef.id, value: { approve: false }, note: "Thử thay đổi", requestId: "second-decision" }, admin);
  await mutate(admin, "userWarning", target.uid, {}, "Cảnh báo nội dung kiểm thử"); assert.equal((await db.collection(`users/${target.uid}/notifications`).where("type", "==", "ADMIN_WARNING").get()).size, 1);
 });
 test("Dispute decisions atomically refund or release once, WAITING_EVIDENCE blocks buyer payout, and evidence stays private", async () => {

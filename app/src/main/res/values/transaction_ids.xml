@@ -28,8 +28,17 @@
     <item name="liveOrderTimeline" type="id" />
     <item name="liveShipmentEvents" type="id" />
     <item name="liveMoneyEvents" type="id" />
+    <item name="paymentSuccessMessage" type="id" />
+    <item name="btnPaymentComplete" type="id" />
+    <item name="mainNavigationShell" type="id" />
+    <item name="btnRefreshGhnShipment" type="id" />
     <item name="txtDisputeState" type="id" />
     <item name="edtSimulatedLat" type="id" />
     <item name="edtSimulatedLng" type="id" />
     <item name="btnSaveSimulatedLocation" type="id" />
+    <item name="shipmentMap" type="id" />
+    <item name="shipmentMapState" type="id" />
+    <item name="shipmentPickupAddress" type="id" />
+    <item name="shipmentDeliveryAddress" type="id" />
+    <item name="btnShipmentDirections" type="id" />
 </resources>

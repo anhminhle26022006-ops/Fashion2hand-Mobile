@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:padding="12dp" android:background="@drawable/bg_transaction_card">
+    <CheckBox android:id="@+id/cartItemChecked" android:layout_width="36dp" android:layout_height="48dp"
+        android:buttonTint="#164C3B" android:contentDescription="Chọn món này" />
+    <ImageView android:id="@+id/cartItemImage" android:layout_width="76dp" android:layout_height="100dp"
+        android:scaleType="centerCrop" android:src="@drawable/img_product_placeholder"
+        android:background="@drawable/bg_white_card_rounded" android:clipToOutline="true"
+        android:contentDescription="Ảnh sản phẩm" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:orientation="vertical" android:layout_marginStart="12dp">
+        <TextView android:id="@+id/cartItemTitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="15sp" android:textStyle="bold" android:textColor="#173B32" android:maxLines="2" android:ellipsize="end" />
+        <TextView android:id="@+id/cartItemSeller" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="11sp" android:textColor="#65766C" android:layout_marginTop="4dp" />
+        <TextView android:id="@+id/cartItemDetail" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="11sp" android:textColor="#65766C" android:layout_marginTop="3dp" />
+        <TextView android:id="@+id/cartItemPrice" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="16sp" android:textStyle="bold" android:textColor="#EF765A" android:layout_marginTop="7dp" />
+        <TextView android:id="@+id/cartItemState" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="10sp" android:textColor="#65766C" android:layout_marginTop="3dp" />
+    </LinearLayout>
+    <ImageButton android:id="@+id/cartItemRemove" android:layout_width="44dp" android:layout_height="48dp"
+        android:layout_gravity="top" android:padding="12dp" android:src="@drawable/ic_trash"
+        android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="Xóa khỏi giỏ" />
+</LinearLayout>

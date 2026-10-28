@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:padding="12dp" android:background="#FFFFFF" android:elevation="8dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+        <CheckBox android:id="@+id/cartSelectAll" android:layout_width="wrap_content" android:layout_height="48dp"
+            android:text="Tất cả" android:textSize="13sp" android:textColor="#173B32" android:buttonTint="#164C3B" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:orientation="vertical" android:gravity="end" android:paddingEnd="10dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tổng tiền hàng"
+                android:textSize="10sp" android:textColor="#65766C" />
+            <TextView android:id="@+id/cartTotalAmount" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="0 đ" android:textSize="16sp" android:textStyle="bold" android:textColor="#EF765A" />
+        </LinearLayout>
+        <Button android:id="@id/btnCheckout" android:layout_width="128dp" android:layout_height="52dp"
+            android:paddingStart="8dp" android:paddingEnd="8dp"
+            android:text="Thanh toán (0)" android:textAllCaps="false" android:textSize="12sp"
+            android:textColor="#FFFFFF" android:backgroundTint="#104536" />
+    </LinearLayout>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Phí giao hàng được tính ở bước tiếp theo." android:textSize="10sp" android:textColor="#65766C" />
+</LinearLayout>
