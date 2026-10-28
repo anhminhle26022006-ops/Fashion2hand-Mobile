@@ -44,6 +44,8 @@ public class AdminSettingsActivity extends BaseAdminActivity {
           "Áp dụng cho bài đăng bán", String.valueOf(viewModel.getMaxPrice()));
   requirePhone = AdminUi.bindSwitchRow(findViewById(R.id.rowSettingRequirePhone), "Bắt buộc xác minh SĐT",
           "Người dùng phải xác thực OTP trước khi đăng bán", viewModel.isRequirePhoneBeforeSelling(), null);
+  // Nhóm đã tắt SMS/OTP và backend luôn lưu false, nên ẩn công tắc để Admin không bật nhầm.
+  findViewById(R.id.rowSettingRequirePhone).setVisibility(android.view.View.GONE);
 
   formFilled = viewModel.isLoaded();
   if (savedInstanceState != null) {

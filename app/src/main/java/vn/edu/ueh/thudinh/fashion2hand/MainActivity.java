@@ -33,6 +33,7 @@ import android.content.Intent;
 import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminLoginActivity;
 import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminMainActivity;
 import vn.edu.ueh.thudinh.fashion2hand.ui.report.ReportDialog;
+import vn.edu.ueh.thudinh.fashion2hand.ui.local.RecentHistoryUi;
 import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -1145,6 +1146,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }
         bindClick(R.id.btnOpenFilterSheet, this::showExploreFilterSheet);
+        RecentHistoryUi.bind(this, currentUid(), this::openProduct);
         listenForActivePosts();
         applyExploreFilter(selectedCategory);
     }
@@ -2722,6 +2724,7 @@ public class MainActivity extends AppCompatActivity {
         currentProductIsFree = "FREE".equalsIgnoreCase(type);
         long price = numberValue(currentProductData.get("price"));
         currentProductPrice = currentProductIsFree ? "0 đ" : String.format(java.util.Locale.getDefault(), "%,d đ", price);
+        RecentHistoryUi.recordView(this, currentUid(), currentPostId, currentProductName, currentProductPrice);
         backStack.push(origin);
         restoringScreen = true;
         showScreen(R.layout.activity_product_detail);
