@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:background="#FFFFFF">
+        <TextView android:id="@+id/btnFaqBack" android:layout_width="40dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" android:clickable="true" android:focusable="true" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Câu hỏi thường gặp" android:textColor="#173B32" android:textSize="15sp" android:textStyle="bold" />
+        <View android:layout_width="40dp" android:layout_height="1dp" />
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="HỖ TRỢ NGƯỜI DÙNG" android:textColor="#E97859" android:textSize="9sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="13dp" android:text="Bạn cần giúp gì?" android:textColor="#173B32" android:textSize="21sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="13dp" android:background="@drawable/bg_white_card_rounded">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Làm sao để đăng bán hoặc tặng một món đồ?" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:layout_marginBottom="12dp" android:text="Chọn mục Đăng bán, thêm ảnh, điền thông tin sản phẩm, chọn hình thức bán hoặc tặng rồi xem lại trước khi đăng." android:textColor="#65756D" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Làm sao để yêu cầu nhận món đồ miễn phí?" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="Mở sản phẩm có nhãn miễn phí, chọn Yêu cầu miễn phí và gửi thông tin nhận hàng. Bạn có thể theo dõi phản hồi trong Trung tâm giao dịch."
+                    android:textColor="#65756D"
+                    android:textSize="9sp" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Tôi theo dõi đơn hàng ở đâu?" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Vào Hồ sơ → Đơn hàng của tôi để xem đơn đã đặt. Mở chi tiết đơn hàng để xem vận chuyển hoặc chat với người bán." android:textColor="#65756D" android:textSize="9sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tổng quan (ngang): cột trái số liệu + biểu đồ, cột phải việc cần xử lý -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f2h_bg"
+    android:orientation="vertical">
+
+    <include layout="@layout/view_admin_topbar" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="3"
+                android:orientation="vertical">
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="-5dp"
+                    android:layout_marginEnd="-5dp"
+                    android:columnCount="@integer/admin_stat_columns">
+
+                    <include
+                        android:id="@+id/statUsers"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+
+                    <include
+                        android:id="@+id/statActive"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+
+                    <include
+                        android:id="@+id/statPosts"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+
+                    <include
+                        android:id="@+id/statOrders"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+
+                    <include
+                        android:id="@+id/statRevenue"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+
+                    <include
+                        android:id="@+id/statFree"
+                        layout="@layout/item_admin_stat"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_columnWeight="1"
+                        android:layout_margin="5dp" />
+                </GridLayout>
+
+                <TextView
+                    style="@style/AdminSectionTitle"
+                    android:text="Đơn hàng 7 ngày" />
+
+                <LinearLayout
+                    android:id="@+id/layoutAdminChart"
+                    style="@style/AdminCard"
+                    android:layout_height="150dp"
+                    android:gravity="bottom"
+                    android:orientation="horizontal"
+                    android:padding="14dp"
+                    android:showDividers="none" />
+
+                <TextView
+                    android:id="@+id/txtAdminChartTotal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="@color/f2h_text_muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_weight="2"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/AdminSectionTitle"
+                    android:text="Cần xử lý" />
+
+                <LinearLayout style="@style/AdminCard">
+
+                    <include
+                        android:id="@+id/rowTodoReports"
+                        layout="@layout/item_admin_menu_row" />
+
+                    <include
+                        android:id="@+id/rowTodoDisputes"
+                        layout="@layout/item_admin_menu_row" />
+
+                    <include
+                        android:id="@+id/rowTodoVerify"
+                        layout="@layout/item_admin_menu_row" />
+                </LinearLayout>
+
+                <TextView
+                    style="@style/AdminSectionTitle"
+                    android:text="Hoạt động gần đây" />
+
+                <LinearLayout
+                    android:id="@+id/layoutAdminRecent"
+                    style="@style/AdminCard" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

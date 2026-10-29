@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#F8F7F2">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
+        android:gravity="center_vertical" android:paddingHorizontal="14dp">
+        <TextView android:id="@+id/btnOrdersBack" android:layout_width="40dp" android:layout_height="40dp"
+            android:gravity="center" android:text="‹" android:textColor="#183C32" android:textSize="30sp"
+            android:background="@drawable/bg_white_card_rounded" android:clickable="true" android:focusable="true" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:gravity="center" android:text="Đơn hàng của tôi" android:textColor="#183C32"
+            android:textSize="16sp" android:textStyle="bold" />
+        <TextView android:id="@+id/btnTransactionHistory" android:layout_width="40dp" android:layout_height="40dp"
+            android:gravity="center" android:text="↻" android:textColor="#23795C" android:textSize="21sp"
+            android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:layout_marginHorizontal="16dp"
+        android:orientation="horizontal" android:background="#E9EEEA" android:padding="4dp">
+        <LinearLayout android:id="@+id/tabBuyer" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingHorizontal="10dp" android:background="@drawable/bg_white_card_rounded"
+            android:clickable="true" android:focusable="true">
+            <TextView android:layout_width="30dp" android:layout_height="30dp" android:gravity="center"
+                android:text="⬡" android:textColor="#FFFFFF" android:textSize="16sp" android:background="@drawable/bg_circle_primary" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đơn mua / nhận" android:textColor="#183C32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Buyer · Receiver" android:textColor="#8A968F" android:textSize="8sp" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/tabSeller" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingHorizontal="10dp" android:clickable="true" android:focusable="true">
+            <TextView android:layout_width="30dp" android:layout_height="30dp" android:gravity="center"
+                android:text="▣" android:textColor="#638075" android:textSize="15sp" android:background="#F6F8F6" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="8dp">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đơn bán / cho" android:textColor="#62736A" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Seller · Giver" android:textColor="#8A968F" android:textSize="8sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="12dp" android:orientation="horizontal" android:gravity="center_vertical">
+        <EditText android:id="@+id/edtOrderSearch" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:background="@drawable/bg_white_card_rounded" android:drawableStart="@drawable/ic_search"
+            android:drawablePadding="8dp" android:hint="Tìm mã đơn / sản phẩm" android:inputType="text"
+            android:paddingHorizontal="14dp" android:textColor="#183C32" android:textColorHint="#9AA39E" android:textSize="12sp" />
+        <TextView android:id="@+id/btnOrderAdvancedFilter" android:layout_width="42dp" android:layout_height="42dp"
+            android:layout_marginStart="8dp" android:gravity="center" android:text="☷" android:textColor="#104536"
+            android:textSize="21sp" android:background="#E8F1EB" android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginTop="8dp"
+        android:scrollbars="none" android:paddingStart="16dp" android:paddingEnd="16dp">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal" android:gravity="center_vertical">
+            <TextView android:id="@+id/filterOrdersAll" android:layout_width="wrap_content" android:layout_height="30dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_selected" android:text="Tất cả" android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" />
+            <TextView android:id="@+id/filterOrdersUnpaid" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_idle" android:text="Chờ thanh toán" android:textColor="#26332D" android:textSize="10sp" />
+            <TextView android:id="@+id/filterOrdersConfirm" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_idle" android:text="Chờ xác nhận" android:textColor="#26332D" android:textSize="10sp" />
+            <TextView android:id="@+id/filterOrdersPrepare" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_idle" android:text="Đang chuẩn bị" android:textColor="#26332D" android:textSize="10sp" />
+            <TextView android:id="@+id/filterOrdersShipping" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_idle" android:text="Đang giao" android:textColor="#26332D" android:textSize="10sp" />
+            <TextView android:id="@+id/filterOrdersDone" android:layout_width="wrap_content" android:layout_height="30dp" android:layout_marginStart="6dp" android:gravity="center" android:paddingHorizontal="12dp" android:background="@drawable/bg_chip_idle" android:text="Đã giao" android:textColor="#26332D" android:textSize="10sp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="2dp" android:background="#E5E9E4" />
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false">
+        <LinearLayout android:id="@+id/orderListContainer" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingBottom="18dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingVertical="13dp">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+                    <TextView android:id="@+id/txtOrderListSection" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ĐƠN ĐẾN" android:textColor="#E97859" android:textSize="9sp" android:textStyle="bold" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:orientation="horizontal">
+                        <TextView android:id="@+id/txtOrderCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="3" android:textColor="#183C32" android:textSize="15sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text=" đơn hàng" android:textColor="#183C32" android:textSize="15sp" />
+                    </LinearLayout>
+                </LinearLayout>
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Mới nhất  ›" android:textColor="#95A099" android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/orderCard1" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="11dp" android:layout_marginBottom="10dp" android:tag="buyer|shipping|ord10283 vintage denim jacket lan chi">
+                <include layout="@layout/item_order_list_purchase" />
+            </LinearLayout>
+            <LinearLayout android:id="@+id/orderCard2" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="11dp" android:layout_marginBottom="10dp" android:tag="buyer|prepare|ord10271 ao so mi linen trang mai phuong">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="8dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="#E3F0E7" android:paddingHorizontal="6dp" android:paddingVertical="3dp" android:text="FREE" android:textColor="#104536" android:textSize="8sp" android:textStyle="bold" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="7dp" android:text="#ORD10271 · 27/09/2026" android:textColor="#99A39D" android:textSize="8sp" />
+                    <TextView android:id="@+id/txtOrderStatusCard2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● Đang chuẩn bị" android:textColor="#23795C" android:textSize="9sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                    <TextView android:layout_width="72dp" android:layout_height="78dp" android:gravity="center" android:background="#E9DED4" android:text="👚" android:textSize="37sp" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Áo sơ mi linen trắng" android:textColor="#233B32" android:textSize="12sp" android:textStyle="bold" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Người bán: Mai Phương" android:textColor="#8D9991" android:textSize="9sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="0đ  ·  Phí ship 25.000đ" android:textColor="#8D9991" android:textSize="9sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tổng 25.000đ" android:textColor="#E97859" android:textSize="11sp" android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+                <include layout="@layout/item_order_list_status_row" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end" android:paddingTop="8dp"><TextView android:id="@+id/btnOrderDetail2" android:layout_width="wrap_content" android:layout_height="34dp" android:gravity="center" android:paddingHorizontal="12dp" android:text="Xem đơn" android:textColor="#104536" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" /></LinearLayout>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/orderCard3" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="11dp" android:layout_marginBottom="10dp" android:tag="buyer|done|ord10248 vay hoa vintage thao vy">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="8dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="#E3F0E7" android:paddingHorizontal="6dp" android:paddingVertical="3dp" android:text="FREE" android:textColor="#104536" android:textSize="8sp" android:textStyle="bold" />
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="7dp" android:text="#ORD10248 · 20/09/2026" android:textColor="#99A39D" android:textSize="8sp" />
+                    <TextView android:id="@+id/txtOrderStatusCard3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● Đã giao" android:textColor="#23795C" android:textSize="9sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                    <TextView android:layout_width="72dp" android:layout_height="78dp" android:gravity="center" android:background="#E9DED4" android:text="👗" android:textSize="37sp" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Váy hoa vintage" android:textColor="#233B32" android:textSize="12sp" android:textStyle="bold" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Người bán: Thảo Vy" android:textColor="#8D9991" android:textSize="9sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="0đ  ·  Phí ship 25.000đ" android:textColor="#8D9991" android:textSize="9sp" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tổng 25.000đ" android:textColor="#E97859" android:textSize="11sp" android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+                <include layout="@layout/item_order_list_status_row" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end" android:paddingTop="8dp"><TextView android:id="@+id/btnOrderDetail3" android:layout_width="wrap_content" android:layout_height="34dp" android:gravity="center" android:paddingHorizontal="12dp" android:text="Xem đơn" android:textColor="#104536" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" /></LinearLayout>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/orderCard4" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="11dp" android:layout_marginBottom="10dp" android:tag="seller|prepare|ord10304 ao khoac denim minh anh" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="8dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="#104536" android:paddingHorizontal="6dp" android:paddingVertical="3dp" android:text="PURCHASE" android:textColor="#FFFFFF" android:textSize="7sp" android:textStyle="bold" /><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="7dp" android:text="#ORD10304 · 30/09/2026" android:textColor="#99A39D" android:textSize="8sp" /><TextView android:id="@+id/txtOrderStatusCard4" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● Đang chuẩn bị" android:textColor="#23795C" android:textSize="9sp" /></LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"><TextView android:layout_width="72dp" android:layout_height="78dp" android:gravity="center" android:background="#E9DED4" android:text="🧥" android:textSize="37sp" /><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Áo khoác denim" android:textColor="#233B32" android:textSize="12sp" android:textStyle="bold" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Người mua: Minh Anh" android:textColor="#8D9991" android:textSize="9sp" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="120.000đ  ·  Phí ship 25.000đ" android:textColor="#8D9991" android:textSize="9sp" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Bạn nhận 120.000đ" android:textColor="#E97859" android:textSize="11sp" android:textStyle="bold" /></LinearLayout></LinearLayout>
+                <include layout="@layout/item_order_list_status_row" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end" android:paddingTop="8dp"><TextView android:id="@+id/btnOrderDetail4" android:layout_width="wrap_content" android:layout_height="34dp" android:gravity="center" android:paddingHorizontal="12dp" android:text="Xem đơn" android:textColor="#104536" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" /></LinearLayout>
+            </LinearLayout>
+            <LinearLayout android:id="@+id/orderCard5" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="11dp" android:layout_marginBottom="10dp" android:tag="seller|shipping|ord10299 vay hoa vintage thao vy" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingBottom="8dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="#E3F0E7" android:paddingHorizontal="6dp" android:paddingVertical="3dp" android:text="FREE" android:textColor="#104536" android:textSize="8sp" android:textStyle="bold" /><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="7dp" android:text="#ORD10299 · 29/09/2026" android:textColor="#99A39D" android:textSize="8sp" /><TextView android:id="@+id/txtOrderStatusCard5" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="● Đang giao" android:textColor="#23795C" android:textSize="9sp" /></LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"><TextView android:layout_width="72dp" android:layout_height="78dp" android:gravity="center" android:background="#E9DED4" android:text="👗" android:textSize="37sp" /><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Váy hoa vintage" android:textColor="#233B32" android:textSize="12sp" android:textStyle="bold" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Người nhận: Thảo Vy" android:textColor="#8D9991" android:textSize="9sp" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Miễn phí  ·  Phí ship do người nhận trả" android:textColor="#8D9991" android:textSize="9sp" /><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Đang vận chuyển" android:textColor="#E97859" android:textSize="11sp" android:textStyle="bold" /></LinearLayout></LinearLayout>
+                <include layout="@layout/item_order_list_status_row" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="end" android:paddingTop="8dp"><TextView android:id="@+id/btnOrderDetail5" android:layout_width="wrap_content" android:layout_height="34dp" android:gravity="center" android:paddingHorizontal="12dp" android:text="Xem đơn" android:textColor="#104536" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" /></LinearLayout>
+            </LinearLayout>
+            <TextView android:id="@+id/txtOrdersEmpty" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="28dp" android:gravity="center" android:text="Không tìm thấy đơn hàng phù hợp." android:textColor="#89948E" android:textSize="13sp" android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

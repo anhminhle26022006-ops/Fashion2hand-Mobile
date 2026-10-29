@@ -1,0 +1,66 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.accountStatus == 'ACTIVE';
+    }
+    function ownsPost(postId) {
+      return signedIn()
+        && firestore.get(/databases/(default)/documents/posts/$(postId)).data.ownerId == request.auth.uid;
+    }
+    // Reserved/sold photos remain visible to the two parties of that order.
+    function postOrderMember(postId) {
+      let post = firestore.get(/databases/(default)/documents/posts/$(postId)).data;
+      return signedIn() && 'reservedForOrderId' in post
+        && post.reservedForOrderId is string
+        && request.auth.uid in [
+          firestore.get(/databases/(default)/documents/orders/$(post.reservedForOrderId)).data.buyerId,
+          firestore.get(/databases/(default)/documents/orders/$(post.reservedForOrderId)).data.sellerId
+        ];
+    }
+
+    function verifiedAccount() {
+      return signedIn() && (request.auth.token.get('email_verified', false) == true
+        || (request.auth.token.get('admin', false) == true
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'));
+    }
+
+    match /posts/{postId}/images/{fileName} {
+      allow read: if firestore.get(/databases/(default)/documents/posts/$(postId)).data.status == 'ACTIVE'
+        || ownsPost(postId) || postOrderMember(postId);
+      allow create, update: if ownsPost(postId) && verifiedAccount()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if ownsPost(postId);
+    }
+
+    match /users/{uid}/avatar/{fileName} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /disputeEvidence/{orderId}/{reporterId}/{uploadKey}/{fileName} {
+      function order() {
+        return firestore.get(/databases/(default)/documents/orders/$(orderId));
+      }
+      function member() {
+        return signedIn() && request.auth.uid in [order().data.buyerId, order().data.sellerId];
+      }
+      function editable() {
+        return member() && request.auth.uid == reporterId
+          && order().data.orderStatus in ['SHIPPING', 'DELIVERED']
+          && !('disputeId' in order().data);
+      }
+      allow read: if member();
+      allow create, update: if editable() && fileName.matches('[0-4]\\.jpg')
+        && uploadKey.size() <= 128 && uploadKey.size() > 0
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if editable();
+    }
+  }
+}

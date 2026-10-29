@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+        <TextView android:id="@+id/btnSellBack" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textSize="32sp" android:textColor="#173B32"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BÁN HOẶC TRAO TẶNG" android:textColor="#E66F55" android:textSize="10sp" android:textStyle="bold" android:layout_marginTop="8dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tạo tin đăng" android:textColor="#173B32" android:textSize="25sp" android:layout_marginTop="4dp"/>
+        <TextView android:id="@+id/txtSellProgress" android:layout_width="match_parent" android:layout_height="54dp" android:gravity="center" android:text="●────────○────────○────────○\nẢnh                 Chi tiết              Hình thức             Xem trước" android:textColor="#14513E" android:textSize="11sp" android:layout_marginTop="14dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Thêm ảnh sản phẩm" android:textColor="#173B32" android:textSize="18sp" android:textStyle="bold" android:layout_marginTop="12dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Ảnh rõ nét giúp món đồ của bạn nổi bật hơn." android:textColor="#75857F" android:textSize="13sp" android:layout_marginTop="5dp"/>
+        <FrameLayout android:id="@+id/photoPickerArea" android:layout_width="match_parent" android:layout_height="150dp" android:layout_marginTop="20dp" android:background="@drawable/bg_image_upload" android:clickable="true" android:focusable="true">
+            <ImageView android:id="@+id/imgSellPhoto" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:visibility="gone" android:contentDescription="Ảnh sản phẩm đã chọn" />
+            <TextView android:id="@+id/btnChoosePhotos" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="▧\n\nMáy ảnh  ·  Thư viện\nChọn ảnh sản phẩm" android:textColor="#14513E" android:textSize="15sp" />
+        </FrameLayout>
+        <TextView android:id="@+id/txtSelectedPhoto" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="Có thể thêm tối đa 8 ảnh" android:textColor="#75857F" android:textSize="12sp" android:layout_marginTop="12dp"/>
+        <Button android:id="@+id/btnSellNext" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="28dp" android:backgroundTint="#14513E" android:text="Tiếp tục" android:textAllCaps="false" android:textColor="#FFFFFF" android:textStyle="bold"/>
+    </LinearLayout></ScrollView>
+</LinearLayout>

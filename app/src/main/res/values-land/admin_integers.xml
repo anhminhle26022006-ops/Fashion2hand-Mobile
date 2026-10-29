@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Màn hình ngang: danh sách 2 cột, thẻ số liệu 3 cột -->
+    <integer name="admin_grid_span">2</integer>
+    <integer name="admin_stat_columns">3</integer>
+    <integer name="admin_summary_columns">4</integer>
+</resources>

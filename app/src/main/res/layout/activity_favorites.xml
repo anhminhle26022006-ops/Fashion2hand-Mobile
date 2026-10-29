@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="58dp" android:gravity="center_vertical" android:paddingHorizontal="16dp" android:background="#FFFFFF">
+        <TextView android:id="@+id/btnFavoritesBack" android:layout_width="44dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Sản phẩm đã lưu" android:textColor="#173B32" android:textSize="16sp" />
+        <TextView android:layout_width="44dp" android:layout_height="48dp" />
+    </LinearLayout>
+
+    <RadioGroup android:id="@+id/favoriteFilters" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginHorizontal="16dp" android:layout_marginTop="10dp" android:layout_marginBottom="6dp" android:background="#ECEDE9" android:orientation="horizontal" android:padding="3dp">
+        <RadioButton android:id="@+id/filterFavoritesAll" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:checked="true" android:gravity="center" android:text="Tất cả" android:textColor="#173B32" android:textSize="10sp" android:background="@drawable/bg_favorite_filter" />
+        <RadioButton android:id="@+id/filterFavoritesAvailable" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:gravity="center" android:text="Còn hàng" android:textColor="#75857F" android:textSize="10sp" android:background="@drawable/bg_favorite_filter" />
+        <RadioButton android:id="@+id/filterFavoritesUnavailable" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:button="@null" android:gravity="center" android:text="Không khả dụng" android:textColor="#75857F" android:textSize="10sp" android:background="@drawable/bg_favorite_filter" />
+    </RadioGroup>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+        <GridLayout android:id="@+id/favoriteProductGrid" android:layout_width="match_parent" android:layout_height="wrap_content" android:columnCount="2" android:paddingHorizontal="16dp" android:paddingTop="10dp" android:paddingBottom="12dp" />
+        <TextView android:id="@+id/txtFavoritesEmpty" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="24dp" android:gravity="center" android:text="Chưa có sản phẩm đã lưu." android:textColor="#75857F" android:textSize="13sp" android:visibility="gone" />
+        </LinearLayout>
+    </ScrollView>
+
+    <include layout="@layout/bottom_navigation" />
+</LinearLayout>

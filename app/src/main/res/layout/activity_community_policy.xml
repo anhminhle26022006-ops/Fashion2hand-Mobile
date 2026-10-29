@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:background="#FFFFFF">
+        <TextView android:id="@+id/btnPolicyBack" android:layout_width="40dp" android:layout_height="42dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" android:clickable="true" android:focusable="true" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Chính sách cộng đồng" android:textColor="#173B32" android:textSize="14sp" android:textStyle="bold" />
+        <View android:layout_width="40dp" android:layout_height="1dp" />
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="15dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="CÙNG XÂY DỰNG CỘNG ĐỒNG TIN CẬY" android:textColor="#E97859" android:textSize="9sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="13dp" android:text="Quy tắc cộng đồng" android:textColor="#173B32" android:textSize="21sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp" android:background="@drawable/bg_white_card_rounded">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="1. Đăng tin trung thực" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="13dp" android:text="Mô tả đúng tình trạng, kích cỡ và nguồn gốc sản phẩm. Dùng hình ảnh phù hợp với món đồ đang đăng." android:textColor="#65756D" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="2. Giao dịch tôn trọng và an toàn" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:layout_marginBottom="13dp" android:text="Trao đổi lịch sự, xác nhận rõ điều kiện giao nhận và không chia sẻ mật khẩu, mã OTP hoặc thông tin bảo mật." android:textColor="#65756D" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="3. Không đăng nội dung bị cấm" android:textColor="#173B32" android:textSize="11sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Không đăng hàng giả, hàng bị cấm, nội dung lừa đảo, quấy rối hoặc xâm phạm quyền riêng tư của người khác." android:textColor="#65756D" android:textSize="9sp" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:padding="12dp" android:background="@drawable/bg_green_light_card" android:text="Nếu gặp nội dung hoặc hành vi không phù hợp, hãy báo cáo để đội ngũ hỗ trợ xem xét." android:textColor="#52665B" android:textSize="9sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

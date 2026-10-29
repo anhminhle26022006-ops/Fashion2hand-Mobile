@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1096676251064",
+    "project_id": "fashion2hand",
+    "storage_bucket": "fashion2hand.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096676251064:android:c2f2db842e2ace94e32b4d",
+        "android_client_info": {
+          "package_name": "vn.edu.ueh.thudinh.fashion2hand"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1096676251064-ukarvbohdl987ab0ji2nrq26f9m7jeu4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "vn.edu.ueh.thudinh.fashion2hand",
+            "certificate_hash": "ca45332600031d61eb2ba471f0a261947770c88e"
+          }
+        },
+        {
+          "client_id": "1096676251064-81ui01i8r222catpk2he0pa1gult0pe1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAB_br-OUYqLZIySgwL9AEek_GfZ17jJUU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1096676251064-81ui01i8r222catpk2he0pa1gult0pe1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

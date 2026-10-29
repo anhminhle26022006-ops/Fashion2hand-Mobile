@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f2h_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:background="@drawable/bg_admin_circle"
+            android:backgroundTint="@color/f2h_danger_soft"
+            android:importantForAccessibility="no"
+            android:padding="26dp"
+            android:src="@drawable/ic_admin_lock"
+            android:tint="@color/f2h_danger" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="Không có quyền truy cập"
+            android:textColor="@color/f2h_text"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:maxWidth="320dp"
+            android:text="Tài khoản này có vai trò USER. Khu vực quản trị chỉ dành cho tài khoản có vai trò ADMIN."
+            android:textColor="@color/f2h_text_muted"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:id="@+id/layoutDeniedInfo"
+            style="@style/AdminCard"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:id="@+id/btnDeniedBackToUser"
+            style="@style/AdminButton"
+            android:layout_width="match_parent"
+            android:layout_marginTop="24dp"
+            android:layout_weight="0"
+            android:background="@drawable/bg_admin_btn_primary"
+            android:text="Về ứng dụng người dùng"
+            android:textColor="@color/white" />
+
+        <TextView
+            android:id="@+id/btnDeniedOtherAccount"
+            style="@style/AdminButton"
+            android:layout_width="match_parent"
+            android:layout_marginTop="10dp"
+            android:layout_weight="0"
+            android:background="@drawable/bg_admin_btn_outline"
+            android:text="Đăng nhập tài khoản khác"
+            android:textColor="@color/f2h_text" />
+    </LinearLayout>
+</ScrollView>

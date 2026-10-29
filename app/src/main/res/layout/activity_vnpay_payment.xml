@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="#F8F7F1">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thanh toán" android:textSize="26sp" android:textColor="#124536" android:textStyle="bold" android:layout_marginTop="24dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="VNPAY · Chế độ thử nghiệm, không trừ tiền thật" android:textSize="14sp" android:textColor="#425C52" android:layout_marginTop="8dp" />
+        <TextView android:id="@+id/vnpayStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingTop="24dp" android:paddingBottom="24dp" android:text="Đang xác nhận thanh toán…" android:textColor="#124536" android:textSize="17sp" android:accessibilityLiveRegion="polite" />
+        <ProgressBar android:id="@+id/vnpayProgress" android:layout_width="wrap_content" android:layout_height="wrap_content" android:visibility="gone" />
+        <Button android:id="@+id/vnpayOpen" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tiếp tục thanh toán" android:backgroundTint="#124536" android:textColor="#FFFFFF" />
+        <Button android:id="@+id/vnpayRefresh" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Kiểm tra lại" android:backgroundTint="#E8EDE8" android:textColor="#124536" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Thanh toán xong, quay lại ứng dụng để xem đơn hàng. Kết quả được cập nhật tự động." android:paddingTop="20dp" android:paddingBottom="12dp" android:textColor="#425C52" />
+        <Button android:id="@+id/vnpayBack" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Quay lại đơn hàng" android:backgroundTint="#E8EDE8" android:textColor="#124536" />
+    </LinearLayout>
+</ScrollView>

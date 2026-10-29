@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:clipToPadding="false" android:background="#F8F6F0">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingTop="8dp" android:paddingBottom="14dp" android:background="@drawable/bg_bottom_sheet">
+            <View android:layout_width="42dp" android:layout_height="4dp" android:layout_gravity="center_horizontal" android:layout_marginBottom="13dp" android:background="#C8D0CA" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Báo cáo vấn đề" android:textColor="#183C32" android:textSize="17sp" android:textStyle="bold" />
+                <TextView android:id="@+id/btnCloseReport" android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="Đóng" android:textColor="#E66F55" android:textSize="10sp" android:textStyle="bold" android:clickable="true" android:focusable="true" />
+            </LinearLayout>
+            <RadioGroup android:id="@+id/rgReportReason" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:paddingHorizontal="12dp" android:background="@drawable/bg_white_card_rounded">
+                <RadioButton android:id="@+id/reportNotReceived" android:layout_width="match_parent" android:layout_height="44dp" android:buttonTint="#104536" android:text="Chưa nhận được hàng" android:textColor="#52645A" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/reportDamaged" android:layout_width="match_parent" android:layout_height="44dp" android:buttonTint="#104536" android:text="Sản phẩm bị hư hỏng" android:textColor="#52645A" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/reportMismatch" android:layout_width="match_parent" android:layout_height="44dp" android:buttonTint="#104536" android:text="Sản phẩm khác mô tả" android:textColor="#52645A" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/reportWrongItem" android:layout_width="match_parent" android:layout_height="44dp" android:buttonTint="#104536" android:text="Giao sai sản phẩm" android:textColor="#52645A" android:textSize="9sp" />
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E5E9E5" />
+                <RadioButton android:id="@+id/reportOther" android:layout_width="match_parent" android:layout_height="44dp" android:buttonTint="#104536" android:text="Khác" android:textColor="#52645A" android:textSize="9sp" />
+            </RadioGroup>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="122dp" android:layout_marginTop="10dp" android:orientation="vertical" android:padding="12dp" android:background="@drawable/bg_white_card_rounded">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mô tả" android:textColor="#263B32" android:textSize="9sp" android:textStyle="bold" />
+                <EditText android:id="@+id/edtReportDescription" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:background="@null" android:gravity="top|start" android:hint="Mô tả điều đã xảy ra..." android:inputType="textCapSentences|textMultiLine" android:paddingTop="7dp" android:textColor="#173B32" android:textSize="9sp" />
+            </LinearLayout>
+            <TextView android:id="@+id/btnAttachReportEvidence" android:layout_width="match_parent" android:layout_height="68dp" android:layout_marginTop="10dp" android:gravity="center" android:background="#EDF4EF" android:text="▣  Thêm ảnh hoặc bằng chứng\nTối đa 5 ảnh" android:textColor="#104536" android:textSize="9sp" android:clickable="true" android:focusable="true" />
+            <HorizontalScrollView android:id="@+id/reportEvidencePreviewScroll" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:scrollbars="none" android:visibility="gone">
+                <LinearLayout android:id="@+id/reportEvidencePreviewContainer" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" />
+            </HorizontalScrollView>
+            <Button android:id="@+id/btnSubmitReport" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="12dp" android:backgroundTint="#104536" android:text="Gửi tranh chấp" android:textAllCaps="false" android:textColor="#FFFFFF" android:textStyle="bold" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

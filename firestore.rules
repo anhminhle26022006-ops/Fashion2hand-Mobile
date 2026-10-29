@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Profile role/accountStatus are server-owned; a locked profile invalidates
+    // existing client sessions immediately, including their still-unexpired tokens.
+    function signedIn() {
+      return request.auth != null
+        && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'ACTIVE');
+    }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    // Admin requires both a signed claim and a server-owned active ADMIN profile.
+    function activeAdmin() {
+      return signedIn() && request.auth.token.get('admin', false) == true
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+    // Publication is immediate; verified email or active Admin (SMS is disabled),
+    // using signed Firebase Auth claims, never client-editable profile flags.
+    function verifiedAccount() {
+      return signedIn() && (request.auth.token.get('email_verified', false) == true || activeAdmin());
+    }
+    function involvedInPostOrder(data) {
+      return signedIn() && data.reservedForOrderId is string
+        && exists(/databases/$(database)/documents/orders/$(data.reservedForOrderId))
+        && (get(/databases/$(database)/documents/orders/$(data.reservedForOrderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(data.reservedForOrderId)).data.sellerId == request.auth.uid);
+    }
+    function validPost(data) {
+      return data.keys().hasAll(['ownerId','title','description','type','price','condition','status','createdAt','updatedAt'])
+        && data.ownerId is string
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 160
+        && data.description is string
+        && ((data.type == 'FREE' && data.price == 0) || (data.type == 'SALE' && data.price > 0))
+        && data.condition in ['NEW','LIKE_NEW','GOOD','FAIR'];
+    }
+    // Admin policy from systemConfig/active (written only by adminMutate). Missing config means defaults.
+    function policy() {
+      return exists(/databases/$(database)/documents/systemConfig/active)
+        ? get(/databases/$(database)/documents/systemConfig/active).data : {};
+    }
+    function withinPolicy(data) { return data.price <= policy().get('maxPrice', 2000000); }
+
+    match /users/{uid} {
+      allow read: if owns(uid);
+      allow create: if owns(uid) && request.resource.data.uid == uid
+        && request.resource.data.role == 'USER'
+        && request.resource.data.accountStatus == 'ACTIVE'
+        && request.resource.data.keys().hasOnly(['uid','name','email','role','accountStatus','createdAt','updatedAt']);
+      allow update: if owns(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['name','gender','birthDate','region','address','bio','photoUrl','updatedAt']);
+      allow delete: if false;
+      match /addresses/{addressId} {
+        allow read, create, update, delete: if owns(uid);
+      }
+      match /notifications/{notificationId} {
+        allow read: if owns(uid);
+        allow update: if owns(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt'])
+          && request.resource.data.read == true;
+        allow create, delete: if false;
+      }
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /posts/{postId} {
+      allow read: if resource.data.status == 'ACTIVE'
+        || (signedIn() && resource.data.ownerId == request.auth.uid)
+        || involvedInPostOrder(resource.data);
+        && withinPolicy(request.resource.data)
+      allow create: if verifiedAccount() && request.resource.data.ownerId == request.auth.uid
+        && validPost(request.resource.data)
+        && !request.resource.data.keys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked'])
+        && request.resource.data.status in ['DRAFT','PENDING_REVIEW','ACTIVE'];
+              && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['price','type']) || withinPolicy(request.resource.data))
+      allow update: if verifiedAccount() && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reservedForOrderId','moderatedBy','moderationLocked','createdAt'])
+        && (!('moderationLocked' in resource.data) || resource.data.moderationLocked == false)
+        && (request.resource.data.status == resource.data.status
+          || (resource.data.status in ['DRAFT','PENDING_REVIEW'] && request.resource.data.status == 'ACTIVE')
+          || (resource.data.status == 'ACTIVE' && request.resource.data.status == 'HIDDEN')
+          || (resource.data.status == 'HIDDEN' && request.resource.data.status == 'ACTIVE'))
+        && validPost(request.resource.data);
+      allow delete: if false;
+      match /images/{imageId} {
+        allow read: if get(/databases/$(database)/documents/posts/$(postId)).data.status == 'ACTIVE'
+          || (signedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.ownerId == request.auth.uid);
+        allow write: if signedIn()
+          && get(/databases/$(database)/documents/posts/$(postId)).data.ownerId == request.auth.uid;
+      }
+    }
+
+    match /users/{uid}/favorites/{postId} {
+      allow read, delete: if owns(uid);
+      allow create: if owns(uid)
+        && request.resource.data.keys().hasOnly(['postId','createdAt'])
+        && request.resource.data.postId == postId
+        && exists(/databases/$(database)/documents/posts/$(postId))
+        && get(/databases/$(database)/documents/posts/$(postId)).data.status == 'ACTIVE';
+      allow update: if false;
+    }
+    match /users/{uid}/cartItems/{postId} {
+      allow read, create, update, delete: if owns(uid);
+    }
+    match /freeRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.requesterId == request.auth.uid || resource.data.ownerId == request.auth.uid);
+      // Creation and decisions are made by trusted callable functions so that
+      // accepting a request and reserving a unique FREE post stay atomic.
+      allow create, update, delete: if false;
+    }
+    match /orders/{orderId} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+      match /items/{itemId} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId == request.auth.uid);
+        allow write: if false;
+      }
+      match /statusEvents/{eventId} {
+        allow read: if signedIn() && (get(/databases/$(database)/documents/orders/$(orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(orderId)).data.sellerId == request.auth.uid);
+        allow write: if false;
+      }
+    }
+    match /payments/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /moneyTransactions/{id} {
+      allow read: if signedIn() && resource.data.orderId is string
+        && (get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /refunds/{id} {
+      allow read: if signedIn() && resource.data.orderId is string
+        && (get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.buyerId == request.auth.uid
+          || get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /payouts/{id} { allow read, write: if false; }
+    match /shipments/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /chats/{chatId} {
+        allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
+      allow write: if false;
+      match /messages/{messageId} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+        allow create, update, delete: if false;
+      }
+    }
+    match /reviews/{id} { allow read: if true; allow write: if false; }
+        match /reports/{id} { allow read, write: if false; } // chỉ tạo qua submitReport / submitSupportTicket
+    match /disputes/{id} { allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid); allow write: if false; }
+    // Identity submissions and their private evidence are created by submitVerification.
+    // Clients read their submission through getAccountData; only Admin callables decide it.
+    match /verificationRequests/{id} { allow read, write: if false; }
+    match /shippingTariffs/{id} { allow read: if true; allow write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

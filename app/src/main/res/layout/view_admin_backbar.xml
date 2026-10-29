@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="10dp">
+
+    <ImageView
+        android:id="@+id/btnAdminBack"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_admin_circle"
+        android:backgroundTint="@color/f2h_surface_alt"
+        android:clickable="true"
+        android:contentDescription="Quay lại"
+        android:focusable="true"
+        android:padding="9dp"
+        android:src="@drawable/ic_admin_back"
+        android:tint="@color/f2h_text" />
+
+    <TextView
+        android:id="@+id/txtAdminBackTitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/f2h_text"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtAdminBackChip"
+        style="@style/AdminChip"
+        android:visibility="gone" />
+</LinearLayout>

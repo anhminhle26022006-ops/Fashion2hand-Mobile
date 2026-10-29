@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fashion2hand · Hồ sơ & xác minh</title>
+  <style>
+    :root{--green:#104536;--ink:#183c32;--paper:#f8f7f2;--mint:#edf4ef;--line:#e4e8e2;--muted:#87938d;--orange:#e97859;--white:#fff;--amber:#fff5e6}
+    *{box-sizing:border-box}body{margin:0;background:#e9ece8;color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;font-size:14px}.stage{min-height:100vh;display:grid;place-items:center;padding:24px}.phone{width:min(100%,390px);height:min(850px,calc(100vh - 48px));min-height:650px;background:var(--paper);border:7px solid #19211e;border-radius:36px;overflow:hidden;box-shadow:0 24px 70px #13281e2b;display:flex;flex-direction:column;position:relative}.screen{height:100%;display:flex;flex-direction:column}.screen[hidden]{display:none}.top{height:52px;flex:none;display:grid;grid-template-columns:42px 1fr 42px;align-items:center;padding:0 11px;background:var(--paper)}.back{width:36px;height:36px;border:0;border-radius:13px;background:#fff;color:var(--ink);font-size:24px;cursor:pointer}.title{text-align:center;font-size:14px;font-weight:700}.scroll{overflow:auto;flex:1;padding:4px 13px 18px}.profile{text-align:center;padding:8px 0 17px}.avatar{width:82px;height:82px;margin:0 auto 8px;border-radius:50%;border:3px solid #fff;background:linear-gradient(140deg,#d6e6da,#b7ccb9);display:grid;place-items:center;font-size:35px;box-shadow:0 2px 9px #172e1a14}.change-photo{border:0;background:transparent;color:var(--green);font-size:11px;font-weight:700;padding:6px}.field{margin:0 0 12px}.field label{display:block;font-size:10px;font-weight:750;margin-bottom:6px}.input,textarea,select{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:12px;font:inherit;font-size:11px;outline:none}.input{height:43px}textarea{height:76px;resize:none;line-height:1.45}.input:focus,textarea:focus,select:focus{border-color:#83aa91}.contact{border:1px solid #d7e8dc;background:var(--mint);border-radius:13px;padding:11px;margin:13px 0}.contact-head{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:800}.shield{width:22px;height:22px;border-radius:8px;background:#fff;display:grid;place-items:center;color:var(--green)}.contact p{font-size:8px;color:var(--muted);margin:5px 0 0 30px}.contact-actions{display:flex;gap:7px;margin-top:10px}.small-btn{border:1px solid #ccded1;border-radius:8px;background:#fff;color:var(--green);padding:7px 9px;font-size:8px;font-weight:700}.wide{width:100%;height:43px;border:0;border-radius:12px;background:var(--green);color:#fff;font-weight:800;font-size:11px;cursor:pointer}.secondary{background:#fff;color:var(--green);border:1px solid #d9e0da;margin-top:8px}.note{padding:10px;border-radius:11px;background:#fff5e6;border:1px solid #f0dfc4;color:#85622f;font-size:8px;line-height:1.45;margin:8px 0 12px}.section-title{font-size:11px;font-weight:800;margin:12px 0 8px}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.upload{height:91px;border:1px dashed #b9c9be;border-radius:12px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#728278;font-size:8px;text-align:center;cursor:pointer}.upload b{font-size:18px;color:var(--green)}.upload input{display:none}.upload.done{border-style:solid;border-color:#a9cdb4;background:var(--mint);color:var(--green)}.upload.selfie{grid-column:1/-1;height:76px}.checks{display:grid;gap:8px;margin:10px 0}.check{display:flex;gap:8px;align-items:flex-start;font-size:8px;color:#58685f;line-height:1.4}.check input{accent-color:var(--green);margin:1px 0 0}.steps{display:flex;gap:5px;margin:2px 0 13px}.step{flex:1;height:4px;border-radius:5px;background:#e1e6e0}.step.on{background:var(--green)}.status-card{padding:15px;background:var(--mint);border:1px solid #d7e8dc;border-radius:15px;text-align:center;margin:12px 0}.status-icon{width:44px;height:44px;border-radius:50%;margin:auto;background:#fff;display:grid;place-items:center;color:var(--green);font-size:22px}.status-card h2{font-size:14px;margin:9px 0 5px}.status-card p{font-size:9px;color:#718078;line-height:1.45;margin:0}.review-list{background:#fff;border:1px solid var(--line);border-radius:13px;padding:5px 11px;margin:11px 0}.review-row{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #edf0ec;font-size:8px}.review-row:last-child{border:0}.review-row span{color:var(--muted)}.review-row b{font-weight:750;text-align:right}.toast{position:absolute;bottom:14px;left:50%;transform:translate(-50%,12px);opacity:0;transition:.2s;background:#173c31;color:#fff;border-radius:10px;padding:9px 13px;font-size:9px;white-space:nowrap;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(max-width:520px){body{background:var(--paper)}.stage{padding:0;display:block}.phone{width:100%;height:100dvh;min-height:0;border:0;border-radius:0;box-shadow:none}.top{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}}
+  </style>
+</head>
+<body>
+  <main class="stage"><div class="phone" aria-label="Demo hồ sơ và xác minh Fashion2hand">
+    <section class="screen" id="profileScreen">
+      <header class="top"><button class="back" onclick="toast('Quay lại hồ sơ')">‹</button><div class="title">Chỉnh sửa hồ sơ</div><span></span></header>
+      <div class="scroll">
+        <div class="profile"><div class="avatar" id="avatar">👩🏻</div><label class="change-photo">▣ &nbsp;Đổi ảnh<input type="file" accept="image/*" hidden onchange="previewAvatar(this)"></label></div>
+        <div class="field"><label>Họ và tên</label><input class="input" value="Nguyễn Minh Anh" placeholder="Nhập họ tên hiển thị"></div>
+        <div class="field"><label>Giới tính <span style="font-weight:500;color:#89948e">(không bắt buộc)</span></label><select class="input"><option>Không muốn cung cấp</option><option>Nữ</option><option>Nam</option><option>Khác</option></select></div>
+        <div class="field"><label>Khu vực</label><input class="input" value="Quận 3, TP.HCM" placeholder="Quận / huyện, tỉnh / thành phố"></div>
+        <div class="field"><label>Địa chỉ giao hàng mặc định <span style="font-weight:500;color:#89948e">(riêng tư)</span></label><input class="input" value="" placeholder="Chỉ dùng khi bạn đặt đơn"></div>
+        <div class="field"><label>Giới thiệu</label><textarea>Yêu thời trang bền vững và những món đồ có câu chuyện.</textarea></div>
+        <div class="contact"><div class="contact-head"><span class="shield">✓</span>Email đã xác minh</div><p>minhanh.demo@email.com</p><div class="contact-actions"><button class="small-btn" onclick="toast('Email đã được xác minh')">Đổi email</button></div></div>
+        <div class="contact"><div class="contact-head"><span class="shield">✓</span>Số điện thoại đã xác minh</div><p id="phoneText">0901 234 567</p><div class="contact-actions"><button class="small-btn" onclick="verifyPhone()">Xác minh bằng OTP</button><button class="small-btn" onclick="toast('Mở cập nhật số điện thoại')">Đổi số điện thoại</button></div></div>
+        <button class="wide" onclick="toast('Đã lưu hồ sơ demo')">Lưu thay đổi</button>
+        <button class="wide secondary" onclick="showScreen('verifyScreen')">Xác minh danh tính</button>
+        <button class="wide secondary" onclick="showScreen('paymentScreen')">Thông tin nhận thanh toán</button>
+      </div>
+    </section>
+
+    <section class="screen" id="verifyScreen" hidden>
+      <header class="top"><button class="back" onclick="showScreen('profileScreen')">‹</button><div class="title">Xác minh tài khoản</div><span></span></header>
+      <div class="scroll">
+        <div class="steps"><i class="step on"></i><i class="step on"></i><i class="step"></i></div>
+        <div class="note"><b>Mục đích xác minh</b><br>Dùng để tăng độ tin cậy giữa người cho và người nhận, hỗ trợ xử lý tranh chấp và bảo vệ tài khoản. Thông tin giấy tờ chỉ dùng cho xác minh.</div>
+        <div class="section-title">1. Thông tin trên giấy tờ</div>
+        <div class="field"><label>Họ và tên pháp lý</label><input class="input" id="legalName" value="Nguyễn Minh Anh" placeholder="Nhập đúng theo CCCD"></div>
+        <div class="field"><label>Ngày sinh</label><input class="input" id="birthDate" type="date"></div>
+        <div class="field"><label>Loại giấy tờ</label><select class="input"><option>Căn cước công dân gắn chip</option><option>Chứng minh nhân dân</option><option>Hộ chiếu</option></select></div>
+        <div class="field"><label>Số CCCD / giấy tờ</label><input class="input" inputmode="numeric" placeholder="Nhập số trên giấy tờ"></div>
+        <div class="section-title">2. Ảnh xác minh</div>
+        <div class="upload-grid">
+          <label class="upload" id="frontUpload"><b>＋</b>Ảnh mặt trước CCCD<input type="file" accept="image/*" onchange="markUpload(this,'frontUpload','Đã chọn mặt trước ✓')"></label>
+          <label class="upload" id="backUpload"><b>＋</b>Ảnh mặt sau CCCD<input type="file" accept="image/*" onchange="markUpload(this,'backUpload','Đã chọn mặt sau ✓')"></label>
+          <label class="upload selfie" id="selfieUpload"><b>＋</b>Ảnh chân dung cầm giấy tờ<input type="file" accept="image/*" capture="user" onchange="markUpload(this,'selfieUpload','Đã chọn ảnh chân dung ✓')"></label>
+        </div>
+        <div class="section-title">3. Xác nhận</div>
+        <div class="checks"><label class="check"><input id="confirmAccurate" type="checkbox">Tôi xác nhận thông tin cung cấp là chính xác và thuộc về mình.</label><label class="check"><input id="confirmPrivacy" type="checkbox">Tôi đồng ý để Fashion2hand xử lý dữ liệu giấy tờ cho mục đích xác minh tài khoản.</label></div>
+        <button class="wide" onclick="submitVerification()">Gửi hồ sơ xác minh</button>
+        <button class="wide secondary" onclick="showScreen('profileScreen')">Để sau</button>
+      </div>
+    </section>
+
+    <section class="screen" id="paymentScreen" hidden>
+      <header class="top"><button class="back" onclick="showScreen('profileScreen')">‹</button><div class="title">Thông tin nhận thanh toán</div><span></span></header>
+      <div class="scroll">
+        <div class="note"><b>Dành cho người bán / người cho nhận hỗ trợ.</b><br>Thông tin này dùng riêng cho việc chuyển tiền hoặc hoàn tiền. Không nhập mật khẩu ngân hàng, mã OTP hay mã bảo mật thẻ.</div>
+        <div class="field"><label>Ngân hàng</label><select class="input"><option>Chọn ngân hàng</option><option>Vietcombank</option><option>Techcombank</option><option>MB Bank</option><option>ACB</option><option>Ngân hàng khác</option></select></div>
+        <div class="field"><label>Tên chủ tài khoản</label><input class="input" placeholder="Tên không dấu như trên tài khoản"></div>
+        <div class="field"><label>Số tài khoản</label><input class="input" inputmode="numeric" placeholder="Nhập số tài khoản"></div>
+        <div class="field"><label>Trạng thái tài khoản</label><div class="contact" style="margin-top:0"><div class="contact-head"><span class="shield">i</span><span id="paymentStatus">Chưa xác minh tài khoản</span></div><p>Tên chủ tài khoản sẽ được đối chiếu trước khi chuyển tiền.</p></div></div>
+        <div class="checks"><label class="check"><input type="checkbox" id="paymentConsent">Tôi xác nhận đây là tài khoản của mình và đồng ý dùng thông tin này cho giao dịch nhận tiền.</label></div>
+        <button class="wide" onclick="savePayment()">Lưu tài khoản nhận tiền</button>
+        <button class="wide secondary" onclick="showScreen('profileScreen')">Để sau</button>
+      </div>
+    </section>
+
+    <section class="screen" id="pendingScreen" hidden>
+      <header class="top"><button class="back" onclick="showScreen('profileScreen')">‹</button><div class="title">Trạng thái xác minh</div><span></span></header>
+      <div class="scroll">
+        <div class="status-card"><div class="status-icon">◷</div><h2>Hồ sơ đang được xem xét</h2><p>Chúng tôi sẽ thông báo kết quả trong mục thông báo. Thời gian xử lý dự kiến: 1–2 ngày làm việc.</p></div>
+        <div class="review-list"><div class="review-row"><span>Trạng thái</span><b style="color:#a26a1d">Đang chờ duyệt</b></div><div class="review-row"><span>Người gửi</span><b id="reviewName">Nguyễn Minh Anh</b></div><div class="review-row"><span>Giấy tờ</span><b>CCCD gắn chip</b></div><div class="review-row"><span>Mã hồ sơ</span><b>VER-2026-00128</b></div></div>
+        <div class="note">Trong thời gian xét duyệt, bạn vẫn dùng được các tính năng cơ bản. Nếu ảnh giấy tờ chưa rõ, hồ sơ có thể được yêu cầu bổ sung.</div>
+        <button class="wide" onclick="showScreen('profileScreen')">Về hồ sơ</button>
+      </div>
+    </section>
+    <div class="toast" id="toast"></div>
+  </div></main>
+  <script>
+    let timer;
+    function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.hidden=true);document.getElementById(id).hidden=false;document.querySelector('#'+id+' .scroll')?.scrollTo(0,0)}
+    function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(timer);timer=setTimeout(()=>el.classList.remove('show'),2200)}
+    function markUpload(input,id,label){if(!input.files?.length)return;const box=document.getElementById(id);box.classList.add('done');box.querySelector('b').textContent='✓';box.childNodes[1].textContent=label}
+    function submitVerification(){const required=['frontUpload','backUpload','selfieUpload'].every(id=>document.getElementById(id).classList.contains('done'));if(!document.getElementById('legalName').value.trim()||!document.getElementById('birthDate').value||!document.querySelector('input[inputmode="numeric"]').value.trim()){toast('Vui lòng điền đủ thông tin giấy tờ');return}if(!required){toast('Vui lòng tải đủ 3 ảnh xác minh');return}if(!document.getElementById('confirmAccurate').checked||!document.getElementById('confirmPrivacy').checked){toast('Vui lòng xác nhận thông tin và đồng ý xử lý dữ liệu');return}document.getElementById('reviewName').textContent=document.getElementById('legalName').value;showScreen('pendingScreen')}
+    function verifyPhone(){const code=prompt('Nhập mã OTP demo: 123456');if(code==='123456')toast('Số điện thoại đã được xác minh');else if(code)toast('Mã OTP chưa đúng')}
+    function savePayment(){const fields=document.querySelectorAll('#paymentScreen input.input');const bank=document.querySelector('#paymentScreen select').value;if(bank==='Chọn ngân hàng'||!fields[0].value.trim()||!fields[1].value.trim()){toast('Vui lòng nhập đủ thông tin tài khoản');return}if(!document.getElementById('paymentConsent').checked){toast('Vui lòng xác nhận chủ tài khoản');return}document.getElementById('paymentStatus').textContent='Đã lưu · Chờ đối chiếu';toast('Đã lưu tài khoản nhận tiền demo')}
+    function previewAvatar(input){if(!input.files?.[0])return;const url=URL.createObjectURL(input.files[0]);const el=document.getElementById('avatar');el.style.backgroundImage='url('+url+')';el.style.backgroundSize='cover';el.textContent=''}
+  </script>
+</body>
+</html>

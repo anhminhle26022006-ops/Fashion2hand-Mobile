@@ -1,0 +1,23 @@
+{
+  "indexes": [
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"orderStatus","order":"ASCENDING"},{"fieldPath":"inspectionDeadline","order":"ASCENDING"}]},
+    {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"type","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"categoryId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"posts","queryScope":"COLLECTION","fields":[{"fieldPath":"ownerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"buyerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"sellerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"orderStatus","order":"ASCENDING"},{"fieldPath":"paymentDeadline","order":"ASCENDING"}]},
+    {"collectionGroup":"orders","queryScope":"COLLECTION","fields":[{"fieldPath":"orderStatus","order":"ASCENDING"},{"fieldPath":"sellerResponseDeadline","order":"ASCENDING"}]},
+    {"collectionGroup":"moneyTransactions","queryScope":"COLLECTION","fields":[{"fieldPath":"orderId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"ASCENDING"}]},
+    {"collectionGroup":"chats","queryScope":"COLLECTION","fields":[{"fieldPath":"participantIds","arrayConfig":"CONTAINS"},{"fieldPath":"updatedAt","order":"DESCENDING"}]},
+    {"collectionGroup":"messages","queryScope":"COLLECTION","fields":[{"fieldPath":"read","order":"ASCENDING"},{"fieldPath":"senderId","order":"ASCENDING"}]},
+    {"collectionGroup":"freeRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"requesterId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"freeRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"ownerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"freeRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"postId","order":"ASCENDING"},{"fieldPath":"requesterId","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"}]},
+    {"collectionGroup":"freeRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"postId","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"}]},
+    {"collectionGroup":"freeRequests","queryScope":"COLLECTION","fields":[{"fieldPath":"ownerId","order":"ASCENDING"},{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]},
+    {"collectionGroup":"notifications","queryScope":"COLLECTION","fields":[{"fieldPath":"read","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}]}
+  ],
+  "fieldOverrides": []
+}

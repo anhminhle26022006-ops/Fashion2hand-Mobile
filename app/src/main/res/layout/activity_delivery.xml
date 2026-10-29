@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#F8F7F2">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="54dp" android:gravity="center_vertical" android:paddingHorizontal="12dp">
+        <TextView android:id="@+id/btnDeliveryBack" android:layout_width="40dp" android:layout_height="40dp" android:gravity="center" android:text="‹" android:textColor="#183C32" android:textSize="30sp" android:background="@drawable/bg_white_card_rounded" android:clickable="true" android:focusable="true" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Chi tiết vận chuyển" android:textColor="#183C32" android:textSize="15sp" android:textStyle="bold" />
+        <View android:layout_width="40dp" android:layout_height="40dp" />
+    </LinearLayout>
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:clipToPadding="false">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingBottom="18dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="90dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="13dp" android:background="#104536">
+                <TextView android:layout_width="42dp" android:layout_height="42dp" android:gravity="center" android:text="▣" android:textColor="#104536" android:textSize="22sp" android:background="#E5F0E8" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="10dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ĐANG VẬN CHUYỂN" android:textColor="#BFD8CA" android:textSize="7sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/txtDeliveryHeadline" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Kiện hàng đang trên đường đến bạn" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Cập nhật gần nhất hôm nay · 10:35" android:textColor="#BFD8CA" android:textSize="7sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:orientation="vertical" android:padding="11dp" android:background="#FFF6E8">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="♧  Shipping API Simulation" android:textColor="#9A682A" android:textSize="9sp" android:textStyle="bold" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Dữ liệu theo dõi minh họa, chưa kết nối nhà cung cấp vận chuyển." android:textColor="#A78A63" android:textSize="7sp" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:orientation="vertical" android:paddingHorizontal="11dp" android:background="@drawable/bg_white_card_rounded">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:gravity="center_vertical"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Nhà cung cấp" android:textColor="#89958D" android:textSize="8sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Dịch vụ giao hàng bên thứ ba" android:textColor="#26372F" android:textSize="8sp" android:textStyle="bold"/></LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E8EBE6"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:gravity="center_vertical"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Mã vận đơn" android:textColor="#89958D" android:textSize="8sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TRK123456789" android:textColor="#183C32" android:textSize="8sp" android:textStyle="bold"/></LinearLayout>
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#E8EBE6"/>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="38dp" android:gravity="center_vertical"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Dự kiến giao" android:textColor="#89958D" android:textSize="8sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Ngày mai · 14:00–16:00" android:textColor="#183C32" android:textSize="8sp" android:textStyle="bold"/></LinearLayout>
+            </LinearLayout>
+
+            <Button android:id="@+id/btnOpenDeliveryMap" android:layout_width="match_parent" android:layout_height="40dp" android:layout_marginTop="9dp" android:backgroundTint="#104536" android:text="◎   Xem bản đồ" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="9sp" android:textStyle="bold" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:orientation="horizontal" android:gravity="center_vertical" android:padding="10dp" android:background="#EDF4EF">
+                <TextView android:layout_width="15dp" android:layout_height="15dp" android:gravity="center" android:text="●" android:textColor="#24815C" android:textSize="12sp" android:background="#D0E7D8" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="8dp">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TRẠNG THÁI HIỆN TẠI" android:textColor="#E97859" android:textSize="7sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Kiện hàng đang di chuyển đến khu vực giao" android:textColor="#183C32" android:textSize="8sp" android:textStyle="bold" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Vị trí gần đúng: Cầu Thủ Thiêm · TP. Thủ Đức" android:textColor="#8B9890" android:textSize="7sp" />
+                </LinearLayout>
+                <TextView android:layout_width="20dp" android:layout_height="wrap_content" android:gravity="center" android:text="›" android:textColor="#183C32" android:textSize="19sp" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:orientation="vertical" android:padding="12dp" android:background="@drawable/bg_white_card_rounded">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Lịch sử vận chuyển" android:textColor="#183C32" android:textSize="13sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="7 sự kiện" android:textColor="#98A29B" android:textSize="7sp"/></LinearLayout>
+                <include layout="@layout/item_delivery_timeline" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

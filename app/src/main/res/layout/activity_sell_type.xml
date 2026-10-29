@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView android:id="@+id/btnSellTypeBack" android:layout_width="48dp" android:layout_height="48dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="32sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BÁN HOẶC TRAO TẶNG" android:textColor="#E66F55" android:textSize="10sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Tạo tin đăng" android:textColor="#173B32" android:textSize="24sp" />
+
+            <!-- Four step progress: step 3 is active -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:layout_marginBottom="20dp" android:gravity="center" android:orientation="horizontal">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="✓" android:textColor="#FFFFFF" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Ảnh" android:textColor="#14513E" android:textSize="8sp" />
+                </LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="✓" android:textColor="#FFFFFF" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Chi tiết" android:textColor="#14513E" android:textSize="8sp" />
+                </LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <FrameLayout android:layout_width="32dp" android:layout_height="32dp" android:background="@drawable/bg_green_circle_soft" android:padding="4dp">
+                        <TextView android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="3" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold" />
+                    </FrameLayout>
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Hình thức" android:textColor="#14513E" android:textSize="8sp" android:textStyle="bold" />
+                </LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8" />
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+                    <TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_number_inactive" android:gravity="center" android:text="4" android:textColor="#75857F" android:textSize="9sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Xem trước" android:textColor="#75857F" android:textSize="8sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bạn muốn đăng món đồ này thế nào?" android:textColor="#173B32" android:textSize="17sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Chọn một hình thức. Bạn có thể xem lại trước khi xuất bản." android:textColor="#75857F" android:textSize="10sp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:padding="14dp">
+                <RadioGroup android:id="@+id/rgListingType" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+                    <RadioButton android:id="@+id/radioFree" android:layout_width="match_parent" android:layout_height="82dp" android:background="@drawable/bg_listing_option" android:buttonTint="#14513E" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:text="♡    Tặng miễn phí&#10;       Trao món đồ cho người đang cần." android:textColor="#173B32" android:textSize="11sp" android:lineSpacingExtra="4dp" />
+                    <RadioButton android:id="@+id/radioSell" android:layout_width="match_parent" android:layout_height="82dp" android:layout_marginTop="8dp" android:background="@drawable/bg_listing_option" android:buttonTint="#14513E" android:checked="true" android:gravity="center_vertical" android:paddingHorizontal="12dp" android:text="▣    Đăng bán&#10;       Bạn là người quyết định giá." android:textColor="#173B32" android:textSize="11sp" android:lineSpacingExtra="4dp" />
+                </RadioGroup>
+
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="Đặt giá bán" android:textColor="#173B32" android:textSize="10sp" android:textStyle="bold" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="46dp" android:layout_marginTop="6dp" android:gravity="center_vertical" android:orientation="horizontal" android:background="@drawable/bg_form_input" android:paddingHorizontal="12dp">
+                    <EditText android:id="@+id/edtProductPrice" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@android:color/transparent" android:hint="120000" android:inputType="number" android:padding="0dp" android:text="120000" android:textColor="#26332D" android:textSize="11sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="đ" android:textColor="#173B32" android:textSize="10sp" android:textStyle="bold" />
+                </LinearLayout>
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Gợi ý: 30.000đ · 50.000đ · 100.000đ · 150.000đ" android:textColor="#75857F" android:textSize="8sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="72dp" android:orientation="horizontal" android:paddingHorizontal="16dp" android:gravity="center_vertical">
+        <Button android:id="@+id/btnSellTypePrevious" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:layout_marginEnd="8dp" android:background="@drawable/bg_button_outline" android:text="Quay lại" android:textAllCaps="false" android:textColor="#14513E" />
+        <Button android:id="@+id/btnSellTypeNext" android:layout_width="0dp" android:layout_height="50dp" android:layout_weight="1" android:layout_marginStart="8dp" android:backgroundTint="#14513E" android:text="Tiếp tục" android:textAllCaps="false" android:textColor="#FFFFFF" />
+    </LinearLayout>
+</LinearLayout>

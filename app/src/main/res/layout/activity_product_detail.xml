@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/productDetailRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <FrameLayout android:layout_width="match_parent" android:layout_height="320dp" android:background="#E5E3DC">
+                <TextView android:id="@+id/txtProductEmoji" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="👕" android:textSize="94sp" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="54dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="12dp">
+                    <TextView android:id="@+id/btnProductBack" android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="28sp" />
+                    <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                    <TextView android:id="@+id/btnProductReport" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginEnd="7dp" android:background="@drawable/bg_white_card_rounded" android:contentDescription="Báo cáo bài đăng" android:gravity="center" android:text="⚑" android:textColor="#B95242" android:textSize="18sp" />
+                    <TextView android:id="@+id/btnProductShare" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginEnd="7dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="↗" android:textColor="#173B32" android:textSize="19sp" />
+                    <TextView android:id="@+id/btnProductLike" android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center" android:text="♡" android:textColor="#E97859" android:textSize="22sp" />
+                </LinearLayout>
+                <TextView android:id="@+id/txtProductPhotoIndex" android:layout_width="40dp" android:layout_height="24dp" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="8dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="1 / 1" android:textColor="#FFFFFF" android:textSize="8sp" />
+            </FrameLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="-14dp" android:background="@drawable/bg_white_card_rounded" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingTop="16dp" android:paddingBottom="14dp">
+                <TextView android:id="@+id/txtProductTypeBadge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/bg_product_sale_badge" android:paddingHorizontal="8dp" android:paddingVertical="5dp" android:text="ĐANG BÁN" android:textColor="#9C3D28" android:textSize="10sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtProductName" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Vintage Denim Jacket" android:textColor="#173B32" android:textSize="19sp" />
+                <TextView android:id="@+id/txtProductPrice" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="120.000 đ" android:textColor="#E97859" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtProductActivity" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Đăng 2 giờ trước · 24 lượt xem" android:textColor="#89958E" android:textSize="8sp" />
+
+                <GridLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:columnCount="2">
+                    <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:layout_columnWeight="1" android:layout_marginEnd="4dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="8dp">
+                        <TextView android:layout_width="30dp" android:layout_height="30dp" android:background="@drawable/bg_green_light_card" android:gravity="center" android:text="☆" android:textColor="#14513E" android:textSize="17sp" />
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="7dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tình trạng" android:textColor="#89958E" android:textSize="7sp"/><TextView android:id="@+id/txtProductCondition" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Như mới" android:textColor="#173B32" android:textSize="9sp" android:textStyle="bold"/></LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:layout_columnWeight="1" android:layout_marginStart="4dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="8dp">
+                        <TextView android:layout_width="30dp" android:layout_height="30dp" android:background="@drawable/bg_green_light_card" android:gravity="center" android:text="♙" android:textColor="#14513E" android:textSize="15sp" />
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="7dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kích cỡ" android:textColor="#89958E" android:textSize="7sp"/><TextView android:id="@+id/txtProductSize" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="M" android:textColor="#173B32" android:textSize="9sp" android:textStyle="bold"/></LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:layout_columnWeight="1" android:layout_marginTop="7dp" android:layout_marginEnd="4dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="8dp">
+                        <TextView android:layout_width="30dp" android:layout_height="30dp" android:background="@drawable/bg_green_light_card" android:gravity="center" android:text="⬡" android:textColor="#14513E" android:textSize="15sp" />
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="7dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Danh mục" android:textColor="#89958E" android:textSize="7sp"/><TextView android:id="@+id/txtProductCategory" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Áo khoác" android:textColor="#173B32" android:textSize="9sp" android:textStyle="bold"/></LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout android:layout_width="0dp" android:layout_height="48dp" android:layout_columnWeight="1" android:layout_marginTop="7dp" android:layout_marginStart="4dp" android:background="@drawable/bg_white_card_rounded" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="8dp">
+                        <TextView android:layout_width="30dp" android:layout_height="30dp" android:background="@drawable/bg_green_light_card" android:gravity="center" android:text="⌂" android:textColor="#14513E" android:textSize="17sp" />
+                        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="7dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Vị trí" android:textColor="#89958E" android:textSize="7sp"/><TextView android:id="@+id/txtProductLocation" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Quận 3" android:textColor="#173B32" android:textSize="9sp" android:textStyle="bold"/></LinearLayout>
+                    </LinearLayout>
+                </GridLayout>
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="12dp" android:background="#E9EDE9" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Mô tả" android:textColor="#173B32" android:textSize="13sp" />
+                <TextView android:id="@+id/txtProductDescription" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:maxLines="4" android:text="Áo giữ gìn kỹ, form đẹp và dễ phối. Mình ít mặc nên muốn nhường lại cho bạn nào phù hợp. Có thể xem hàng trước khi nhận." android:textColor="#6E7C74" android:textSize="9sp" />
+                <TextView android:id="@+id/btnProductReadMore" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="Xem thêm" android:textColor="#14513E" android:textSize="9sp" android:textStyle="bold" />
+
+                <View android:layout_width="match_parent" android:layout_height="1dp" android:layout_marginTop="12dp" android:background="#E9EDE9" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="60dp" android:gravity="center_vertical" android:orientation="horizontal">
+                    <TextView android:layout_width="38dp" android:layout_height="38dp" android:background="@drawable/img_avatar_placeholder" android:gravity="center" android:text="👩🏻" android:textSize="20sp" />
+                    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="8dp"><TextView android:id="@+id/txtProductSeller" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Đang tải người đăng…" android:textColor="#173B32" android:textSize="9sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Xem hồ sơ và bài đăng của thành viên" android:textColor="#89958E" android:textSize="7sp"/></LinearLayout>
+                    <TextView android:id="@+id/btnViewSellerProfile" android:layout_width="76dp" android:layout_height="32dp" android:background="@drawable/bg_button_outline" android:gravity="center" android:text="Xem hồ sơ" android:textColor="#14513E" android:textSize="8sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:background="@drawable/bg_green_light_card" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="10dp">
+                    <TextView android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="♧" android:textColor="#14513E" android:textSize="17sp" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="6dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Giao dịch được bảo vệ" android:textColor="#14513E" android:textSize="8sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Thanh toán được giữ an toàn đến khi bạn xác nhận đã nhận hàng." android:textColor="#71877B" android:textSize="7sp"/></LinearLayout>
+                </LinearLayout>
+                <LinearLayout android:id="@+id/freeProductNotice" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="#FFF7E7" android:orientation="vertical" android:padding="10dp" android:visibility="gone">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sản phẩm này hoàn toàn miễn phí" android:textColor="#8C6824" android:textSize="8sp" android:textStyle="bold"/>
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Bạn chỉ cần thanh toán phí giao hàng dự kiến khi nhận." android:textColor="#9A8250" android:textSize="7sp"/>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="62dp" android:background="#FFFFFF" android:elevation="8dp" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="10dp">
+        <Button android:id="@+id/btnProductChat" android:layout_width="42dp" android:layout_height="44dp" android:background="@drawable/bg_green_light_card" android:backgroundTint="#EAF0EC" android:minWidth="0dp" android:padding="0dp" android:text="Chat" android:textAllCaps="false" android:textColor="#14513E" android:textSize="17sp" />
+        <Button android:id="@+id/btnAddToCart" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:layout_marginStart="6dp" android:background="@drawable/bg_button_outline" android:text="Thêm vào giỏ" android:textAllCaps="false" android:textColor="#14513E" android:textSize="9sp" />
+        <Button android:id="@+id/btnBuyNow" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:layout_marginStart="6dp" android:backgroundTint="#104536" android:text="Mua ngay" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="9sp" android:textStyle="bold" />
+        <Button android:id="@+id/btnRequestFree" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:layout_marginStart="6dp" android:backgroundTint="#104536" android:text="Yêu cầu miễn phí" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="8sp" android:textStyle="bold" android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

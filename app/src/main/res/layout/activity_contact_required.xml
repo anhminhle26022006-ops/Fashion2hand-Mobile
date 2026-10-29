@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:fillViewport="true" android:background="#FAF8F2">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="24dp" android:gravity="center_vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Xác minh tài khoản" android:textSize="26sp" android:textColor="#143E32" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="Xác minh email để hoàn tất đăng ký, đăng bài, mua hàng và xin đồ. Không bắt buộc xác minh số điện thoại. Nếu chưa thấy email, kiểm tra Thư rác. Bài đăng được công khai ngay, không cần Admin duyệt." />
+        <TextView android:id="@+id/txtContactRequiredStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginVertical="24dp" />
+        <Button android:id="@+id/btnSendVerificationEmail" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Gửi liên kết xác minh email" />
+        <Button android:id="@+id/btnRequiredPhone" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:visibility="gone" android:text="Thử OTP số điện thoại (mô phỏng)" />
+        <Button android:id="@+id/btnRefreshContactVerification" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Tôi đã xác minh — kiểm tra lại" />
+        <Button android:id="@+id/btnRequiredSignOut" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Đăng xuất" />
+    </LinearLayout>
+</ScrollView>

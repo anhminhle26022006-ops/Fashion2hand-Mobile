@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Màn chính Admin (dọc): nội dung ở trên, thanh điều hướng ở dưới -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/f2h_bg"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/adminFragmentContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/f2h_border" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/adminNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/f2h_surface"
+        app:itemActiveIndicatorStyle="@null"
+        app:itemIconTint="@color/admin_nav_item"
+        app:itemTextColor="@color/admin_nav_item"
+        app:labelVisibilityMode="labeled"
+        app:menu="@menu/menu_admin_nav" />
+</LinearLayout>

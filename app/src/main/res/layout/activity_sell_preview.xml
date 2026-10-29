@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8F6F0">
+
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="14dp" android:paddingTop="8dp" android:paddingBottom="12dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="42dp" android:gravity="center_vertical" android:orientation="horizontal">
+                <TextView android:id="@+id/btnSellPreviewBack" android:layout_width="36dp" android:layout_height="40dp" android:gravity="center" android:text="‹" android:textColor="#173B32" android:textSize="30sp" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Tạo tin đăng" android:textColor="#173B32" android:textSize="19sp" />
+                <TextView android:id="@+id/btnSaveSellDraft" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="8dp" android:text="Lưu nháp" android:textColor="#14513E" android:textSize="10sp" android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Four step progress: preview is step 4 -->
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:layout_marginBottom="16dp" android:gravity="center" android:orientation="horizontal">
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="✓" android:textColor="#FFFFFF" android:textSize="12sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Ảnh" android:textColor="#14513E" android:textSize="8sp"/></LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="✓" android:textColor="#FFFFFF" android:textSize="12sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Chi tiết" android:textColor="#14513E" android:textSize="8sp"/></LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><TextView android:layout_width="24dp" android:layout_height="24dp" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="✓" android:textColor="#FFFFFF" android:textSize="12sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Hình thức" android:textColor="#14513E" android:textSize="8sp"/></LinearLayout>
+                <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="0.5" android:layout_marginBottom="15dp" android:background="#D7DDD8"/>
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:orientation="vertical"><FrameLayout android:layout_width="32dp" android:layout_height="32dp" android:background="@drawable/bg_green_circle_soft" android:padding="4dp"><TextView android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_circle_primary" android:gravity="center" android:text="4" android:textColor="#FFFFFF" android:textSize="11sp" android:textStyle="bold"/></FrameLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Xem trước" android:textColor="#14513E" android:textSize="8sp" android:textStyle="bold"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Xem trước tin đăng" android:textColor="#173B32" android:textSize="17sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Đây là cách người mua hoặc người nhận sẽ thấy món đồ." android:textColor="#75857F" android:textSize="9sp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="vertical" android:background="@drawable/bg_white_card_rounded" android:clipToOutline="true">
+                <FrameLayout android:layout_width="match_parent" android:layout_height="220dp" android:background="#E7E4DC">
+                    <ImageView android:id="@+id/imgPreviewPhoto" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:visibility="gone" android:contentDescription="Ảnh sản phẩm" />
+                    <TextView android:id="@+id/txtPreviewPhoto" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="🧥" android:textSize="72sp" />
+                </FrameLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp">
+                    <TextView android:id="@+id/txtPreviewType" android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/bg_badge_red" android:paddingHorizontal="7dp" android:paddingVertical="4dp" android:text="FOR SALE" android:textColor="#B95242" android:textSize="8sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/txtPreviewName" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Áo khoác denim vintage" android:textColor="#173B32" android:textSize="15sp" />
+                    <TextView android:id="@+id/txtPreviewPrice" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="120.000đ" android:textColor="#E66F55" android:textSize="14sp" />
+                    <TextView android:id="@+id/txtPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="Tốt · M · Bình Thạnh, TP.HCM" android:textColor="#75857F" android:textSize="9sp" />
+                    <TextView android:id="@+id/txtPreviewDescription" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Mô tả sản phẩm" android:textColor="#26332D" android:textSize="12sp" android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:background="@drawable/bg_green_light_card" android:padding="12dp" android:text="Tin đăng và ảnh sẽ được lưu lên backend sau khi xuất bản thành công." android:textColor="#42605A" android:textSize="9sp" />
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="70dp" android:orientation="horizontal" android:paddingHorizontal="14dp" android:gravity="center_vertical">
+        <Button android:id="@+id/btnSellPreviewPrevious" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginEnd="7dp" android:background="@drawable/bg_button_outline" android:text="Quay lại" android:textAllCaps="false" android:textColor="#14513E" android:textSize="13sp" />
+        <Button android:id="@+id/btnPublishListing" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:layout_marginStart="7dp" android:backgroundTint="#14513E" android:text="Xuất bản tin đăng" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

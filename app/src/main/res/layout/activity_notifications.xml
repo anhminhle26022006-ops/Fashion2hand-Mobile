@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:gravity="center_vertical" android:paddingHorizontal="14dp" android:background="#FFFFFF">
+        <TextView android:id="@+id/btnNotificationsBack" android:layout_width="40dp" android:layout_height="44dp" android:gravity="center" android:text="‹" android:textSize="26sp" android:textColor="#173B32" android:clickable="true" android:focusable="true" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:text="Thông báo" android:textSize="15sp" android:textColor="#173B32" android:textStyle="bold" />
+        <TextView android:id="@+id/btnNotificationsMore" android:layout_width="40dp" android:layout_height="44dp" android:gravity="center" android:text="•••" android:textSize="16sp" android:textColor="#173B32" android:clickable="true" android:focusable="true" />
+    </LinearLayout>
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="52dp" android:scrollbars="none" android:background="#FFFFFF">
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="match_parent" android:gravity="center_vertical" android:orientation="horizontal" android:paddingHorizontal="8dp">
+            <TextView android:id="@+id/filterNotifAll" android:tag="all" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginHorizontal="4dp" android:gravity="center" android:paddingHorizontal="15dp" android:text="Tất cả" android:textSize="10sp" android:textStyle="bold" android:textColor="#FFFFFF" android:background="@drawable/bg_chip_selected" android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/filterNotifOrders" android:tag="orders" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginHorizontal="4dp" android:gravity="center" android:paddingHorizontal="13dp" android:text="Đơn hàng" android:textSize="10sp" android:textColor="#173B32" android:background="@drawable/bg_chip_idle" android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/filterNotifMessages" android:tag="messages" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginHorizontal="4dp" android:gravity="center" android:paddingHorizontal="13dp" android:text="Tin nhắn" android:textSize="10sp" android:textColor="#173B32" android:background="@drawable/bg_chip_idle" android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/filterNotifRequests" android:tag="requests" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginHorizontal="4dp" android:gravity="center" android:paddingHorizontal="13dp" android:text="Yêu cầu" android:textSize="10sp" android:textColor="#173B32" android:background="@drawable/bg_chip_idle" android:clickable="true" android:focusable="true" />
+            <TextView android:id="@+id/filterNotifPayments" android:tag="payments" android:layout_width="wrap_content" android:layout_height="34dp" android:layout_marginHorizontal="4dp" android:gravity="center" android:paddingHorizontal="13dp" android:text="Thanh toán" android:textSize="10sp" android:textColor="#173B32" android:background="@drawable/bg_chip_idle" android:clickable="true" android:focusable="true" />
+        </LinearLayout>
+    </HorizontalScrollView>
+    <TextView android:id="@+id/notificationStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="16dp" android:text="Đang tải thông báo…" android:textColor="#75857F" />
+    <Button android:id="@+id/notificationRetry" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="Thử lại" android:visibility="gone" />
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:id="@+id/notificationList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="14dp" />
+    </ScrollView>
+</LinearLayout>

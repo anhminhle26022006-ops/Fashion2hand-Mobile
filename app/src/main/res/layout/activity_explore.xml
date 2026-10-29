@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/exploreRoot" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#F8F6F0">
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="KHÁM PHÁ" android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.1" android:textColor="#E66F55" android:layout_marginBottom="7dp"/>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tìm món đồ tiếp theo" android:textSize="24sp" android:textColor="#173B32" android:layout_marginBottom="14dp"/>
+            <EditText android:id="@+id/edtExploreSearch" android:layout_width="match_parent" android:layout_height="48dp" android:hint="⌕  Tìm quần áo, thương hiệu, phong cách" android:singleLine="true" android:imeOptions="actionSearch" android:inputType="text" android:paddingStart="12dp" android:background="#FFFFFF" android:layout_marginBottom="12dp"/>
+            <LinearLayout android:id="@+id/layoutLocalHistory" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginBottom="12dp" android:visibility="gone">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+                    <TextView android:id="@+id/txtRecentSearchTitle" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Tìm gần đây" android:textSize="13sp" android:textStyle="bold" android:textColor="#173B32"/>
+                    <TextView android:id="@+id/btnClearLocalHistory" android:layout_width="wrap_content" android:layout_height="40dp" android:gravity="center_vertical" android:paddingHorizontal="8dp" android:text="Xóa lịch sử" android:textSize="13sp" android:textColor="#B95242"/>
+                </LinearLayout>
+                <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
+                    <LinearLayout android:id="@+id/layoutRecentSearches" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal"/>
+                </HorizontalScrollView>
+                <TextView android:id="@+id/txtRecentViewedTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:layout_marginBottom="6dp" android:text="Đã xem gần đây" android:textSize="13sp" android:textStyle="bold" android:textColor="#173B32"/>
+                <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
+                    <LinearLayout android:id="@+id/layoutRecentViewed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal"/>
+                </HorizontalScrollView>
+            </LinearLayout>
+            <Button android:id="@+id/btnOpenFilterSheet" android:layout_width="match_parent" android:layout_height="42dp" android:layout_marginBottom="14dp" android:backgroundTint="#14513E" android:text="☷  Bộ lọc" android:textAllCaps="false" android:textColor="#FFFFFF" android:textStyle="bold"/>
+            <TextView android:id="@+id/txtExploreCount" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sản phẩm gợi ý" android:textSize="14sp" android:textStyle="bold" android:textColor="#173B32" android:layout_marginBottom="8dp"/>
+            <GridLayout android:id="@+id/exploreProductGrid" android:layout_width="match_parent" android:layout_height="wrap_content" android:columnCount="2" />
+        </LinearLayout>
+    </ScrollView>
+    <include layout="@layout/bottom_navigation" />
+</LinearLayout>
