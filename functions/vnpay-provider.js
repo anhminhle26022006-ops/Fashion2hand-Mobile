@@ -82,7 +82,7 @@ class VnpayProvider {
     const data=canonical(params);return `${this.settings.paymentUrl}?${data}&vnp_SecureHash=${hmac(this.secret,data)}`;
   }
   verify(fields) { return sameHash(fields.vnp_SecureHash,hmac(this.secret,canonical(fields))); }
-  normalize(fields,{query=false}={}) {
+  normalize(fields,{query=false,source}={}) {
     if(fields.vnp_CurrCode!=null&&fields.vnp_CurrCode!=='VND')throw new VnpayError('invalid-argument','Invalid currency');
     if(fields.vnp_TmnCode!==this.tmnCode||!/^[A-Za-z0-9]{1,100}$/.test(fields.vnp_TxnRef||'')||
       !/^[0-9]{1,12}$/.test(fields.vnp_Amount||'')||!Number.isSafeInteger(Number(fields.vnp_Amount))||Number(fields.vnp_Amount)<=0||
@@ -93,7 +93,7 @@ class VnpayProvider {
       throw new VnpayError('invalid-argument','Missing payment evidence');
     return {reference:fields.vnp_TxnRef,units:fields.vnp_Amount,transactionNo:fields.vnp_TransactionNo,
       responseCode:fields.vnp_ResponseCode,transactionStatus:fields.vnp_TransactionStatus,payDate:fields.vnp_PayDate||'',success,
-      failed:fields.vnp_TransactionStatus==='02',source:query?'QUERYDR':'IPN'};
+      failed:fields.vnp_TransactionStatus==='02',source:source||(query?'QUERYDR':'IPN')};
   }
   async query(attempt) {
     // Cloud Run uses dynamic egress unless a fixed NAT has been configured.
