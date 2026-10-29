@@ -77,9 +77,19 @@ test('concurrent valid IPN commits one receipt and notifications, all items SOLD
  assert.equal((await db.collection(`users/${f.buyer}/notifications`).get()).size,1);
  await apply(f,{vnp_ResponseCode:'24',vnp_TransactionStatus:'02',vnp_TransactionNo:'0'});assert.equal((await f.payment()).get('status'),'PAID');
 });
-test('Return before/after IPN only offers app navigation; never marks payment or exposes callback',async()=>{
- const f=await fixture();const before=await http('vnpayReturn',callback(f));assert.equal(before.status,200);assert.ok(before.body.includes('fashion2hand://payment/'));assert.ok(!before.body.includes('vnp_SecureHash'));
- assert.equal((await f.payment()).get('status'),'PENDING');await apply(f);await http('vnpayReturn',callback(f));assert.equal((await f.payment()).get('status'),'PAID');
+test('signed Return records payment once through the IPN path; later IPN is a duplicate; forged or cancelled Return never pays',async()=>{
+ const forged=await fixture();const bad=callback(forged);bad.vnp_SecureHash='0'.repeat(128);
+ const rejected=await http('vnpayReturn',bad);assert.equal(rejected.status,400);assert.equal((await forged.payment()).get('status'),'PENDING');
+ const cancelled=await fixture();const back=await http('vnpayReturn',callback(cancelled,{vnp_ResponseCode:'24',vnp_TransactionStatus:'02',vnp_TransactionNo:'0'}));
+ assert.equal(back.status,200);assert.ok(back.body.includes('chưa thành công'));assert.equal((await cancelled.payment()).get('status'),'PENDING');
+ const f=await fixture();const page=await http('vnpayReturn',callback(f));
+ assert.equal(page.status,200);assert.ok(page.body.includes('fashion2hand://payment/'));assert.ok(page.body.includes('Đã xác nhận'));assert.ok(!page.body.includes('vnp_SecureHash'));
+ assert.equal((await f.payment()).get('status'),'PAID');assert.equal((await f.order()).get('orderStatus'),'CONFIRMED');
+ const receipts=await db.collection('vnpayTransactions').where('orderId','==',f.id).get();assert.equal(receipts.size,1);assert.equal(receipts.docs[0].get('source'),'RETURN');
+ assert.equal((await http('vnpayReturn',callback(f))).status,200);assert.equal((await http('vnpayIpn',callback(f))).body.RspCode,'02');
+ assert.equal((await db.collection('moneyTransactions').where('orderId','==',f.id).get()).size,1);
+ const tampered=await fixture();const amount=callback(tampered,{vnp_Amount:'100'});
+ assert.equal((await http('vnpayReturn',amount)).status,200);assert.equal((await tampered.payment()).get('status'),'PENDING');
 });
 test('retry has new reference; old attempt succeeds without double paying the order; extra success preserved',async()=>{
  const f=await fixture();await apply(f,{vnp_ResponseCode:'24',vnp_TransactionStatus:'02',vnp_TransactionNo:'0'});
