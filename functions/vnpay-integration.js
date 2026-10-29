@@ -38,8 +38,26 @@ module.exports=ctx=>{
   endpoints.vnpayReturn=onRequest({...options,invoker:'public'},async(req,res)=>{
     res.set({'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"});
     if(req.method!=='GET')return res.status(405).send('GET required');
-    let link='',valid=false;
-    try{const p=provider(),fields=parseQuery(req.originalUrl||req.url);if(p.verify(fields)){const result=p.normalize(fields);const attempt=await ctx.db.doc(`paymentAttempts/${result.reference}`).get();if(attempt.exists){link=`fashion2hand://payment/${encodeURIComponent(attempt.get('orderId'))}`;valid=true;}}}catch{/* No raw callback/error is rendered. */}
-    return res.status(valid?200:400).type('html').send(`<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fashion2hand · VNPAY Sandbox</title><body style="font:18px system-ui;background:#f8f7f1;color:#124536;padding:32px;max-width:600px;margin:auto"><h1>VNPAY Sandbox</h1><p>${valid?'Đang xác nhận thanh toán. Mở ứng dụng để xem trạng thái do server xác minh.':'Không xác minh được liên kết. Mở ứng dụng và xem lại đơn hàng.'}</p><p>Thanh toán thử nghiệm. Trang Return không xác nhận đơn đã thanh toán.</p>${valid?`<a href="${link}">Mở lại Fashion2hand</a>`:''}</body></html>`);
+    let link='',valid=false,paid=false,notPaid=false;
+    try{
+      const p=provider(),fields=parseQuery(req.originalUrl||req.url);
+      if(p.verify(fields)){
+        const result=p.normalize(fields,{source:'RETURN'});
+        const attempt=await ctx.db.doc(`paymentAttempts/${result.reference}`).get();
+        if(attempt.exists){
+          link=`fashion2hand://payment/${encodeURIComponent(attempt.get('orderId'))}`;valid=true;
+          // VNPAY sandbox cannot always reach our IPN, and Cloud Functions cannot always reach QueryDR.
+          // The Return query carries the same merchant-signed (HMAC-SHA512) fields as IPN, so it is recorded
+          // through the shared idempotent apply(): amount, attempt, merchant and duplicate checks stay identical.
+          try{await service.apply(result,p);}catch(e){console.warn('VNPAY Return apply deferred',{code:e?.code||e?.name});}
+          const order=await ctx.db.doc(`orders/${attempt.get('orderId')}`).get();
+          paid=order.get('paymentStatus')==='PAID';notPaid=!paid&&!result.success;
+        }
+      }
+    }catch{/* No raw callback/error is rendered. */}
+    const message=paid?'Đã xác nhận thanh toán thử nghiệm. Mở ứng dụng để tiếp tục.'
+      :notPaid?'Giao dịch chưa thành công hoặc đã bị hủy. Mở ứng dụng để thử lại.'
+      :valid?'Đang xác nhận thanh toán. Mở ứng dụng để xem trạng thái do server xác minh.':'Không xác minh được liên kết. Mở ứng dụng và xem lại đơn hàng.';
+    return res.status(valid?200:400).type('html').send(`<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fashion2hand · VNPAY Sandbox</title><body style="font:18px system-ui;background:#f8f7f1;color:#124536;padding:32px;max-width:600px;margin:auto"><h1>VNPAY Sandbox</h1><p>${message}</p><p>Thanh toán thử nghiệm (VNPAY Sandbox), không trừ tiền thật.</p>${valid?`<a href="${link}">Mở lại Fashion2hand</a>`:''}</body></html>`);
   });
 };
