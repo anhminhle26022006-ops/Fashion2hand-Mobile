@@ -34,6 +34,7 @@ import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminLoginActivity;
 import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminMainActivity;
 import vn.edu.ueh.thudinh.fashion2hand.ui.report.ReportDialog;
 import vn.edu.ueh.thudinh.fashion2hand.ui.local.RecentHistoryUi;
+import vn.edu.ueh.thudinh.fashion2hand.utils.SearchText;
 import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -1106,17 +1107,11 @@ public class MainActivity extends AppCompatActivity {
         }
         EditText search = findViewById(R.id.edtSearch);
         if (search != null) {
-            search.setOnClickListener(view -> {
-                showScreen(R.layout.activity_explore);
-                EditText exploreSearch = findViewById(R.id.edtExploreSearch);
-                if (exploreSearch != null) exploreSearch.requestFocus();
-            });
-            search.setOnEditorActionListener((v, actionId, event) -> {
-                showScreen(R.layout.activity_explore);
-                EditText exploreSearch = findViewById(R.id.edtExploreSearch);
-                if (exploreSearch != null) exploreSearch.requestFocus();
-                return true;
-            });
+            // Ô tìm ở Trang chủ chỉ là lối vào: không cho gõ tại đây (trước đây gõ ở Trang chủ rồi bấm Tìm thì
+            // sang Khám phá với ô trống nên “tìm không ra”); chạm một lần là sang Khám phá và mở bàn phím ở đó.
+            search.setFocusable(false);
+            search.setOnClickListener(view -> openExploreSearch(search.getText().toString()));
+            search.setOnEditorActionListener((v, actionId, event) -> { openExploreSearch(search.getText().toString()); return true; });
         }
         bindClick(R.id.btnSeeAllHome, () -> showScreen(R.layout.activity_explore));
         bindClick(R.id.btnNotificationsHome, () -> showScreen(R.layout.activity_notifications));
@@ -1128,6 +1123,21 @@ public class MainActivity extends AppCompatActivity {
         bindClick(R.id.btnCartHome, this::openCart);
         bindClick(R.id.btnExploreHero, () -> showScreen(R.layout.activity_explore));
         listenForActivePosts();
+    }
+
+    /** Mở Khám phá để tìm: bỏ bộ lọc danh mục cũ (nếu không sẽ “tìm không ra”) và điền sẵn từ khóa. */
+    private void openExploreSearch(String query) {
+        if (currentScreen == R.layout.activity_explore) return;
+        selectedCategory = "Tất cả";
+        showScreen(R.layout.activity_explore);
+        EditText exploreSearch = findViewById(R.id.edtExploreSearch);
+        if (exploreSearch == null) return;
+        String value = query == null ? "" : query.trim();
+        exploreSearch.setText(value);
+        exploreSearch.setSelection(value.length());
+        exploreSearch.requestFocus();
+        android.view.inputmethod.InputMethodManager keyboard = (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null) exploreSearch.post(() -> keyboard.showSoftInput(exploreSearch, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT));
     }
 
     private void openExploreWithCategory(String category) {
@@ -1266,6 +1276,8 @@ public class MainActivity extends AppCompatActivity {
         TextView meta = new TextView(this); meta.setText(textValue(data, "condition", "") + (textValue(data, "size", "").isEmpty() ? "" : " · " + textValue(data, "size", "")));
         meta.setTextSize(9); meta.setTextColor(0xFF75857F); meta.setPadding(dp(8), dp(2), dp(8), 0); card.addView(meta);
         card.setTag(name); card.setContentDescription(category);
+        card.setTag(R.id.exploreProductGrid, SearchText.keyOf(name, category, textValue(data, "description", ""),
+                textValue(data, "size", ""), textValue(data, "condition", ""), free ? "mien phi free tang" : ""));
         card.setOnClickListener(v -> openProduct(post));
         return card;
     }
@@ -2181,22 +2193,31 @@ public class MainActivity extends AppCompatActivity {
     private void filterProductCards(String query) {
         GridLayout grid = findViewById(R.id.exploreProductGrid);
         if (grid == null) return;
-        int visible = 0;
+        boolean allCategories = "Tất cả".equals(selectedCategory);
+        String wantedCategory = SearchText.key(selectedCategory);
+        int visible = 0, products = 0;
         for (int i = 0; i < grid.getChildCount(); i++) {
             View child = grid.getChildAt(i);
-            String name = String.valueOf(child.getTag());
-            String category = String.valueOf(child.getContentDescription());
-            boolean matchesCategory = "Tất cả".equals(selectedCategory)
-                    || selectedCategory.equals(category)
-                    || ("Áo".equals(selectedCategory) && name.startsWith("Áo"))
-                    || ("Quần".equals(selectedCategory) && name.startsWith("Quần"))
-                    || ("Váy".equals(selectedCategory) && name.startsWith("Váy"));
-            boolean matchesQuery = name.toLowerCase().contains(query.toLowerCase().trim());
+            Object searchable = child.getTag(R.id.exploreProductGrid);
+            if (!(searchable instanceof String)) continue; // thông báo trống / nút Thử lại
+            products++;
+            String name = SearchText.key(String.valueOf(child.getTag()));
+            String category = SearchText.key(String.valueOf(child.getContentDescription()));
+            boolean matchesCategory = allCategories || wantedCategory.equals(category)
+                    || (("ao".equals(wantedCategory) || "quan".equals(wantedCategory) || "vay".equals(wantedCategory)) && name.startsWith(wantedCategory));
+            boolean matchesQuery = SearchText.matches((String) searchable, query);
             child.setVisibility(matchesCategory && matchesQuery ? View.VISIBLE : View.GONE);
             if (matchesCategory && matchesQuery) visible++;
         }
         TextView count = findViewById(R.id.txtExploreCount);
-        if (count != null) count.setText(visible + " sản phẩm phù hợp");
+        if (count != null) {
+            String filter = allCategories ? "" : " · Danh mục: " + selectedCategory;
+            count.setText(products > 0 && visible == 0
+                    ? "Không tìm thấy sản phẩm phù hợp" + filter + (allCategories ? "" : ". Bấm Bộ lọc → Tất cả để tìm rộng hơn.")
+                    : visible + " sản phẩm phù hợp" + filter);
+        }
+        TextView filterButton = findViewById(R.id.btnOpenFilterSheet);
+        if (filterButton != null) filterButton.setText(allCategories ? "☷  Bộ lọc" : "☷  Bộ lọc: " + selectedCategory);
     }
 
     private void bindSell() {
