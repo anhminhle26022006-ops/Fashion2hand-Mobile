@@ -293,38 +293,44 @@ function safeTokenMatch(expected, provided) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+const chatMerge = require("./chat-merge")({ db, FieldValue });
+
 exports.createChat = onCall(async (request) => {
   const uid = uidOf(request);
   const otherUserId = cleanDocumentId(request.data.otherUserId, "Người nhận");
   const postId = request.data.postId ? cleanDocumentId(request.data.postId, "Bài đăng") : "";
   if (uid === otherUserId) fail("invalid-argument", "Không thể tự nhắn tin cho mình.");
   const otherUser = await db.collection("users").doc(otherUserId).get();
-    if (!otherUser.exists || otherUser.get("accountStatus") === "LOCKED") fail("not-found", "Không tìm thấy thành viên này.");
+  if (!otherUser.exists || otherUser.get("accountStatus") === "LOCKED") fail("not-found", "Không tìm thấy thành viên này.");
   if (postId) {
     const post = await db.collection("posts").doc(postId).get();
     if (!post.exists || ![uid, otherUserId].includes(postOwnerId(post))) fail("failed-precondition", "Bài đăng không thuộc thành viên cuộc trò chuyện.");
   }
-  const members = [uid, otherUserId].sort();
-  const chatId = crypto.createHash("sha256").update(`${members.join(":")}:${postId}`).digest("hex");
+  // Một người một khung chat: lấy phòng chuẩn của cặp, gộp luôn các phòng cũ theo từng bài nếu còn.
+  const chatId = await chatMerge.chatFor(uid, otherUserId);
   const ref = db.collection("chats").doc(chatId);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (!snap.exists) tx.create(ref, {
-      participantIds: members, postId: postId || null,
-      createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
-      lastMessage: "", lastMessageAt: null, unreadCounts: { [uid]: 0, [otherUserId]: 0 }
-    });
-    else if (!members.every((member) => snap.get("participantIds").includes(member))) {
+    if (![uid, otherUserId].every((member) => (snap.get("participantIds") || []).includes(member))) {
       fail("permission-denied", "Cuộc trò chuyện không hợp lệ.");
     }
+    // Ghi nhớ món đang được hỏi gần nhất; không đổi updatedAt để danh sách không nhảy thứ tự khi chỉ mở chat.
+    if (postId && snap.get("postId") !== postId) tx.update(ref, { postId });
   });
   return { chatId };
 });
 
+exports.mergeMyChats = onCall(async (request) => {
+  return { merged: await chatMerge.mergeAllFor(uidOf(request)) };
+});
+
 exports.sendMessage = onCall(async (request) => {
   const uid = uidOf(request);
-  const chatId = cleanDocumentId(request.data.chatId, "Cuộc trò chuyện");
+  const requestedChatId = cleanDocumentId(request.data.chatId, "Cuộc trò chuyện");
   const text = cleanText(request.data.text, 4000, "Tin nhắn");
+  // Phòng cũ đã gộp thì gửi vào phòng chuẩn của cặp.
+  const requested = await db.collection("chats").doc(requestedChatId).get();
+  const chatId = requested.get("mergedInto") || requestedChatId;
   const chatRef = db.collection("chats").doc(chatId);
   const clientMessageId = request.data.clientMessageId
     ? cleanDocumentId(request.data.clientMessageId, "Mã tin nhắn") : null;

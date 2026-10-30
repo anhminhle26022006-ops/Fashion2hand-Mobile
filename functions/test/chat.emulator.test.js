@@ -46,7 +46,32 @@ test('both roles open the same product chat; strangers cannot read or send', asy
   const direct = await fetch(root + `chats/${f.chatId}/messages/forged`, { method: 'PATCH', headers: { authorization: `Bearer ${f.buyer.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ fields: { text: { stringValue: 'forged' } } }) });
   assert.equal(direct.status, 403);
 });
-
+test('one chat per pair: other posts and no-post chats reuse the same room', async () => {
+  const f = await fixture();
+  const second = db.collection('posts').doc(); await second.set({ ownerId: f.seller.uid, type: 'SALE', status: 'ACTIVE', price: 90000 });
+  assert.equal((await call('createChat', { otherUserId: f.seller.uid, postId: second.id }, f.buyer)).chatId, f.chatId);
+  assert.equal((await call('createChat', { otherUserId: f.buyer.uid }, f.seller)).chatId, f.chatId);
+  assert.equal((await db.doc(`chats/${f.chatId}`).get()).get('postId'), second.id);
+  const chats = await db.collection('chats').where('participantIds', 'array-contains', f.buyer.uid).get();
+  assert.equal(chats.docs.filter(doc => doc.get('participantIds').includes(f.seller.uid)).length, 1);
+});
+test('old per-post rooms are merged into one room with every message and unread count', async () => {
+  const f = await fixture();
+  await call('sendMessage', { chatId: f.chatId, text: 'Tin trong phong chuan', clientMessageId: 'pair' }, f.buyer);
+  const legacy = db.collection('chats').doc();
+  await legacy.set({ participantIds: [f.buyer.uid, f.seller.uid].sort(), postId: f.postId, lastMessage: 'Tin cu', lastMessageAt: Timestamp.now(), updatedAt: Timestamp.now(), unreadCounts: { [f.seller.uid]: 2, [f.buyer.uid]: 0 } });
+  await legacy.collection('messages').doc('old-1').set({ senderId: f.buyer.uid, text: 'Tin cu 1', read: false, createdAt: Timestamp.now() });
+  await legacy.collection('messages').doc('old-2').set({ senderId: f.buyer.uid, text: 'Tin cu', read: false, createdAt: Timestamp.now() });
+  assert.equal((await call('mergeMyChats', {}, f.seller)).merged, 1);
+  assert.equal((await call('mergeMyChats', {}, f.buyer)).merged, 0);
+  const room = await db.doc(`chats/${f.chatId}`).get();
+  assert.equal((await db.collection(`chats/${f.chatId}/messages`).get()).size, 3);
+  assert.equal(room.get(`unreadCounts.${f.seller.uid}`), 3);
+  assert.equal(room.get('lastMessage'), 'Tin cu');
+  assert.equal((await legacy.get()).get('mergedInto'), f.chatId);
+  const sent = await call('sendMessage', { chatId: legacy.id, text: 'Gui vao phong cu', clientMessageId: 'redirect' }, f.buyer);
+  assert.equal((await db.doc(`chats/${f.chatId}/messages/${sent.messageId}`).get()).get('text'), 'Gui vao phong cu');
+});
 test('concurrent retries write one message, one notification and one unread increment', async () => {
   const f = await fixture(); const data = { chatId: f.chatId, text: 'Tin nhan duy nhat', clientMessageId: 'retry-key' };
   const results = await Promise.all([call('sendMessage', data, f.buyer), call('sendMessage', data, f.buyer)]);
