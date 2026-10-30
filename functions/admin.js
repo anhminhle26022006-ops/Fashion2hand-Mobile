@@ -92,10 +92,12 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
       const path = cleanText(request.data.path, 600, "Ảnh");
       let bucketName = doc.get("evidenceBucket") || "fashion2hand.firebasestorage.app", objectPath = path;
       if (name === "posts") {
-        // Ảnh bài đăng lưu dạng download URL. Chỉ cho tải ảnh có trong imageUrls của chính bài đó và nằm trong
-        // thư mục posts/{id}/images, để Admin xem được cả bài đã ẩn/gỡ mà Storage Rules không cho đọc trực tiếp.
-        const match = /\/v0\/b\/([^/]+)\/o\/([^?]+)/.exec(path);
-        objectPath = match ? decodeURIComponent(match[2]) : "";
+                // imageUrls của bài đăng là gs://bucket/posts/... (app ghi ref.toString()) hoặc download URL https.
+                // Chỉ cho tải ảnh có trong imageUrls của chính bài đó và nằm trong thư mục posts/{id}/images,
+                // để Admin xem được cả bài đã ẩn/gỡ/đang giữ mà Storage Rules không cho đọc trực tiếp.
+                const gs = /^gs:\/\/([^/]+)\/(.+)$/.exec(path), http = /\/v0\/b\/([^/]+)\/o\/([^?]+)/.exec(path);
+                const match = gs || http;
+                objectPath = gs ? gs[2] : http ? decodeURIComponent(http[2]) : "";
         if (!doc.exists || !(doc.get("imageUrls") || []).includes(path) || !match || match[1] !== bucketName
             || !objectPath.startsWith(`posts/${id}/images/`) || objectPath.includes(".."))
           fail("permission-denied", "Ảnh không thuộc bài đăng này.");

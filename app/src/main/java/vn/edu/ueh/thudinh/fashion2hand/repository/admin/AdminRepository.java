@@ -427,16 +427,34 @@ public class AdminRepository {
             byte[] cached = imageCache.get(key);
             if (cached != null) return Tasks.forResult(cached);
         }
-        Map<String, Object> data = new HashMap<>();
-        data.put("collection", collection);
-        data.put("id", id);
-        data.put("path", path);
-        return call("adminEvidence", data).continueWith(task -> {
+        // Ảnh bài đăng (gs:// hoặc https): tải thẳng từ Storage trước, bài đang hiển thị ai cũng đọc được.
+        // Không được (bài đang giữ/ẩn/gỡ) thì mới nhờ backend adminEvidence tải hộ.
+        Task<byte[]> direct = "posts".equals(collection)
+                ? downloadFromStorage(path) : Tasks.forException(new IllegalStateException("not a post image"));
+        return direct.continueWithTask(first -> {
+            if (first.isSuccessful()) return Tasks.forResult(first.getResult());
+            Map<String, Object> data = new HashMap<>();
+            data.put("collection", collection);
+            data.put("id", id);
+            data.put("path", path);
+            return call("adminEvidence", data).continueWith(task -> {
+                if (!task.isSuccessful()) throw task.getException();
+                return android.util.Base64.decode(str(task.getResult(), "base64"), android.util.Base64.DEFAULT);
+            });
+        }).continueWith(task -> {
             if (!task.isSuccessful()) throw task.getException();
-            byte[] bytes = android.util.Base64.decode(str(task.getResult(), "base64"), android.util.Base64.DEFAULT);
+            byte[] bytes = task.getResult();
             synchronized (imageCache) { imageCache.put(key, bytes); }
             return bytes;
         });
+    }
+
+    private static Task<byte[]> downloadFromStorage(String url) {
+        try {
+            return com.google.firebase.storage.FirebaseStorage.getInstance().getReferenceFromUrl(url).getBytes(10L * 1024 * 1024);
+        } catch (RuntimeException invalidUrl) {
+            return Tasks.forException(invalidUrl);
+        }
     }
 
     /** Thời điểm tạo (millis) của một bản ghi, dùng cho biểu đồ và hoạt động gần đây. */
