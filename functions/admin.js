@@ -87,12 +87,21 @@ module.exports = ({ onCall, db, getAuth, getStorage, FieldValue, fail, cleanText
     adminEvidence: onCall(async request => {
       await admin(request);
       const name = cleanText(request.data.collection, 40, "Danh sách"), id = cleanDocumentId(request.data.id, "Mã");
-      if (!["disputes", "verificationRequests", "reports"].includes(name)) fail("invalid-argument", "Loại bằng chứng không hợp lệ.");
+      if (!["disputes", "verificationRequests", "reports", "posts"].includes(name)) fail("invalid-argument", "Loại bằng chứng không hợp lệ.");
       const doc = await db.doc(`${name}/${id}`).get();
       const path = cleanText(request.data.path, 600, "Ảnh");
-      if (!doc.exists || !(doc.get("evidencePaths") || []).includes(path)) fail("permission-denied", "Ảnh không thuộc hồ sơ này.");
-      const bucket = getStorage().bucket(doc.get("evidenceBucket") || "fashion2hand.firebasestorage.app");
-      const file = bucket.file(path); const [meta] = await file.getMetadata();
+      let bucketName = doc.get("evidenceBucket") || "fashion2hand.firebasestorage.app", objectPath = path;
+      if (name === "posts") {
+        // Ảnh bài đăng lưu dạng download URL. Chỉ cho tải ảnh có trong imageUrls của chính bài đó và nằm trong
+        // thư mục posts/{id}/images, để Admin xem được cả bài đã ẩn/gỡ mà Storage Rules không cho đọc trực tiếp.
+        const match = /\/v0\/b\/([^/]+)\/o\/([^?]+)/.exec(path);
+        objectPath = match ? decodeURIComponent(match[2]) : "";
+        if (!doc.exists || !(doc.get("imageUrls") || []).includes(path) || !match || match[1] !== bucketName
+            || !objectPath.startsWith(`posts/${id}/images/`) || objectPath.includes(".."))
+          fail("permission-denied", "Ảnh không thuộc bài đăng này.");
+      } else if (!doc.exists || !(doc.get("evidencePaths") || []).includes(path)) fail("permission-denied", "Ảnh không thuộc hồ sơ này.");
+      const bucket = getStorage().bucket(bucketName);
+      const file = bucket.file(objectPath); const [meta] = await file.getMetadata();
       if (!meta.contentType?.startsWith("image/") || Number(meta.size) >= 5 * 1024 * 1024) fail("failed-precondition", "Ảnh không hợp lệ.");
       const [bytes] = await file.download(); return { contentType: meta.contentType, base64: bytes.toString("base64") };
     }),

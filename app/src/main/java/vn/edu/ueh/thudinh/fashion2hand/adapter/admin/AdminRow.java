@@ -13,6 +13,8 @@ public class AdminRow {
     public AdminLabels.Label chip;
     public AdminLabels.Label chip2;
     public String trailing = "";
+    /** Ảnh thật cho ô đầu dòng (tải qua adminEvidence); rỗng thì giữ emoji/chữ viết tắt. */
+    public String imageCollection = "", imageId = "", imagePath = "";
 
     public AdminRow(String id) {
         this.id = id;
@@ -41,6 +43,13 @@ public class AdminRow {
 
     public AdminRow setChip2(AdminLabels.Label chip2) {
         this.chip2 = chip2;
+        return this;
+    }
+
+    public AdminRow setImage(String collection, String id, String path) {
+        this.imageCollection = collection;
+        this.imageId = id;
+        this.imagePath = path == null ? "" : path;
         return this;
     }
 

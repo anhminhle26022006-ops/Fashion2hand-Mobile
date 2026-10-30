@@ -90,12 +90,25 @@ public class AdminViewModel extends ViewModel {
         return n;
     }
 
-    public int countOrders() { return repository.getOrders().size(); }
+    /**
+     * Đơn bị hủy (hết hạn thanh toán, bị từ chối...) không tính vào số đơn: người mua thường đặt lại đúng món đó,
+     * nếu đếm cả đơn hủy thì một món bị tính nhiều lần.
+     */
+    private static boolean countable(Order o) { return !Order.STATUS_CANCELLED.equals(o.getOrderStatus()); }
+
+    public int countOrders() {
+        int n = 0;
+        for (Order o : repository.getOrders()) if (countable(o)) n++;
+        return n;
+    }
+
+    public int countCancelledOrders() { return repository.getOrders().size() - countOrders(); }
 
     public int countOrdersSince(int days) {
         long from = System.currentTimeMillis() - days * 24L * 60 * 60 * 1000;
         int n = 0;
         for (Order o : repository.getOrders()) {
+            if (!countable(o)) continue;
             Long created = repository.getCreatedMillis("orders", o.getOrderId());
             if (created != null && created >= from) n++;
         }
@@ -135,6 +148,7 @@ public class AdminViewModel extends ViewModel {
         int[] counts = new int[7];
         java.util.Calendar today = startOfDay(System.currentTimeMillis());
         for (Order o : repository.getOrders()) {
+            if (!countable(o)) continue;
             Long created = repository.getCreatedMillis("orders", o.getOrderId());
             if (created == null) continue;
             long diff = today.getTimeInMillis() - startOfDay(created).getTimeInMillis();
@@ -248,6 +262,7 @@ public class AdminViewModel extends ViewModel {
             if (!keep) continue;
             AdminRow row = new AdminRow(p.getPostId())
                     .setLeading(categoryEmoji(p.getCategory()), p.isFree() ? AdminUi.KIND_OK : AdminUi.KIND_INFO)
+                    .setImage("posts", p.getPostId(), getPostCover(p.getPostId()))
                     .setTitle(p.getTitle())
                     .setSubtitle(repository.getUserName(p.getUserId()) + " · Size " + p.getSize() + " · " + p.getCondition())
                     .setChip(AdminLabels.postStatus(p.getStatus()))
@@ -441,6 +456,35 @@ public class AdminViewModel extends ViewModel {
     public VerificationRequest getVerification(String id) { return repository.getVerification(id); }
     public String getUserName(String userId) { return repository.getUserName(userId); }
     public String getPostTitle(String postId) { return repository.getPostTitle(postId); }
+
+    // ---------------------------------------------------------------- Ảnh và dữ liệu gốc
+
+    public List<String> getPostImages(String postId) { return repository.getStrings("posts", postId, "imageUrls"); }
+
+    public String getPostCover(String postId) {
+        List<String> images = getPostImages(postId);
+        return images.isEmpty() ? "" : images.get(0);
+    }
+
+    /** Đường dẫn 3 ảnh hồ sơ xác minh theo thứ tự: chân dung, mặt trước, mặt sau (rỗng nếu thiếu). */
+    public String[] getVerificationEvidence(String requestId) {
+        String[] slots = {"selfie", "front", "back"}, paths = {"", "", ""};
+        for (String path : repository.getStrings("verificationRequests", requestId, "evidencePaths")) {
+            String file = path.substring(path.lastIndexOf('/') + 1);
+            for (int i = 0; i < slots.length; i++) if (file.startsWith(slots[i] + "-")) paths[i] = path;
+        }
+        return paths;
+    }
+
+    public String getVerificationField(String requestId, String field) {
+        return repository.getField("verificationRequests", requestId, field);
+    }
+
+    public boolean isEmailVerified(String userId) { return "true".equals(repository.getField("users", userId, "emailVerified")); }
+
+    public com.google.android.gms.tasks.Task<byte[]> loadImage(String collection, String id, String path) {
+        return repository.loadImage(collection, id, path);
+    }
 
     public String getTargetName(Report report) { return targetName(report); }
 

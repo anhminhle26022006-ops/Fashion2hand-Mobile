@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
+import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import vn.edu.ueh.thudinh.fashion2hand.utils.admin.AdminUi;
 
 /** Adapter dùng chung cho mọi danh sách Admin. */
@@ -71,6 +72,7 @@ public class AdminRowAdapter extends RecyclerView.Adapter<AdminRowAdapter.RowHol
         }
 
         void bind(AdminRow row) {
+            AdminUi.resetImage(leading);
             leading.setText(row.leading);
             leading.setTextColor(ContextCompat.getColor(itemView.getContext(), AdminUi.strongColor(row.leadingKind)));
             AdminUi.tint(leading, AdminUi.softColor(row.leadingKind));
@@ -82,6 +84,14 @@ public class AdminRowAdapter extends RecyclerView.Adapter<AdminRowAdapter.RowHol
             trailing.setText(row.trailing);
             trailing.setVisibility(row.trailing.isEmpty() ? View.GONE : View.VISIBLE);
             itemView.setOnClickListener(v -> listener.onRowClick(row));
+            leading.setTag(row.imagePath);
+            if (!row.imagePath.isEmpty()) {
+                AdminRepository.getInstance().loadImage(row.imageCollection, row.imageId, row.imagePath)
+                        .addOnSuccessListener(bytes -> {
+                            // Ô có thể đã được tái sử dụng cho dòng khác trong lúc tải.
+                            if (row.imagePath.equals(leading.getTag())) AdminUi.showImage(leading, bytes);
+                        });
+            }
         }
     }
 }
