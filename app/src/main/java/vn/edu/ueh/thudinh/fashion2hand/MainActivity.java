@@ -35,6 +35,7 @@ import vn.edu.ueh.thudinh.fashion2hand.ui.admin.AdminMainActivity;
 import vn.edu.ueh.thudinh.fashion2hand.ui.report.ReportDialog;
 import vn.edu.ueh.thudinh.fashion2hand.ui.local.RecentHistoryUi;
 import vn.edu.ueh.thudinh.fashion2hand.utils.SearchText;
+import vn.edu.ueh.thudinh.fashion2hand.utils.ProductCategories;
 import vn.edu.ueh.thudinh.fashion2hand.repository.admin.AdminRepository;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -1115,11 +1116,11 @@ public class MainActivity extends AppCompatActivity {
         }
         bindClick(R.id.btnSeeAllHome, () -> showScreen(R.layout.activity_explore));
         bindClick(R.id.btnNotificationsHome, () -> showScreen(R.layout.activity_notifications));
-        bindClick(R.id.btnWomenCategory, () -> openExploreWithCategory("Nữ"));
-        bindClick(R.id.btnMenCategory, () -> openExploreWithCategory("Nam"));
-        bindClick(R.id.btnKidsCategory, () -> openExploreWithCategory("Trẻ em"));
-        bindClick(R.id.btnShoesCategory, () -> openExploreWithCategory("Giày"));
-        bindClick(R.id.btnBagsCategory, () -> openExploreWithCategory("Túi"));
+        bindClick(R.id.btnWomenCategory, () -> openExploreWithCategory("Áo"));
+        bindClick(R.id.btnMenCategory, () -> openExploreWithCategory("Quần"));
+        bindClick(R.id.btnKidsCategory, () -> openExploreWithCategory("Váy & Đầm"));
+        bindClick(R.id.btnShoesCategory, () -> openExploreWithCategory("Giày dép"));
+        bindClick(R.id.btnBagsCategory, () -> openExploreWithCategory("Túi xách"));
         bindClick(R.id.btnCartHome, this::openCart);
         bindClick(R.id.btnExploreHero, () -> showScreen(R.layout.activity_explore));
         listenForActivePosts();
@@ -2177,7 +2178,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showExploreFilterSheet() {
-        String[] categories = {"Tất cả", "Áo", "Quần", "Váy", "Nữ", "Nam", "Trẻ em", "Giày", "Túi"};
+        String[] categories = ProductCategories.FILTERS;
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Lọc theo danh mục")
                 .setItems(categories, (dialog, which) -> applyExploreFilter(categories[which]))
@@ -2193,18 +2194,15 @@ public class MainActivity extends AppCompatActivity {
     private void filterProductCards(String query) {
         GridLayout grid = findViewById(R.id.exploreProductGrid);
         if (grid == null) return;
-        boolean allCategories = "Tất cả".equals(selectedCategory);
-        String wantedCategory = SearchText.key(selectedCategory);
+        boolean allCategories = ProductCategories.ALL.equals(selectedCategory);
         int visible = 0, products = 0;
         for (int i = 0; i < grid.getChildCount(); i++) {
             View child = grid.getChildAt(i);
             Object searchable = child.getTag(R.id.exploreProductGrid);
             if (!(searchable instanceof String)) continue; // thông báo trống / nút Thử lại
             products++;
-            String name = SearchText.key(String.valueOf(child.getTag()));
-            String category = SearchText.key(String.valueOf(child.getContentDescription()));
-            boolean matchesCategory = allCategories || wantedCategory.equals(category)
-                    || (("ao".equals(wantedCategory) || "quan".equals(wantedCategory) || "vay".equals(wantedCategory)) && name.startsWith(wantedCategory));
+            boolean matchesCategory = ProductCategories.matches(selectedCategory,
+                    String.valueOf(child.getContentDescription()), String.valueOf(child.getTag()));
             boolean matchesQuery = SearchText.matches((String) searchable, query);
             child.setVisibility(matchesCategory && matchesQuery ? View.VISIBLE : View.GONE);
             if (matchesCategory && matchesQuery) visible++;
@@ -2275,7 +2273,7 @@ public class MainActivity extends AppCompatActivity {
         EditText productDesc = findViewById(R.id.edtProductDescription);
         if (productName != null && (editingListing || listingDraft.containsKey("title"))) productName.setText(String.valueOf(listingDraft.getOrDefault("title", currentProductName)));
         if (productDesc != null && listingDraft.containsKey("description")) productDesc.setText(String.valueOf(listingDraft.get("description")));
-        setSpinnerOptions(R.id.spinnerCategory, new String[]{"Áo khoác", "Áo thun", "Áo sơ mi", "Quần", "Váy", "Đầm", "Giày dép", "Túi xách", "Phụ kiện"});
+        setSpinnerOptions(R.id.spinnerCategory, ProductCategories.LISTING);
         setSpinnerOptions(R.id.spinnerSize, new String[]{"XS", "S", "M", "L", "XL", "XXL", "Free size"});
         setSpinnerOptions(R.id.spinnerCondition, new String[]{"Mới có tag", "Như mới", "Tốt", "Đã qua sử dụng"});
         setSpinnerValue(R.id.spinnerCategory, "category"); setSpinnerValue(R.id.spinnerSize, "size");
