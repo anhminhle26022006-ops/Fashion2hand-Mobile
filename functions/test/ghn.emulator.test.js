@@ -148,7 +148,7 @@ test('legacy production request stays blocked; missing recipient address never s
 
 test('missing seller mapping and legacy address are blocked without a mock fee',async()=>{
  const f=await fixture('config');await db.doc(`ghnSellerShops/staging_${f.seller}`).delete();
- await assert.rejects(f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'})),/ánh xạ/);
+ await assert.rejects(f.checkout.quote(req(f.buyer,{postId:f.post,addressId:'home'})),e=>e.code==='failed-precondition'&&e.message.includes('Thiết lập địa chỉ lấy hàng GHN'));
  assert.equal(f.creates,0);
 });
 test('repeated GHN refresh with newer time updates metadata without duplicate events or notifications',async()=>{

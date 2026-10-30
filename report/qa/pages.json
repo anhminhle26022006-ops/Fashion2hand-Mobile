@@ -1,0 +1,232 @@
+[
+  {
+    "page": 1,
+    "chars": 390,
+    "first": "1\nBỘ GIÁO DỤC VÀ ĐÀO TẠO\nĐẠI HỌC KINH TẾ THÀNH PHỐ HỒ CHÍ MINH\nTRƯỜNG CÔNG NGHỆ VÀ THIẾT KẾ\nĐỒ ÁN MÔN HỌC\nPHÁT TRIỂN ỨNG DỤNG DI Đ"
+  },
+  {
+    "page": 2,
+    "chars": 3060,
+    "first": "2\nMỤC LỤC\nCHƯƠNG 1. TỔNG QUAN ...............................................................................................4\n1.1"
+  },
+  {
+    "page": 3,
+    "chars": 3208,
+    "first": "3\n4.2. Sơ đồ tương tác hướng đối tượng ...................................................................... 23\n4.3. Một số truy "
+  },
+  {
+    "page": 4,
+    "chars": 2419,
+    "first": "4\nCHƯƠNG 1. TỔNG QUAN\n1.1. Giới thiệu\nFashion2hand là ứng dụng Android hỗ trợ mua bán và cho tặng quần áo đã qua sử dụng\ngiữa các "
+  },
+  {
+    "page": 5,
+    "chars": 2241,
+    "first": "5\nFashion2hand giải quyết các vấn đề trên bằng bài đăng có thông tin chuẩn hóa, hội thoại\ngắn với sản phẩm, yêu cầu nhận đồ có trạ"
+  },
+  {
+    "page": 6,
+    "chars": 2134,
+    "first": "6\ntheo từng chính sách truy cập. Cloud Functions là backend tin cậy để kiểm tra quyền,\nchốt tiền, giữ sản phẩm, tích hợp nhà cung "
+  },
+  {
+    "page": 7,
+    "chars": 377,
+    "first": "7\nThành phần Cấu hình có căn cứ trong dự án Phạm vi sử dụng\nVNPAY Sandbox Thanh toán thử nghiệm; không kết luận có\nthu/chi tiền th"
+  },
+  {
+    "page": 8,
+    "chars": 2303,
+    "first": "8\nCHƯƠNG 2. PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG\n2.1. Sơ đồ luồng công việc\nPhạm vi nghiệp vụ bắt đầu từ xác thực tài khoản và kết thúc "
+  },
+  {
+    "page": 9,
+    "chars": 2382,
+    "first": "9\n2.1.3. Tìm kiếm và trao đổi\nLuồng khám phá: tải bài ACTIVE → hiển thị danh sách → nhập từ khóa/chọn danh mục\n→ lọc các thẻ đã tả"
+  },
+  {
+    "page": 10,
+    "chars": 1886,
+    "first": "10\nTrạng thái đơn Điều kiện sang trạng thái kế tiếp Bên thực hiện\nPENDING_PAYM\nENT\nXác minh tiền hợp lệ, đúng số tiền,\ncòn hạn và "
+  },
+  {
+    "page": 11,
+    "chars": 1918,
+    "first": "11\nNhóm trạng thái vận\nchuyển Ý nghĩa xử lý\nSHIPPING và các trạng\nthái trung gian Theo dõi quá trình vận chuyển theo ánh xạ của pr"
+  },
+  {
+    "page": 12,
+    "chars": 1053,
+    "first": "12\n2.2. Sơ đồ phân rã chức năng\nHình 2.1. Phân rã chức năng Fashion2hand theo ba nhóm nghiệp vụ.\nHệ thống được phân rã thành ba nh"
+  },
+  {
+    "page": 13,
+    "chars": 601,
+    "first": "13\nMã Chức năng Tác nhân Phụ trách theo đề cương\nVC01 Báo phí, vận đơn, theo dõi GHN User/backend GHN Minh Anh\nTB01 Thông báo và l"
+  },
+  {
+    "page": 14,
+    "chars": 2117,
+    "first": "14\nCHƯƠNG 3. THIẾT KẾ GIAO DIỆN\n3.1. Giao diện trang chủ\nTrang chủ giúp người dùng nhận biết các món đang được đăng và chuyển nhan"
+  },
+  {
+    "page": 15,
+    "chars": 2093,
+    "first": "15\nGiỏ nhiều người bán được backend nhóm thành nhiều đơn. Tổng tiền ở checkout cần\nphản ánh phí theo từng nhóm, tránh khiến người "
+  },
+  {
+    "page": 16,
+    "chars": 2234,
+    "first": "16\n3.8. Giao diện yêu thích\nactivity_favorites.xml hiển thị các món người dùng đã lưu. Mỗi bản ghi yêu thích dùng\nID bài đăng, nhờ"
+  },
+  {
+    "page": 17,
+    "chars": 2317,
+    "first": "17\n3.12. Giao diện trung tâm và chi tiết đơn hàng\nactivity_transactions.xml, activity_orders.xml và activity_order_detail.xml giúp"
+  },
+  {
+    "page": 18,
+    "chars": 841,
+    "first": "18\nminh là duyệt thủ công bằng chứng, chưa phải tích hợp VNeID. Những cấu hình lưu\nđược nhưng chưa được tự động thi hành đầy đủ cầ"
+  },
+  {
+    "page": 19,
+    "chars": 2095,
+    "first": "19\nCHƯƠNG 4. XÂY DỰNG CƠ SỞ DỮ LIỆU\n4.1. Các thực thể và các thuộc tính\nCloud Firestore tổ chức dữ liệu theo collection/document. "
+  },
+  {
+    "page": 20,
+    "chars": 2299,
+    "first": "20\nĐường dẫn Thuộc tính chính và kiểu Ràng buộc/liên kết/quyền\nposts/{id}\nownerId, title, description, type,\ncondition, status: St"
+  },
+  {
+    "page": 21,
+    "chars": 2253,
+    "first": "21\nshippingAddress, pickupAddress và shippingQuote là Map snapshot.\nsellerResponseDeadline và inspectionDeadline là các mốc phục v"
+  },
+  {
+    "page": 22,
+    "chars": 2353,
+    "first": "22\ncấp. VNPAY hoàn tiền cần đối soát có thể giữ paymentStatus=PAID đồng thời\nrefundStatus=REVIEW_REQUIRED để không làm mất sự thật"
+  },
+  {
+    "page": 23,
+    "chars": 2241,
+    "first": "23\ngiao diện/backend được đối chiếu. Ràng buộc một đánh giá mỗi đơn nên được trình bày\nnhư yêu cầu thiết kế cần hoàn thiện, không "
+  },
+  {
+    "page": 24,
+    "chars": 1182,
+    "first": "24\n4.2.1. Tương tác đăng nhập Google\nUser → giao diện đăng nhập → Credential Manager → Google ID token →\nAuthRepository → Firebase"
+  },
+  {
+    "page": 25,
+    "chars": 2296,
+    "first": "25\nUser → TransactionScreens → MemberTwoRepository →\ngetCartCheckoutQuote/createCartOrders → ghn-checkout → Firestore transaction\n"
+  },
+  {
+    "page": 26,
+    "chars": 2327,
+    "first": "26\nKết quả không thể được gọi là toàn bộ kho sản phẩm; mở rộng danh sách cần bổ sung\nphân trang thay vì chỉ đổi nhãn giao diện.\nb)"
+  },
+  {
+    "page": 27,
+    "chars": 1417,
+    "first": "27\ngán truy vấn có orderStatus cho mọi bộ lọc khi mã chưa dùng. Hai index buyerId–\ncreatedAt và sellerId–createdAt đã được khai bá"
+  },
+  {
+    "page": 28,
+    "chars": 1874,
+    "first": "28\nCHƯƠNG 5. XÂY DỰNG ỨNG DỤNG\n5.1. Cấu trúc của ứng dụng\nPackage Android chính là vn.edu.ueh.thudinh.fashion2hand. MainActivity q"
+  },
+  {
+    "page": 29,
+    "chars": 2277,
+    "first": "29\nỨng dụng dựa vào cache Firestore và trạng thái màn hình; chưa có cơ sở mô tả đã xây\ndựng lớp Room/SQLite đồng bộ riêng. Một số "
+  },
+  {
+    "page": 30,
+    "chars": 2267,
+    "first": "30\nngoài không được coi là một thao tác nguyên tử cùng Firestore. GHN sử dụng bản ghi\noperation để theo dõi khoảng giữa ghi dữ liệ"
+  },
+  {
+    "page": 31,
+    "chars": 2136,
+    "first": "31\n5.3. Xây dựng nội dung các trang\na) Trang chủ\nMainActivity đăng ký listenActivePosts từ MemberTwoRepository, nhận bài đang hoạt"
+  },
+  {
+    "page": 32,
+    "chars": 2211,
+    "first": "32\nĐăng xuất gọi Firebase signOut và clearCredentialState; không chỉ chuyển màn hình về\nlogin. [1][6]\nf) Trang hồ sơ và địa chỉ\nMe"
+  },
+  {
+    "page": 33,
+    "chars": 2530,
+    "first": "33\nnhận khi hãng vận chuyển tạm lỗi; RETRY_REQUIRED phản ánh việc cần xử lý tiếp,\nkhông hủy ngược lựa chọn đã ghi nhận. [6]\nk) Tra"
+  },
+  {
+    "page": 34,
+    "chars": 2282,
+    "first": "34\npayment, receipt và trạng thái liên quan dùng transaction. Trường hợp timeout/không\ntìm thấy khi QueryDR giữ kết quả chưa rõ; k"
+  },
+  {
+    "page": 35,
+    "chars": 1873,
+    "first": "35\no) Trang lịch sử giao dịch và thông báo\nLịch sử tiền đọc moneyTransactions theo orderId; thông báo đọc collection dưới UID.\nNot"
+  },
+  {
+    "page": 36,
+    "chars": 2210,
+    "first": "36\nCHƯƠNG 6. QUY TRÌNH THỰC THI\n6.1. Quy trình đặt hàng\nĐiều kiện ban đầu là tài khoản có quyền giao dịch, món SALE còn ACTIVE, đị"
+  },
+  {
+    "page": 37,
+    "chars": 2361,
+    "first": "37\n6.4. Quy trình thêm sản phẩm\nNgười đăng đã xác minh email nhập thông tin, chọn SALE hoặc FREE, bổ sung ảnh và\nxem trước. Khi bấ"
+  },
+  {
+    "page": 38,
+    "chars": 2393,
+    "first": "38\nBackend lưu mã, UI hiển thị chờ lấy hàng và cho làm mới. Khi có kết quả hãng,\nbackend chuẩn hóa trạng thái, lưu lịch sử và cập "
+  },
+  {
+    "page": 39,
+    "chars": 1913,
+    "first": "39\nMã\ntest Chức năng/tình huống Mong đợi Thực tế Kết quả\nTC-01 VNPAY ký, mã hóa, tham\nsố sai\nChỉ chấp nhận dữ liệu hợp\nlệ\nBộ provi"
+  },
+  {
+    "page": 40,
+    "chars": 831,
+    "first": "40\nMã\ntest Chức năng/tình huống Mong đợi Thực tế Kết quả\nTC-17 Thiết bị Android thật Cài/chạy ổn, Google và\nđiều hướng phù hợp\nChư"
+  },
+  {
+    "page": 41,
+    "chars": 2178,
+    "first": "41\nCHƯƠNG 7. HƯỚNG MỞ RỘNG\n7.1. Mở rộng trải nghiệm người dùng\nTìm kiếm hiện hoạt động trên các bài đã tải và còn giới hạn số lượn"
+  },
+  {
+    "page": 42,
+    "chars": 1052,
+    "first": "42\nHồ sơ xác minh thủ công cần quy trình giới hạn dữ liệu, thời gian lưu bằng chứng và\nkiểm soát người được xem. Với tranh chấp VN"
+  },
+  {
+    "page": 43,
+    "chars": 2072,
+    "first": "43\nPHỤ LỤC\nA. Mã nguồn trên GitHub\nRepository: https://github.com/anhminhle26022006-ops/Fashion2hand-Mobile\nCommit được đối chiếu:"
+  },
+  {
+    "page": 44,
+    "chars": 2032,
+    "first": "44\n/blob/701a31f98ee1aae4bf69ee000a083800d1912eac/đường-dẫn-tệp để giữ tham chiếu\nổn định.\nB. Phân công công việc và mức độ hoàn t"
+  },
+  {
+    "page": 45,
+    "chars": 1022,
+    "first": "45\nHình cần bổ sung Nội dung giải thích ngay dưới hình\nGiỏ và checkout Các món theo seller, tiền hàng/phí/tổng và vì sao bị tách đ"
+  },
+  {
+    "page": 46,
+    "chars": 1835,
+    "first": "46\nTÀI LIỆU THAM KHẢO\n[1] Firebase. Authenticate with Google on Android.\nhttps://firebase.google.com/docs/auth/android/google-sign"
+  }
+]

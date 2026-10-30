@@ -39,12 +39,19 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
     }
     const source = { items, address: address.data(), settings: settings.data(), sellers: {} };
     for (const group of groups.values()) {
-      const mapping=await db.doc(`ghnSellerShops/${environment}_${group.sellerId}`).get();
+      const mappingRef=db.doc(`ghnSellerShops/${environment}_${group.sellerId}`);
+      let mapping=await mappingRef.get();
+      if(environment==='staging'&&(!mapping.exists||mapping.get('enabled')!==true)){
+        const repaired=await require('./ghn-seller-onboarding').recover({db,FieldValue,provider:()=>p,bootstrapShopId:()=>Number(process.env.GHN_SHOP_ID)},group.sellerId);
+        if(repaired)mapping=await mappingRef.get();
+      }
       if(!mapping.exists || mapping.get('environment')!==environment || mapping.get('enabled')!==true) {
         const profile=await db.doc(`users/${group.sellerId}`).get();
         const rawName=profile.exists?profile.get('name'):'';
         const name=typeof rawName==='string'&&rawName.trim()?rawName.trim().slice(0,100):'Người bán';
-        fail('failed-precondition',`Điểm lấy hàng GHN của ${name} chưa có liên kết đang hoạt động. Người bán cần kiểm tra ánh xạ shop GHN.`);
+        const registration=await db.doc(`ghnSellerRegistrations/${environment}_${group.sellerId}`).get();
+        if(registration.exists&&['REQUESTING','UNKNOWN'].includes(registration.get('state')))fail('unavailable',`Điểm lấy hàng GHN của ${name} đang chờ hoàn tất liên kết. Chờ một chút rồi bấm Lấy lại báo giá để hệ thống kiểm tra; không cần tạo shop lại.`);
+        fail('failed-precondition',`Điểm lấy hàng GHN của ${name} chưa được thiết lập. Người bán mở Trung tâm giao dịch → Thiết lập địa chỉ lấy hàng GHN để lưu và liên kết điểm lấy hàng.`);
       }
       const data=mapping.data();source.sellers[group.sellerId]=data;
       group.shopId=data.shopId;group.pickup=data.pickup;
@@ -55,7 +62,12 @@ module.exports = ({ db, FieldValue, fail, uidOf, cleanDocumentId, cleanText, req
         const result=await p.shops(offset);if(!Array.isArray(result.shops))throw new GhnError('unavailable','GHN trả danh sách shop không hợp lệ.');
         shop=result.shops.find(s=>s._id===group.shopId);if(result.shops.length<50||result.last_offset===offset)break;offset=result.last_offset;
       }
-      if(!shop || shop.district_id!==group.pickup.ghn.districtId || shop.ward_code!==group.pickup.ghn.wardCode || shop.address!==data.registeredShopAddress)
+      let confirmedCreation=false;
+      if(!shop&&environment==='staging'){
+        const operation=await db.doc(`ghnSellerRegistrations/${environment}_${group.sellerId}`).get();
+        confirmedCreation=operation.exists&&require('./ghn-seller-onboarding').creationReceiptMatches(data,operation.data(),group.sellerId);
+      }
+      if((!shop&&!confirmedCreation) || (shop&&(shop.district_id!==group.pickup.ghn.districtId || String(shop.ward_code)!==group.pickup.ghn.wardCode || require('./ghn-pickup-policy').normalizeStreet(shop.address)!==require('./ghn-pickup-policy').normalizeStreet(data.registeredShopAddress))))
         fail('failed-precondition','Token/Shop ID/điểm gửi không khớp môi trường hoặc hồ sơ GHN. Quản trị viên cần ánh xạ lại seller.');
       group.shippingAddress=await p.address(group.shopId,address.data());
       group.parcel=parcel(group.items,settings.get('parcelEstimate'));

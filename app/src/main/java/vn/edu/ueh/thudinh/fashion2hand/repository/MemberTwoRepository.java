@@ -125,6 +125,9 @@ public final class MemberTwoRepository {
         return call("saveGhnAddress",payload("addressId",addressId,"contact",contact,"ghn",payload("provinceId",provinceId,"districtId",districtId,"wardCode",wardCode)));
     }
     public Task<HttpsCallableResult> cancelGhnShipment(String orderId) { return call("cancelGhnShipment",payload("orderId",orderId)); }
+    public Task<HttpsCallableResult> setupGhnSellerPickup(String addressId) {
+        return call("setupGhnSellerPickup",payload("addressId",addressId,"confirmPickup",true));
+    }
     public Task<HttpsCallableResult> refreshOrder(String orderId) { return call("refreshOrder", payload("orderId", orderId)); }
 
     public Task<HttpsCallableResult> createDispute(String orderId, String reason, String description, String uploadKey, java.util.List<String> evidencePaths) {
