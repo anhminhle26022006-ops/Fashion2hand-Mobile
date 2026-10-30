@@ -75,6 +75,7 @@ class GhnProvider {
     return body.data;
   }
   shops(offset = 0) { return this.request('/v2/shop/all', { offset, limit: 50 }, { method: 'GET' }); }
+  registerShop(shopId, body) { return this.request('/v2/shop/register', body, { shopId, mutation: true }); }
   provinces(shopId) { return this.request('/master-data/province', {}, { shopId, method: 'GET' }); }
   districts(shopId, provinceId) { return this.request('/master-data/district', { province_id: provinceId }, { shopId, method: 'GET' }); }
   wards(shopId, districtId) { return this.request('/master-data/ward', { district_id: districtId }, { shopId, method: 'GET' }); }

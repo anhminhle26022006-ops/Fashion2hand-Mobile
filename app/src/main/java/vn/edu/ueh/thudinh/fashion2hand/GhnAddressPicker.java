@@ -45,18 +45,22 @@ final class GhnAddressPicker {
             for(int i=0;i<3;i++){fields[i]=new android.widget.EditText(activity);fields[i].setHint(hints[i]);fields[i].setText(String.valueOf(address.getOrDefault(keys[i],"")));form.addView(fields[i]);}
             fields[1].setInputType(android.text.InputType.TYPE_CLASS_PHONE);
             new AlertDialog.Builder(activity).setTitle(pickup?"Địa chỉ lấy hàng của người bán":"Địa chỉ nhận hàng của người mua")
-                .setMessage(selected+"\n\n"+(pickup?"Đây là nơi GHN đến lấy hàng. Khi đổi điểm gửi, shop GHN phải được cập nhật và Admin liên kết lại trước khi đặt đơn.":"Đây là nơi GHN giao hàng cho người nhận.")).setView(form)
+                .setMessage(selected+"\n\n"+(pickup?"Đây là nơi GHN đến lấy hàng. Khi lưu, tên, số điện thoại và địa chỉ này sẽ được gửi đến GHN để thiết lập điểm lấy hàng cho tài khoản của bạn. Chưa tạo vận đơn hoặc gọi lấy hàng.":"Đây là nơi GHN giao hàng cho người nhận.")).setView(form)
                 .setNegativeButton("Hủy",null).setPositiveButton(pickup?"Lưu địa chỉ lấy hàng":"Lưu địa chỉ nhận hàng",(d,w)->{
                     AlertDialog progress=new AlertDialog.Builder(activity).setMessage("Đang xác minh địa chỉ GHN…").setCancelable(false).show();
                     Map<String,Object> contact=new HashMap<>();for(int i=0;i<3;i++)contact.put(keys[i],fields[i].getText().toString());
                     repo.saveGhnAddress(addressId,integer(province,"ProvinceID"),integer(district,"DistrictID"),String.valueOf(ward.get("WardCode")),contact)
+                        .onSuccessTask(result->{
+                            if(pickup){progress.setMessage("Đang thiết lập điểm lấy hàng GHN…");return repo.setupGhnSellerPickup(addressId);}
+                            return com.google.android.gms.tasks.Tasks.forResult(result);
+                        })
                         .addOnCompleteListener(result->{
                             progress.dismiss();if(!active.getAsBoolean())return;
                             if(!result.isSuccessful()){failure.accept(result.getException());return;}
-                            android.widget.Toast.makeText(activity,pickup?"Đã lưu địa chỉ lấy hàng của người bán":"Đã lưu địa chỉ nhận hàng",android.widget.Toast.LENGTH_LONG).show();
+                            android.widget.Toast.makeText(activity,pickup?"Đã liên kết điểm lấy hàng GHN cho bạn":"Đã lưu địa chỉ nhận hàng",android.widget.Toast.LENGTH_LONG).show();
                             saved.run();
                             if(pickup)new AlertDialog.Builder(activity).setTitle("Đã lưu địa chỉ lấy hàng của người bán")
-                                .setMessage(selected+"\n\nMã địa chỉ đã được lưu. Nếu chưa liên kết shop, Admin cần cấu hình shop GHN cho người bán. Thao tác này chưa tạo vận đơn hoặc gọi lấy hàng.")
+                                .setMessage(selected+"\n\nĐiểm lấy hàng của bạn đã sẵn sàng. Thao tác này chưa tạo vận đơn hoặc gọi lấy hàng.")
                                 .setPositiveButton("Đã hiểu",null).show();
                         });
                 }).show();

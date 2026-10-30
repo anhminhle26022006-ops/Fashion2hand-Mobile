@@ -41,6 +41,8 @@ module.exports = ctx => {
   endpoints.cancelGhnShipment=onCall(options,safe(shipment.cancel));
   endpoints.ghnCallback=onRequest({...options,maxInstances:3},shipment.callback);
   const shopId=()=>{const id=Number(process.env.GHN_SHOP_ID);if(!Number.isSafeInteger(id)||id<=0)fail('failed-precondition','Chưa cấu hình GHN_SHOP_ID cho danh mục địa chỉ.');return id;};
+  const setupPickup=require('./ghn-seller-onboarding')({...ctx,provider,bootstrapShopId:shopId});
+  endpoints.setupGhnSellerPickup=onCall(options,safe(setupPickup));
   async function admin(request){const uid=uidOf(request),user=await db.doc(`users/${uid}`).get(),authUser=await ctx.getAuth().getUser(uid);if(authUser.disabled||authUser.customClaims?.admin!==true||!user.exists||user.get('role')!=='ADMIN'||user.get('accountStatus')!=='ACTIVE')fail('permission-denied','Chỉ quản trị viên có claim admin được cấu hình GHN.');}
   endpoints.ghnAdminShops=onCall(options,safe(async r=>{await admin(r);return {environment:provider().settings.environment,...await provider().shops(Number.isSafeInteger(r.data.offset)&&r.data.offset>=0?r.data.offset:0)};}));
   endpoints.ghnAddressCatalog=onCall(options,safe(async r=>{

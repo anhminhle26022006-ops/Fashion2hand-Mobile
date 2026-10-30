@@ -625,7 +625,7 @@ final class TransactionScreens {
         if (buyer && "PAID".equals(text(order, "paymentStatus"))
                 && !Boolean.TRUE.equals(order.get("paymentNeedsReview")) && !Boolean.TRUE.equals(payment.get("needsReview"))
                 && Arrays.asList("CONFIRMED", "PREPARING", "READY_TO_SHIP", "SHIPPING", "DELIVERED", "COMPLETED").contains(status)) {
-            TextView success = info(paymentCard, "Thanh toán thành công"); success.setId(R.id.paymentSuccessMessage);
+            TextView success = info(paymentCard, "Đã thanh toán"); success.setId(R.id.paymentSuccessMessage);
             success.setTextColor(0xFF1F6B48); success.setTypeface(null, android.graphics.Typeface.BOLD);
             info(paymentCard, "Bạn đã hoàn tất đặt hàng. Người bán sẽ tiếp tục xử lý đơn.");
             button(paymentCard, R.id.btnPaymentComplete, "Hoàn tất", () -> host.orders(false));
@@ -707,7 +707,7 @@ final class TransactionScreens {
         button(content, R.id.btnChatOrderSeller, "Chat với bên còn lại", () -> host.chat(text(order, buyer ? "sellerId" : "buyerId"), text(order, "postId")));
         if("GHN".equals(text(order,"shippingProvider"))) {
             info(content,"GHN · "+("staging".equals(text(order,"shippingEnvironment"))?"THỬ NGHIỆM STAGING":"VẬN CHUYỂN THẬT")+" · "+("VNPAY".equals(text(order,"paymentProvider"))?"VNPAY Sandbox":"Thanh toán mô phỏng"));
-            if(!buyer)button(content,0,"Chọn mã GHN cho địa chỉ lấy hàng của tôi",this::selectGhnPickupAddress);
+            if(!buyer)button(content,0,"Thiết lập địa chỉ lấy hàng GHN",this::selectGhnPickupAddress);
             if(!buyer&&Arrays.asList("READY","PICKING").contains(text(shipment,"status")))button(content,0,"Hủy vận đơn GHN",()->new android.app.AlertDialog.Builder(a)
                 .setTitle("Yêu cầu GHN hủy vận đơn?").setMessage("Chỉ xác nhận hủy khi GHN trả trạng thái đã hủy. Thao tác này không tự hoàn tiền hoặc hủy đơn mua.")
                 .setNegativeButton("Quay lại",null).setPositiveButton("Yêu cầu hủy",(dialog,which)->execute(repo.cancelGhnShipment(host.orderId()),value->{})).show());
@@ -919,9 +919,11 @@ final class TransactionScreens {
     private static long time(DocumentSnapshot doc) { Timestamp timestamp = doc.getTimestamp("createdAt"); return timestamp == null ? 0 : timestamp.toDate().getTime(); }
     private void moneyEvent(LinearLayout parent, DocumentSnapshot doc) {
         Map<String, Object> data = doc.getData(); String type = text(data, "type");
-        String description = "PAYMENT_RECEIVED".equals(type) ? "Thanh toán nhận vào" : "REFUND".equals(type) ? "Hoàn tiền" : "SELLER_PAYOUT".equals(type) ? "Giải ngân người bán" : type;
+        String description = "PAYMENT_RECEIVED".equals(type)||"SANDBOX_MANUAL_CONFIRMATION".equals(type) ? "Thanh toán nhận vào" : "REFUND".equals(type) ? "Hoàn tiền" : "SELLER_PAYOUT".equals(type) ? "Giải ngân người bán" : "Giao dịch thanh toán";
         String status = text(data, "status");
-        info(parent, description + " · " + money(data.get("amount")) + " · " + (status.isEmpty() ? "Đã ghi nhận giao dịch" : label(status)) + "\n" + date(data.get("createdAt")) + " · " + text(data, "mode"));
+        String state="DEMO_CONFIRMED".equals(status)?"Đã thanh toán":Arrays.asList("REVIEW_REQUIRED","REFUND_REVIEW_REQUIRED").contains(status)?"Chờ đối soát":status.isEmpty()?"Đã ghi nhận giao dịch":label(status);
+        String method="VNPAY".equals(text(data,"provider"))||text(data,"mode").contains("SANDBOX")?"VNPAY Sandbox":"Thanh toán mô phỏng";
+        info(parent, description + " · " + money(data.get("amount")) + " · " + state + "\n" + date(data.get("createdAt")) + " · " + method);
     }
 
     void submitDispute(List<Object> evidence) {
