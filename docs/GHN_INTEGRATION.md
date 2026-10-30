@@ -180,7 +180,7 @@ node --test functions/test/ghn-provider.test.js
 powershell.exe -NoProfile -File functions/test/ghn-admin-script.test.ps1
 # Bật Firestore Emulator ở 127.0.0.1:8080 trước:
 node --test functions/test/ghn.emulator.test.js
-.\build-debug.ps1 -RunUnitTests
+.\scripts\build-debug.ps1 -RunUnitTests
 ```
 
 Test Emulator dùng Admin SDK trực tiếp để kiểm tra transaction, không phải bằng chứng đã gọi GHN staging hoặc hoàn thành nghiệm thu UI thiết bị. Chưa kiểm tra API GHN thật, callback từ tài khoản thật, quyền tài khoản GHN, phí hợp đồng hoặc đơn production khi thiếu credential. Kết quả chạy cụ thể được ghi khi bàn giao.

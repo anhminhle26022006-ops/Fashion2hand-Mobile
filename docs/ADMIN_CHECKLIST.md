@@ -20,7 +20,7 @@
 Khởi động Emulator:
 
 ```powershell
-.\start-emulators.ps1
+.\scripts\start-emulators.ps1
 ```
 
 Tạo hoặc cập nhật tài khoản Admin **cục bộ** ở terminal khác, dùng email và mật khẩu bạn chọn:
@@ -35,7 +35,7 @@ Script từ chối chạy nếu hai biến không trỏ đúng Emulator localhos
 
 ```powershell
 node --test --test-concurrency=1 functions/test/admin.emulator.test.js functions/test/marketplace.emulator.test.js functions/test/transactions.emulator.test.js
-.\build-debug.ps1 -RunUnitTests -RunDeviceTests
+.\scripts\build-debug.ps1 -RunUnitTests -RunDeviceTests
 ```
 
 ## Phạm vi và lưu ý triển khai

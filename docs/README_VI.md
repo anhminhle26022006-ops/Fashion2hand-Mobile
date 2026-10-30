@@ -61,13 +61,13 @@ Chờ Firebase CLI báo hoàn tất. Index mới có thể cần vài phút đ�
 App mặc định kết nối Firebase thật của project `fashion2hand` trong `app/google-services.json` (cả debug và release). Build APK dùng chung giữa các máy:
 
 ```powershell
-.\build-debug.ps1
+.\scripts\build-debug.ps1
 ```
 
-Để thử nghiệm bằng Firebase Emulator trên máy phát triển, chạy `start-emulators.ps1` rồi build:
+Để thử nghiệm bằng Firebase Emulator trên máy phát triển, chạy `scripts/start-emulators.ps1` rồi build:
 
 ```powershell
-.\build-debug.ps1 -UseFirebaseEmulators
+.\scripts\build-debug.ps1 -UseFirebaseEmulators
 # Hoặc: .\gradlew.bat :app:assembleDebug -PuseFirebaseEmulators=true
 ```
 

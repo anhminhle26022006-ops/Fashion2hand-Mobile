@@ -79,7 +79,7 @@ async function call(name, data, user) {
       signal: AbortSignal.timeout(60000)
     });
   } catch {
-    throw new Error("Không gọi được Functions Emulator (cổng 5001). Hãy chạy start-emulators.ps1 trước.");
+    throw new Error("Không gọi được Functions Emulator (cổng 5001). Hãy chạy scripts/start-emulators.ps1 trước.");
   }
   const body = await response.json();
   if (!response.ok) throw new Error(`${name} lỗi: ${body.error?.message || response.status}`);

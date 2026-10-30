@@ -6,7 +6,7 @@ Phạm vi: nhánh `thu`, Android API 33 trên AVD riêng `Marketplace_Test`, Fir
 
 | Task | Xác minh | Kết quả |
 |---|---|---|
-| Gradle và build | `build-debug.ps1` dùng JBR của Android Studio, thư mục socket trong workspace và IPv4; assemble debug + unit test | PASS — build cuối thành công; 3/3 unit test qua |
+| Gradle và build | `scripts/build-debug.ps1` dùng JBR của Android Studio, thư mục socket trong workspace và IPv4; assemble debug + unit test | PASS — build cuối thành công; 3/3 unit test qua |
 | Nút, điều hướng, liên kết | Khởi tạo 48 route Main và kiểm tra listener của các nút đang hoạt động; các luồng Marketplace/Admin/Giao dịch chạy E2E | 48 route qua; sửa hai nút trong Chat và nền đơn demo nằm dưới báo cáo |
 | Loading, rỗng, lỗi mạng, thử lại | Phân biệt snapshot cache chưa xác nhận với dữ liệu rỗng từ server; tắt/bật mạng Firestore; đổi Functions sang cổng không phục vụ rồi khôi phục và bấm thử lại | Qua bài kiểm thử trạng thái mạng |
 | Validation, gửi lặp | Email rỗng/sai, mật khẩu đăng ký, ngày sinh không tồn tại; dialog địa chỉ thiếu trường; khóa nút đăng nhập/đăng ký/lưu hồ sơ/gửi chat và khi backend đang xử lý | Qua các bài validation; địa chỉ checkout dùng ID ổn định để không tạo thêm bản ghi khi gửi lại |
@@ -42,13 +42,13 @@ Các file trong `.gradle/qa` là artifact cục bộ, được tạo lại bằn
 
 ## Chạy lại
 
-Khởi động backend bằng `start-emulators.ps1`, cấp fixture Admin theo `ADMIN_CHECKLIST.md`, mở `Marketplace_Test` và chờ boot xong. Trên terminal PowerShell:
+Khởi động backend bằng `scripts/start-emulators.ps1`, cấp fixture Admin theo `ADMIN_CHECKLIST.md`, mở `Marketplace_Test` và chờ boot xong. Trên terminal PowerShell:
 
 ```powershell
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 & $adb -s emulator-5554 shell wm size 640x960
 & $adb -s emulator-5554 shell wm density 320
-.\build-debug.ps1 -RunUnitTests -RunDeviceTests
+.\scripts\build-debug.ps1 -RunUnitTests -RunDeviceTests
 ```
 
 Các file `app/src/androidTest/assets/layout-audit.txt` và `route-audit.txt` ghi danh sách kiểm tra. `ResponsiveFlowTest` xuất bảng chi tiết và ảnh vào `Download/Fashion2hand-QA` của AVD bằng MediaStore để không bị Gradle xóa khi gỡ APK thử nghiệm.

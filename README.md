@@ -7,7 +7,7 @@
 Mở repository bằng Android Studio, đồng bộ Gradle và chọn thiết bị Android API 29 trở lên. Cấu hình Firebase Android: `app/google-services.json`.
 
 ```powershell
-.\build-debug.ps1
+.\scripts\build-debug.ps1
 ```
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`. Debug mặc định và release dùng Firebase thật. Build APK không triển khai backend.
@@ -16,15 +16,15 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`. Debug mặc định và releas
 
 ```powershell
 # Terminal 1
-.\start-emulators.ps1
+.\scripts\start-emulators.ps1
 ```
 
 ```powershell
 # Terminal 2
-.\build-debug.ps1 -UseFirebaseEmulators
+.\scripts\build-debug.ps1 -UseFirebaseEmulators
 ```
 
-Android Emulator dùng host `10.0.2.2`; dữ liệu Emulator tách riêng cloud. Chạy unit test bằng `.\build-debug.ps1 -RunUnitTests`. Chạy test thiết bị bằng `.\build-debug.ps1 -RunDeviceTests` khi Emulator và thiết bị đã sẵn sàng.
+Android Emulator dùng host `10.0.2.2`; dữ liệu Emulator tách riêng cloud. Chạy unit test bằng `.\scripts\build-debug.ps1 -RunUnitTests`. Chạy test thiết bị bằng `.\scripts\build-debug.ps1 -RunDeviceTests` khi Emulator và thiết bị đã sẵn sàng.
 
 ## Tài liệu
 

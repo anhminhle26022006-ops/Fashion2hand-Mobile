@@ -20,3 +20,7 @@ functions/.secret.local
 firebase-debug.log
 ui-debug.log
 emulator-data/
+
+# Local emulator output
+firestore-debug.log
+logs/

@@ -1,11 +1,12 @@
 param([switch]$RunUnitTests, [switch]$RunDeviceTests, [switch]$UseFirebaseEmulators, [string]$TestClass, [switch]$BuildDeviceTests)
 
 $ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path $PSScriptRoot -Parent
 $previousJavaHome = $env:JAVA_HOME
 $previousJavaOptions = $env:JAVA_TOOL_OPTIONS
 $buildExitCode = 1
 
-Push-Location $PSScriptRoot
+Push-Location $repoRoot
 try {
     $studioJava = Join-Path $env:ProgramFiles 'Android\Android Studio\jbr'
     if (Test-Path (Join-Path $studioJava 'bin\java.exe')) {
@@ -13,7 +14,7 @@ try {
     }
 
     # Windows Java sockets can fail when TEMP uses a short user-profile path.
-    $socketDirectory = Join-Path $PSScriptRoot '.gradle\socket'
+    $socketDirectory = Join-Path $repoRoot '.gradle\socket'
     New-Item -ItemType Directory -Force -Path $socketDirectory | Out-Null
     $socketDirectory = $socketDirectory.Replace('\', '/')
     $env:JAVA_TOOL_OPTIONS = "$previousJavaOptions -Djdk.net.unixdomain.tmpdir=`"$socketDirectory`" -Djava.net.preferIPv4Stack=true"
