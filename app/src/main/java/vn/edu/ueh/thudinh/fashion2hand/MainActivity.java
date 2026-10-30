@@ -189,6 +189,7 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap selectedProfilePhoto;
     private Uri selectedProfilePhotoUri;
     private String selectedCategory = "Tất cả";
+    private boolean oldChatsMerged = false;
     private Uri selectedListingPhoto;
     private Bitmap capturedListingPhoto;
     private final ArrayList<Object> selectedListingPhotos = new ArrayList<>();
@@ -2158,7 +2159,8 @@ public class MainActivity extends AppCompatActivity {
                         if (!(members instanceof List) || !((List<?>) members).contains(currentUid())) {
                             Toast.makeText(this, "Cuộc trò chuyện không còn khả dụng.", Toast.LENGTH_SHORT).show(); return;
                         }
-                        currentChatId = chatId; currentPeerId = "";
+                        String mergedInto = chat.getString("mergedInto");
+                        currentChatId = mergedInto != null && !mergedInto.isEmpty() ? mergedInto : chatId; currentPeerId = "";
                         for (Object member : (List<?>) members) if (member instanceof String && !currentUid().equals(member)) currentPeerId = (String) member;
                         currentPostId = textValue(chat.getData(), "postId", "");
                         chatReturnScreen = R.layout.activity_notifications;
@@ -2458,6 +2460,12 @@ public class MainActivity extends AppCompatActivity {
         View first = findViewById(conversationIds[0]);
         ViewGroup list = first != null && first.getParent() instanceof ViewGroup ? (ViewGroup) first.getParent() : null;
         for (int id : conversationIds) { View sample = findViewById(id); if (sample != null) sample.setVisibility(View.GONE); }
+        // Gộp các phòng chat cũ (mỗi bài một phòng) thành một phòng mỗi người; chỉ cần chạy một lần mỗi lần mở app.
+        if (!oldChatsMerged && FirebaseAuth.getInstance().getCurrentUser() != null) {
+            oldChatsMerged = true;
+            FirebaseFunctions.getInstance().getHttpsCallable("mergeMyChats").call(new HashMap<>())
+                    .addOnFailureListener(failure -> oldChatsMerged = false);
+        }
         if (requireSignedIn()) addScreenListener(memberTwoRepository.listenChats(currentUid(), (snapshot, error) -> {
             if (error != null) { showFirebaseError(error); return; }
             activeChats.clear(); if (snapshot != null) activeChats.addAll(snapshot.getDocuments());
@@ -2468,6 +2476,7 @@ public class MainActivity extends AppCompatActivity {
                 Object tag = list.getChildAt(i).getTag();
                 if (tag instanceof String && ((String) tag).startsWith("firebase_chat|")) list.removeViewAt(i);
             }
+            java.util.Set<String> shownPeers = new java.util.HashSet<>();
             for (DocumentSnapshot chat : activeChats) {
                 List<String> participants = (List<String>) chat.get("participantIds");
                 if (participants == null) continue;
@@ -2478,6 +2487,11 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
                 if (peerIdTemp.isEmpty()) continue;
+                if (chat.get("mergedInto") != null) continue;
+                // Phòng mở ra nhưng chưa có tin nào thì không hiện.
+                if (chat.get("lastMessageAt") == null && textValue(chat.getData(), "lastMessage", "").trim().isEmpty()) continue;
+                // Một người một khung chat: danh sách đã xếp theo updatedAt mới nhất, phòng cũ hơn của cùng người bị bỏ qua.
+                if (!shownPeers.add(peerIdTemp)) continue;
 
                 // Khai báo các biến final / effectively final để dùng an toàn trong lambda
                 final String chatId = chat.getId();
@@ -2520,7 +2534,15 @@ public class MainActivity extends AppCompatActivity {
                 preview.setTextSize(12);
                 preview.setMaxLines(1);
 
+                TextView about = new TextView(this);
+                about.setTextColor(0xFFE97859);
+                about.setTextSize(11);
+                about.setMaxLines(1);
+                about.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                about.setVisibility(View.GONE);
+
                 info.addView(name);
+                info.addView(about);
                 info.addView(preview);
                 row.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
 
@@ -2539,7 +2561,9 @@ public class MainActivity extends AppCompatActivity {
                         .addOnSuccessListener(response -> {
                             if(!name.isAttachedToWindow() || !(response.getData() instanceof Map)) return;
                             Map<String,Object> profile=(Map<String,Object>)response.getData();name.setText(textValue(profile,"name","Thành viên"));loadAvatarIntoTextView(textValue(profile,"photoUrl",""),avatar);
-                            row.setTag("firebase_chat|"+(name.getText()+" "+previewText).toLowerCase(java.util.Locale.ROOT));row.setTag(R.id.tvTabBuying,textValue(profile,"role","other"));applyMessageFilters();
+                            String postTitle=textValue(profile,"postTitle","");
+                            if(!postTitle.isEmpty()){about.setText("Về: "+postTitle);about.setVisibility(View.VISIBLE);}
+                            row.setTag("firebase_chat|"+(name.getText()+" "+postTitle+" "+previewText).toLowerCase(java.util.Locale.ROOT));row.setTag(R.id.tvTabBuying,textValue(profile,"role","other"));applyMessageFilters();
                         }).addOnFailureListener(failure -> { if(name.isAttachedToWindow())name.setText("Không tải được tên thành viên"); });
             }
             applyMessageFilters();

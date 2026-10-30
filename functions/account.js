@@ -19,7 +19,8 @@ module.exports = ({ onCall, db, getStorage, FieldValue, uidOf, cleanText, cleanD
       const [peer, post] = await Promise.all([db.doc(`users/${peerId}`).get(), postId ? db.doc(`posts/${postId}`).get() : null]);
       return { peerId, name: peer.exists && peer.get("accountStatus") === "ACTIVE" ? peer.get("name") || "Thành viên" : "Tài khoản không còn hoạt động",
         photoUrl: peer.exists && peer.get("accountStatus") === "ACTIVE" ? peer.get("photoUrl") || "" : "",
-        role: post?.exists ? post.get("ownerId") === uid ? "sell" : "buy" : "other" };
+                role: post?.exists ? post.get("ownerId") === uid ? "sell" : "buy" : "other",
+                postTitle: post?.exists ? String(post.get("title") || "") : "" };
     }),
     getAccountData: onCall(async request => {
       const uid = uidOf(request);
