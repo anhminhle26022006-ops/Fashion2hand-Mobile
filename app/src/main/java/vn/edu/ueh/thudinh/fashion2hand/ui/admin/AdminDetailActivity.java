@@ -9,6 +9,8 @@ import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import java.util.List;
+
 import androidx.core.content.ContextCompat;
 
 import vn.edu.ueh.thudinh.fashion2hand.R;
@@ -203,6 +205,7 @@ public class AdminDetailActivity extends BaseAdminActivity {
   AdminUi.addKv(info, "Size · Tình trạng", p.getSize() + " · " + p.getCondition());
   AdminUi.addKv(info, "Khu vực", p.getLocation());
   AdminUi.addKv(info, "Ngày đăng", p.getCreatedAt());
+  showPostImages(p.getPostId());
 
   if (p.getReportCount() > 0) {
    AdminUi.styleNotice(notice, "Lý do bị báo cáo\n" + p.getReportReasons(), AdminUi.KIND_DANGER);
@@ -477,17 +480,27 @@ public class AdminDetailActivity extends BaseAdminActivity {
   AdminUi.styleNotice(notice, "Xác minh thủ công (Verification Simulation). Chưa tích hợp VNeID, Admin duyệt dựa trên hồ sơ người dùng gửi.",
           AdminUi.KIND_INFO);
 
+  // Hiện đúng những gì người dùng gửi trong hồ sơ. SĐT không bắt buộc và OTP SMS đang tắt, nên không báo "chưa xác thực".
+  String rid = v.getRequestId();
   AdminUi.addKv(info, "Loại xác minh", v.getRequestType());
+  addKvIfPresent("Họ tên trên giấy tờ", viewModel.getVerificationField(rid, "legalName"));
+  addKvIfPresent("Ngày sinh", viewModel.getVerificationField(rid, "birthDate"));
   AdminUi.addKv(info, "Giấy tờ", v.getDocumentType());
-  if (u != null) AdminUi.addKv(info, "Số điện thoại", AdminUi.maskPhone(u.getPhone()));
-  AdminUi.addKvChip(info, "OTP số điện thoại", v.isPhoneVerified()
-          ? new AdminLabels.Label("Đã xác thực", AdminUi.KIND_OK)
-          : new AdminLabels.Label("Chưa xác thực", AdminUi.KIND_WARN));
+  addKvIfPresent("Số giấy tờ", maskIdentity(viewModel.getVerificationField(rid, "identityNumber")));
+  if (u != null) {
+   addKvIfPresent("Email", u.getEmail());
+   AdminUi.addKvChip(info, "Xác minh email", viewModel.isEmailVerified(u.getUserId())
+           ? new AdminLabels.Label("Đã xác thực", AdminUi.KIND_OK)
+           : new AdminLabels.Label("Chưa xác thực", AdminUi.KIND_WARN));
+   if (u.getPhone() != null && !u.getPhone().isEmpty()) AdminUi.addKv(info, "Số điện thoại", AdminUi.maskPhone(u.getPhone()));
+  }
   AdminUi.addKv(info, "Thời gian gửi", v.getCreatedAt());
   if (v.getNote() != null && !v.getNote().isEmpty()) AdminUi.addKv(info, "Ghi chú", v.getNote());
 
-  showEvidenceTitle("Ảnh hồ sơ");
-  AdminUi.addEvidenceRow(evidence, "Ảnh chân dung", "Mặt trước giấy tờ", "Mặt sau giấy tờ");
+  showEvidenceTitle("Ảnh hồ sơ (bấm vào ảnh để xem lớn)");
+  String[] paths = viewModel.getVerificationEvidence(rid);
+  TextView[] cells = AdminUi.addEvidenceRow(evidence, "Ảnh chân dung", "Mặt trước giấy tờ", "Mặt sau giấy tờ");
+  for (int i = 0; i < cells.length; i++) loadEvidence(cells[i], "verificationRequests", rid, paths[i]);
 
   if (!VerificationRequest.PENDING.equals(v.getStatus())) {
    hideActions();
@@ -510,6 +523,9 @@ public class AdminDetailActivity extends BaseAdminActivity {
  // ================================================================ Hàm phụ
 
  private void reset() {
+  renderGeneration++;
+  heroLeading.setTag(null);
+  AdminUi.resetImage(heroLeading);
   heroChips.removeAllViews();
   info.removeAllViews();
   timeline.removeAllViews();
@@ -527,6 +543,56 @@ public class AdminDetailActivity extends BaseAdminActivity {
   decision.setVisibility(View.GONE);
   actionDivider.setVisibility(View.VISIBLE);
   actions.setVisibility(View.VISIBLE);
+ }
+
+ // ================================================================ Ảnh thật
+
+ /** Tăng mỗi lần vẽ lại trang, để ảnh tải xong muộn không ghi vào ô của lần vẽ trước. */
+ private int renderGeneration;
+
+ private void showPostImages(String postId) {
+  List<String> images = viewModel.getPostImages(postId);
+  if (images.isEmpty()) return;
+  int generation = renderGeneration;
+  String cover = images.get(0);
+  heroLeading.setTag(cover);
+  viewModel.loadImage("posts", postId, cover).addOnSuccessListener(this, bytes -> {
+   if (generation == renderGeneration && cover.equals(heroLeading.getTag())) AdminUi.showImage(heroLeading, bytes);
+  });
+  showEvidenceTitle("Ảnh sản phẩm (" + images.size() + ")");
+  for (int start = 0; start < images.size(); start += 3) {
+   int end = Math.min(start + 3, images.size());
+   String[] labels = new String[end - start];
+   for (int i = start; i < end; i++) labels[i - start] = "Ảnh " + (i + 1);
+   TextView[] cells = AdminUi.addEvidenceRow(evidence, labels);
+   for (int i = start; i < end; i++) loadEvidence(cells[i - start], "posts", postId, images.get(i));
+  }
+ }
+
+ private void loadEvidence(TextView cell, String collection, String recordId, String path) {
+  if (path == null || path.isEmpty()) { cell.setText(cell.getText() + "\nChưa có ảnh"); return; }
+  int generation = renderGeneration;
+  CharSequence label = cell.getText();
+  cell.setText(label + "\nĐang tải…");
+  viewModel.loadImage(collection, recordId, path)
+          .addOnSuccessListener(this, bytes -> {
+           if (generation != renderGeneration) return;
+           cell.setText(label);
+           AdminUi.showEvidenceImage(cell, bytes);
+          })
+          .addOnFailureListener(this, error -> {
+           if (generation == renderGeneration) cell.setText(label + "\nKhông tải được ảnh");
+          });
+ }
+
+ private void addKvIfPresent(String key, String value) {
+  if (value != null && !value.trim().isEmpty()) AdminUi.addKv(info, key, value.trim());
+ }
+
+ /** Chỉ hiện 4 số cuối của số giấy tờ. */
+ private static String maskIdentity(String number) {
+  if (number == null || number.length() <= 4) return number;
+  return "••••" + number.substring(number.length() - 4);
  }
 
  private void showMissing() {

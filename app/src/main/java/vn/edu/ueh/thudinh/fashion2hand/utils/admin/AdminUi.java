@@ -2,8 +2,12 @@ package vn.edu.ueh.thudinh.fashion2hand.utils.admin;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.ThumbnailUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -13,6 +17,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.RoundedBitmapDrawable;
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
 
@@ -245,20 +251,78 @@ public final class AdminUi {
     }
 
     /** Hàng ô ảnh bằng chứng giả lập. */
-    public static void addEvidenceRow(LinearLayout parent, String... labels) {
+    /** Hàng ô ảnh; trả về các ô để nơi gọi thay bằng ảnh thật khi tải xong (showEvidenceImage). */
+    public static TextView[] addEvidenceRow(LinearLayout parent, String... labels) {
         Context c = parent.getContext();
         LinearLayout row = new LinearLayout(c);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView[] cells = new TextView[labels.length];
         for (int i = 0; i < labels.length; i++) {
             TextView cell = (TextView) LayoutInflater.from(c).inflate(R.layout.item_admin_evidence, row, false);
             cell.setText(labels[i]);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(c, 88), 1f);
             if (i > 0) lp.setMarginStart(dp(c, 8));
             row.addView(cell, lp);
+            cells[i] = cell;
         }
         LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         rowLp.topMargin = dp(c, 10);
         parent.addView(row, rowLp);
+        return cells;
+    }
+
+    /** Giải mã ảnh, thu nhỏ cạnh dài về khoảng maxSide pixel để không tốn bộ nhớ. */
+    public static Bitmap decodeImage(byte[] bytes, int maxSide) {
+        if (bytes == null || bytes.length == 0) return null;
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (options.inSampleSize * 2) >= maxSide) options.inSampleSize *= 2;
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
+    }
+
+    /** Đặt ảnh thật (cắt vuông, bo góc) vào ô đầu dòng hoặc ô lớn đầu trang chi tiết thay cho icon. */
+    public static void showImage(TextView target, byte[] bytes) {
+        Bitmap bitmap = decodeImage(bytes, 320);
+        if (bitmap == null) return;
+        int side = Math.min(bitmap.getWidth(), bitmap.getHeight());
+        Bitmap square = ThumbnailUtils.extractThumbnail(bitmap, side, side);
+        RoundedBitmapDrawable drawable = RoundedBitmapDrawableFactory.create(target.getResources(), square);
+        drawable.setCornerRadius(side * 0.22f);
+        target.setText("");
+        target.setBackgroundTintList(null);
+        target.setBackground(drawable);
+    }
+
+    /** Trả ô đầu dòng về nền mặc định (dùng khi RecyclerView tái sử dụng ô đã có ảnh). */
+    public static void resetImage(TextView target) {
+        target.setBackgroundResource(R.drawable.bg_admin_round);
+    }
+
+    /** Thay một ô ảnh giữ chỗ bằng ảnh thật; bấm vào để xem ảnh lớn. */
+    public static void showEvidenceImage(TextView cell, byte[] bytes) {
+        if (!(cell.getParent() instanceof ViewGroup)) return;
+        Bitmap bitmap = decodeImage(bytes, 1200);
+        if (bitmap == null) { cell.setText(cell.getText() + "\nKhông đọc được ảnh"); return; }
+        Context c = cell.getContext();
+        ViewGroup parent = (ViewGroup) cell.getParent();
+        int index = parent.indexOfChild(cell);
+        ImageView image = new ImageView(c);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setBackgroundResource(R.drawable.bg_admin_evidence);
+        image.setClipToOutline(true);
+        image.setImageBitmap(bitmap);
+        image.setContentDescription(cell.getText());
+        image.setOnClickListener(v -> {
+            ImageView large = new ImageView(c);
+            large.setAdjustViewBounds(true);
+            large.setImageBitmap(bitmap);
+            new AlertDialog.Builder(c).setTitle(cell.getText()).setView(large).setPositiveButton("Đóng", null).show();
+        });
+        parent.removeViewAt(index);
+        parent.addView(image, index, cell.getLayoutParams());
     }
 }

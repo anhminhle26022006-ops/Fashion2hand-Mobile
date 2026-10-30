@@ -71,6 +71,30 @@ public class AdminRepositoryMappingTest {
     }
 
     @Test
+    public void reviewStatusesStillCountAsHeldMoneyAndRawFieldsAreReadable() {
+        String now = "2026-10-24T01:00:00.000Z";
+        Map<String, List<Map<String, Object>>> records = new HashMap<>();
+        for (String name : new String[]{"users", "orders", "reports", "disputes", "categories"}) records.put(name, list());
+        records.put("posts", list(doc("id", "p2", "ownerId", "seller", "title", "Túi", "type", "SALE", "status", "HIDDEN",
+                "imageUrls", java.util.Arrays.asList("https://example/0.jpg", "https://example/1.jpg"), "createdAt", now)));
+        records.put("verificationRequests", list(doc("id", "v1", "userId", "seller", "status", "PENDING", "legalName", "Nguyen Van A",
+                "evidencePaths", java.util.Arrays.asList("verificationEvidence/seller/k/front-a.jpg", "verificationEvidence/seller/k/selfie-b.jpg"),
+                "createdAt", now)));
+        records.put("moneyTransactions", list(
+                doc("id", "received_a", "orderId", "a", "type", "PAYMENT_RECEIVED", "amount", 119500L, "status", "HOLDING", "createdAt", now),
+                doc("id", "received_b", "orderId", "b", "type", "PAYMENT_RECEIVED", "amount", 72500L, "status", "REVIEW_REQUIRED", "createdAt", now),
+                doc("id", "received_c", "orderId", "c", "type", "PAYMENT_RECEIVED", "amount", 1000L, "status", "PAYOUT_COMPLETED_SIMULATED", "createdAt", now)));
+        AdminRepository repository = AdminRepository.getInstance();
+        repository.apply(records, doc());
+        long held = 0;
+        for (Transaction t : repository.getTransactions()) if (Transaction.HOLDING.equals(t.getStatus())) held += t.getAmount();
+        assertEquals(192000L, held);
+        assertEquals(Transaction.RELEASED, repository.getTransactionByOrder("c").getStatus());
+        assertEquals(2, repository.getStrings("posts", "p2", "imageUrls").size());
+        assertEquals("Nguyen Van A", repository.getField("verificationRequests", "v1", "legalName"));
+    }
+
+    @Test
     public void supportTicketIsNotTreatedAsReportAgainstItsSender() {
         AdminRepository repository = load();
         assertTrue(repository.isSupportTicket("support1"));

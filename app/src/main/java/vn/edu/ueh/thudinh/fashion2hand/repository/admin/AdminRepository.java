@@ -70,6 +70,11 @@ public class AdminRepository {
     private final List<Category> categories = new ArrayList<>();
     private final Map<String, Long> createdMillis = new HashMap<>();
     private final Map<String, Map<String, Object>> rawUsers = new HashMap<>();
+    private final Map<String, Map<String, Object>> rawRecords = new HashMap<>();
+    /** Ảnh đã tải (bài đăng, hồ sơ xác minh), giữ tối đa 60 ảnh gần nhất để cuộn danh sách không tải lại. */
+    private final Map<String, byte[]> imageCache = new java.util.LinkedHashMap<String, byte[]>(16, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) { return size() > 60; }
+    };
     private final java.util.Set<String> supportTickets = new java.util.HashSet<>();
 
     private final MutableLiveData<Integer> dataVersion = new MutableLiveData<>(0);
@@ -199,7 +204,7 @@ public class AdminRepository {
     void apply(Map<String, List<Map<String, Object>>> records, Map<String, Object> config) {
         users.clear(); posts.clear(); orders.clear(); transactions.clear();
         reports.clear(); disputes.clear(); verifications.clear(); categories.clear();
-        createdMillis.clear(); rawUsers.clear(); supportTickets.clear();
+        createdMillis.clear(); rawUsers.clear(); rawRecords.clear(); supportTickets.clear();
 
         for (Map<String, Object> r : records.get("users")) rawUsers.put(str(r, "id"), r);
 
@@ -304,11 +309,25 @@ public class AdminRepository {
         }
     }
 
+    /**
+     * Backend ghi nhiều trạng thái cho khoản tiền nhận (HOLDING, REVIEW_REQUIRED của VNPAY, REFUND_REVIEW_REQUIRED...).
+     * Chỉ đã giải ngân và đã hoàn tiền là tiền đã rời hệ thống; mọi trạng thái còn lại là tiền vẫn đang giữ,
+     * nên gom về HOLDING để ô tổng, bộ lọc và nhãn của từng dòng luôn khớp nhau.
+     */
+    private static String transactionStatus(String code) {
+        switch (code) {
+            case "RELEASED": case "PAYOUT_COMPLETED_SIMULATED": return Transaction.RELEASED;
+            case "REFUNDED": return Transaction.REFUNDED;
+            case "DISPUTED": return Transaction.DISPUTED;
+            default: return Transaction.HOLDING;
+        }
+    }
+
     private Transaction mapTransaction(Map<String, Object> r, Map<String, Dispute> openDisputeByOrder) {
         String id = str(r, "id");
         remember("moneyTransactions", id, r);
         String orderId = str(r, "orderId");
-        String status = or(str(r, "status"), Transaction.HOLDING);
+        String status = transactionStatus(str(r, "status"));
         if (Transaction.HOLDING.equals(status) && openDisputeByOrder.containsKey(orderId)) status = Transaction.DISPUTED;
         String finished = date(r, "releasedAt");
         if (finished.isEmpty()) finished = date(r, "refundedAt");
@@ -365,6 +384,7 @@ public class AdminRepository {
     }
 
     private void remember(String collection, String id, Map<String, Object> r) {
+        rawRecords.put(collection + ":" + id, r);
         Long millis = millis(r.get("createdAt"));
         if (millis == null) millis = millis(r.get("submittedAt"));
         if (millis == null) millis = millis(r.get("updatedAt"));
@@ -381,6 +401,43 @@ public class AdminRepository {
     public List<Dispute> getDisputes() { return disputes; }
     public List<VerificationRequest> getVerifications() { return verifications; }
     public List<Category> getCategories() { return categories; }
+
+    /** Danh sách chuỗi trong một trường của bản ghi gốc (ví dụ imageUrls, evidencePaths). */
+    public List<String> getStrings(String collection, String id, String field) {
+        List<String> values = new ArrayList<>();
+        Map<String, Object> record = rawRecords.get(collection + ":" + id);
+        Object raw = record == null ? null : record.get(field);
+        if (raw instanceof List) for (Object item : (List<?>) raw) if (item instanceof String && !((String) item).isEmpty()) values.add((String) item);
+        return values;
+    }
+
+    /** Một trường chữ của bản ghi gốc, chuỗi rỗng nếu không có. */
+    public String getField(String collection, String id, String field) {
+        Map<String, Object> record = rawRecords.get(collection + ":" + id);
+        return record == null ? "" : str(record, field);
+    }
+
+    /**
+     * Tải ảnh qua backend (adminEvidence): Admin xem được cả ảnh bài đã ẩn/gỡ và ảnh hồ sơ xác minh riêng tư,
+     * những ảnh mà Storage Rules không cho đọc trực tiếp.
+     */
+    public Task<byte[]> loadImage(String collection, String id, String path) {
+        String key = collection + ":" + id + ":" + path;
+        synchronized (imageCache) {
+            byte[] cached = imageCache.get(key);
+            if (cached != null) return Tasks.forResult(cached);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("collection", collection);
+        data.put("id", id);
+        data.put("path", path);
+        return call("adminEvidence", data).continueWith(task -> {
+            if (!task.isSuccessful()) throw task.getException();
+            byte[] bytes = android.util.Base64.decode(str(task.getResult(), "base64"), android.util.Base64.DEFAULT);
+            synchronized (imageCache) { imageCache.put(key, bytes); }
+            return bytes;
+        });
+    }
 
     /** Thời điểm tạo (millis) của một bản ghi, dùng cho biểu đồ và hoạt động gần đây. */
     public Long getCreatedMillis(String collection, String id) { return createdMillis.get(collection + ":" + id); }
@@ -576,9 +633,10 @@ public class AdminRepository {
     }
 
     private void clear() {
+        synchronized (imageCache) { imageCache.clear(); }
         users.clear(); posts.clear(); orders.clear(); transactions.clear();
         reports.clear(); disputes.clear(); verifications.clear(); categories.clear();
-        createdMillis.clear(); rawUsers.clear(); supportTickets.clear();
+        createdMillis.clear(); rawUsers.clear(); rawRecords.clear(); supportTickets.clear();
         loaded = false;
         loading = false;
         loadError = null;

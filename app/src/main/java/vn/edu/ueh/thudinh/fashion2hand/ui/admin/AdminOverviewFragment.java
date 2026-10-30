@@ -81,7 +81,8 @@ public class AdminOverviewFragment extends Fragment {
         AdminUi.bindStat(root, R.id.statPosts, String.valueOf(viewModel.countPosts()), "Bài đăng",
                 viewModel.countActivePosts() + " đang hiển thị");
         AdminUi.bindStat(root, R.id.statOrders, String.valueOf(viewModel.countOrders()), "Đơn hàng",
-                "+" + viewModel.countOrdersSince(7) + " trong 7 ngày");
+                "+" + viewModel.countOrdersSince(7) + " trong 7 ngày"
+                        + (viewModel.countCancelledOrders() > 0 ? " · " + viewModel.countCancelledOrders() + " đã hủy" : ""));
         AdminUi.bindStat(root, R.id.statRevenue, AdminUi.money(viewModel.getCompletedSales()), "Doanh số (mô phỏng)",
                 viewModel.countCompletedSales() + " đơn mua bán hoàn tất");
         AdminUi.bindStat(root, R.id.statFree, String.valueOf(viewModel.countFreeOrders()), "Cho tặng miễn phí",
