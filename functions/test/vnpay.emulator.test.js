@@ -91,6 +91,18 @@ test('signed Return records payment once through the IPN path; later IPN is a du
  const tampered=await fixture();const amount=callback(tampered,{vnp_Amount:'100'});
  assert.equal((await http('vnpayReturn',amount)).status,200);assert.equal((await tampered.payment()).get('status'),'PENDING');
 });
+test('reopening after the reuse window issues a fresh vnp_TxnRef; superseded attempt can still be credited once',async()=>{
+ const f=await fixture();
+ const later=require('../vnpay-payments')({...ctx,now:()=>Date.now()+20000});
+ const second=await later.create(req(f.buyer,{orderId:f.id}));
+ assert.notEqual(second.attemptId,f.attempt.attemptId);
+ assert.notEqual(new URL(second.paymentUrl).searchParams.get('vnp_TxnRef'),f.attempt.attemptId);
+ assert.equal((await db.doc('paymentAttempts/'+f.attempt.attemptId).get()).get('status'),'SUPERSEDED');
+ assert.equal((await f.payment()).get('activeAttemptId'),second.attemptId);
+ assert.equal((await later.create(req(f.buyer,{orderId:f.id}))).attemptId,second.attemptId);
+ assert.equal((await apply(f)).RspCode,'00');
+ assert.equal((await f.payment()).get('status'),'PAID');assert.equal((await f.order()).get('orderStatus'),'CONFIRMED');
+});
 test('retry has new reference; old attempt succeeds without double paying the order; extra success preserved',async()=>{
  const f=await fixture();await apply(f,{vnp_ResponseCode:'24',vnp_TransactionStatus:'02',vnp_TransactionNo:'0'});
  const second=await service.create(req(f.buyer,{orderId:f.id}));assert.notEqual(second.attemptId,f.attempt.attemptId);
