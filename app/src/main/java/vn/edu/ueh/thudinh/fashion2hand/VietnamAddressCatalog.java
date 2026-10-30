@@ -3,7 +3,7 @@ package vn.edu.ueh.thudinh.fashion2hand;
 import java.io.*;
 import java.util.*;
 
-/** Offline two-level administrative directory. See ADDRESS_DATA.md. */
+/** Offline two-level administrative directory. See docs/ADDRESS_DATA.md. */
 final class VietnamAddressCatalog {
     static final class Province {
         final String code, name;

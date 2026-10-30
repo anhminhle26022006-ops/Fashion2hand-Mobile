@@ -46,6 +46,6 @@ async function main() {
   const root = path.resolve(__dirname, '..');
   await fs.writeFile(path.join(root,'functions/data/vietnam-addresses.json'), JSON.stringify(provinces,null,2)+'\n');
   await fs.writeFile(path.join(root,'app/src/main/assets/vietnam-addresses.tsv'), rows.join('\n')+'\n');
-  console.log(`Updated ${provinces.length} provinces and ${rows.length} wards; update ADDRESS_DATA.md date and run address tests.`);
+  console.log(`Updated ${provinces.length} provinces and ${rows.length} wards; update docs/ADDRESS_DATA.md date and run address tests.`);
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});

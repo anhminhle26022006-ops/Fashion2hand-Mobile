@@ -88,5 +88,5 @@ const lines = [
   "## Tái kiểm tra source inventory", "", "```powershell", "node scripts/audit-ui-backend.cjs", "```", "",
   "Script kiểm tra mọi route/layout có trong inventory và chặn việc dùng lại các kho trạng thái nghiệp vụ cục bộ cũ. Đọc thêm `QA_BACKEND_UI_RESULTS.md` về build và kết quả kiểm thử thực tế.", ""
 ];
-fs.writeFileSync(path.join(root, "UI_BACKEND_AUDIT.md"), lines.join("\n"));
+fs.writeFileSync(path.join(root, "docs", "UI_BACKEND_AUDIT.md"), lines.join("\n"));
 console.log(`AUDIT OK: ${routes.length} Main + ${admin.length} Admin routes; ${layouts.length} layouts; no obsolete local business stores.`);

@@ -28,12 +28,12 @@ Android Emulator dùng host `10.0.2.2`; dữ liệu Emulator tách riêng cloud.
 
 ## Tài liệu
 
-- [Thiết lập Firebase và Android](README_VI.md).
-- [Mô hình Firestore](FIRESTORE_DATA_MODEL_VI.md), [danh mục địa chỉ](ADDRESS_DATA.md), [chính sách xác minh](CONTACT_VERIFICATION_POLICY.md).
-- [Tích hợp VNPAY](VNPAY_INTEGRATION.md), [luồng thanh toán](VNPAY_PAYMENT_FLOW.md), [đối soát](VNPAY_RECONCILIATION_NOTES.md), [hỗ trợ Sandbox](VNPAY_SANDBOX_SUPPORT.md).
-- [Tích hợp GHN](GHN_INTEGRATION.md), [địa chỉ và checkout](CHECKOUT_GHN_GUIDE.md), [điểm lấy hàng](functions/scripts/GHN_SELLER_PICKUP.md), [chẩn đoán GHN](functions/scripts/GHN_CLOUD_DIAGNOSTICS.md), [sự cố đồng bộ shop](functions/scripts/GHN_PICKUP_INCIDENT.md).
-- [Bản đồ vận chuyển](TRACKING_MAP.md), [quản trị và fixture kiểm thử](ADMIN_CHECKLIST.md), [đổi mật khẩu admin](functions/scripts/ADMIN_PASSWORD_RESET.md).
-- [Rà soát giao diện/backend](UI_BACKEND_AUDIT.md), [kết quả kiểm thử](QA_BACKEND_UI_RESULTS.md), [kiểm thử responsive](QA_RESPONSIVE_CHECKLIST.md). Kết quả áp dụng theo thời điểm và phạm vi trong từng tài liệu.
-- [Website giới thiệu](hosting/README.md).
+- [Thiết lập Firebase và Android](docs/README_VI.md).
+- [Mô hình Firestore](docs/FIRESTORE_DATA_MODEL_VI.md), [danh mục địa chỉ](docs/ADDRESS_DATA.md), [chính sách xác minh](docs/CONTACT_VERIFICATION_POLICY.md).
+- [Tích hợp VNPAY](docs/VNPAY_INTEGRATION.md), [luồng thanh toán](docs/VNPAY_PAYMENT_FLOW.md), [đối soát](docs/VNPAY_RECONCILIATION_NOTES.md), [hỗ trợ Sandbox](docs/VNPAY_SANDBOX_SUPPORT.md).
+- [Tích hợp GHN](docs/GHN_INTEGRATION.md), [địa chỉ và checkout](docs/CHECKOUT_GHN_GUIDE.md), [điểm lấy hàng](docs/GHN_SELLER_PICKUP.md), [chẩn đoán GHN](docs/GHN_CLOUD_DIAGNOSTICS.md), [sự cố đồng bộ shop](docs/GHN_PICKUP_INCIDENT.md).
+- [Bản đồ vận chuyển](docs/TRACKING_MAP.md), [quản trị và fixture kiểm thử](docs/ADMIN_CHECKLIST.md), [đổi mật khẩu admin](docs/ADMIN_PASSWORD_RESET.md).
+- [Rà soát giao diện/backend](docs/UI_BACKEND_AUDIT.md), [kết quả kiểm thử](docs/QA_BACKEND_UI_RESULTS.md), [kiểm thử responsive](docs/QA_RESPONSIVE_CHECKLIST.md). Kết quả áp dụng theo thời điểm và phạm vi trong từng tài liệu.
+- [Website giới thiệu](docs/HOSTING.md).
 
 Hướng dẫn công cụ AI nằm trong `.agents/skills/`. Khóa bí mật của nhà cung cấp được cấu hình phía backend, không đưa vào ứng dụng Android.

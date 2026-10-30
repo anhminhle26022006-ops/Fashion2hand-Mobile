@@ -108,7 +108,7 @@ try {
         $hint = 'Check GHN staging Token/Shop ID and deployed environment configuration. Do not send the Token in chat.'
         # Match only known setting names. Never print a raw provider response or exception.
         foreach ($setting in @('GHN_TOKEN_ENV','GHN_SHOP_ID','GHN_ENV','GHN_TOKEN')) {
-            if ($errorPayload.error.message -like "*$setting*") { $hint = "Check the deployed $setting setting. See GHN_INTEGRATION.md."; break }
+            if ($errorPayload.error.message -like "*$setting*") { $hint = "Check the deployed $setting setting. See docs/GHN_INTEGRATION.md."; break }
         }
     } elseif ($safeCode -eq 'UNAVAILABLE') {
         $hint = 'GHN did not accept/complete the request. Check staging credentials, Shop ID and GHN availability; consult sanitized server logs.'
