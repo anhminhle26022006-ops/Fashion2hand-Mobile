@@ -371,9 +371,10 @@ public class AdminViewModel extends ViewModel {
                     .setTitle(name)
                     .setSubtitle(v.getRequestType() + " · " + v.getDocumentType() + "\n" + v.getCreatedAt())
                     .setChip(AdminLabels.verificationRequest(s))
-                    .setChip2(v.isPhoneVerified()
-                            ? new AdminLabels.Label("OTP đã xác thực", AdminUi.KIND_OK)
-                            : new AdminLabels.Label("Chưa xác thực SĐT", AdminUi.KIND_WARN));
+                    // App chỉ xác minh email (SĐT không bắt buộc, OTP SMS đã tắt), nên nhãn phụ là trạng thái email.
+                    .setChip2(isEmailVerified(v.getUserId())
+                            ? new AdminLabels.Label("Email đã xác thực", AdminUi.KIND_OK)
+                            : new AdminLabels.Label("Email chưa xác thực", AdminUi.KIND_WARN));
             addIfMatch(rows, row, query);
         }
         return rows;
