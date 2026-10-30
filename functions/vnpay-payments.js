@@ -6,6 +6,7 @@ const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const millis=value=>value?.toMillis?.()??(value instanceof Date?value.getTime():0);
 const messages={'00':'Confirm Success','01':'Order not found','02':'Order already confirmed','04':'Invalid amount','97':'Invalid signature','99':'Unknown error'};
 const ack=code=>({RspCode:code,Message:messages[code]});
+const REUSE_WINDOW_MS=15000;
 module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provider,logger,now=()=>Date.now()})=>{
   const stamp=()=>FieldValue.serverTimestamp();
   const merchant=p=>hash(p.tmnCode);
@@ -40,13 +41,16 @@ module.exports=({db,FieldValue,fail,uidOf,cleanDocumentId,writeOrderEvent,provid
       if(order.get('shippingProvider')!=='GHN'||order.get('shippingEnvironment')!=='staging'||order.get('shippingQuote')?.shippingFee!==order.get('shippingFee'))fail('failed-precondition','Cần snapshot báo giá GHN staging đã xác nhận.');
       const activeId=payment.get('activeAttemptId');
       const active=activeId?await tx.get(db.doc(`paymentAttempts/${activeId}`)):null;
-      if(active?.exists&&active.get('status')==='PENDING'&&millis(active.get('expiresAt'))>now()+5000) {
-        if(active.get('merchantFingerprint')!==fingerprint||active.get('amount')!==amount)fail('failed-precondition','Cấu hình merchant/snapshot đã đổi. Cần đối soát phiên đang có.');
-        return active.data();
-      }
+            if(active?.exists&&active.get('status')==='PENDING'&&millis(active.get('expiresAt'))>now()+5000) {
+              if(active.get('merchantFingerprint')!==fingerprint||active.get('amount')!==amount)fail('failed-precondition','Cấu hình merchant/snapshot đã đổi. Cần đối soát phiên đang có.');
+              // VNPAY rejects a vnp_TxnRef that was already opened ("Giao dịch đang được xử lý hoặc đã quá thời gian thanh toán").
+              // Only collapse near-simultaneous taps onto one attempt; a later "Tiếp tục thanh toán" gets a fresh reference.
+              if(millis(active.get('issuedAt'))>now()-REUSE_WINDOW_MS)return active.data();
+              tx.update(active.ref,{status:'SUPERSEDED',supersededBy:attemptRef.id,updatedAt:stamp()});
+            }
       if((payment.get('attemptCount')||0)>=10)fail('resource-exhausted','Đơn đã có 10 phiên; cần đối soát trước khi thử thêm.');
       const data={reference:attemptRef.id,orderId:id,paymentId:payment.id,buyerId:uid,sellerId:order.get('sellerId'),provider:'VNPAY',environment:'sandbox',merchantFingerprint:fingerprint,
-        amount,currency:'VND',status:'PENDING',ip,createDate:dateVn(new Date(now())),expireDate:dateVn(new Date(deadline)),expiresAt:new Date(deadline),createdAt:stamp(),updatedAt:stamp()};
+        amount,currency:'VND',status:'PENDING',ip,createDate:dateVn(new Date(now())),expireDate:dateVn(new Date(deadline)),expiresAt:new Date(deadline),issuedAt:new Date(now()),createdAt:stamp(),updatedAt:stamp()};
       tx.create(attemptRef,data);tx.update(payment.ref,{activeAttemptId:attemptRef.id,attemptCount:(payment.get('attemptCount')||0)+1,updatedAt:stamp()});
       tx.update(order.ref,{activePaymentAttemptId:attemptRef.id,updatedAt:stamp()});return data;
     });
