@@ -149,7 +149,11 @@ public class AdminDetailActivity extends BaseAdminActivity {
   AdminUi.addChip(heroChips, new AdminLabels.Label(u.getRole(), AdminUi.KIND_NEUTRAL));
   AdminUi.addChip(heroChips, AdminLabels.verification(u.getVerificationStatus()));
 
-  AdminUi.addKv(info, "Số điện thoại", AdminUi.maskPhone(u.getPhone()));
+  AdminUi.addKvChip(info, "Xác minh email", viewModel.isEmailVerified(u.getUserId())
+          ? new AdminLabels.Label("Đã xác thực", AdminUi.KIND_OK)
+          : new AdminLabels.Label("Chưa xác thực", AdminUi.KIND_WARN));
+  // SĐT không bắt buộc: chỉ hiện khi người dùng có số.
+  if (u.getPhone() != null && !u.getPhone().isEmpty()) AdminUi.addKv(info, "Số điện thoại", AdminUi.maskPhone(u.getPhone()));
   AdminUi.addKv(info, "Khu vực", u.getArea());
   AdminUi.addKv(info, "Ngày tham gia", u.getJoinedAt());
   AdminUi.addKv(info, "Bài đăng", String.valueOf(u.getPostCount()));
