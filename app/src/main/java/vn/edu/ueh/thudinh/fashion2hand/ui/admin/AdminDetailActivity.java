@@ -581,10 +581,17 @@ public class AdminDetailActivity extends BaseAdminActivity {
            AdminUi.showEvidenceImage(cell, bytes);
           })
           .addOnFailureListener(this, error -> {
-           if (generation == renderGeneration) cell.setText(label + "\nKhông tải được ảnh");
+           if (generation == renderGeneration) cell.setText(label + "\nKhông tải được ảnh" + errorCode(error));
           });
  }
-
+ /** Mã lỗi ngắn để biết ảnh hỏng vì quyền, vì chưa deploy hay vì ảnh không còn. */
+ private static String errorCode(Exception error) {
+  if (error instanceof com.google.firebase.functions.FirebaseFunctionsException)
+   return " (" + ((com.google.firebase.functions.FirebaseFunctionsException) error).getCode().name() + ")";
+  if (error instanceof com.google.firebase.storage.StorageException)
+   return " (storage " + ((com.google.firebase.storage.StorageException) error).getErrorCode() + ")";
+  return "";
+ }
  private void addKvIfPresent(String key, String value) {
   if (value != null && !value.trim().isEmpty()) AdminUi.addKv(info, key, value.trim());
  }
